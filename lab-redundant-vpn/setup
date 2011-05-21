@@ -1,7 +1,7 @@
 #!/bin/sh
 
 LABNAME="redundant-vpn"
-DEPS="screen ip vde_switch linux bash start-stop-daemon zsh"
+DEPS="screen ip vde_switch linux bash start-stop-daemon zsh racoon"
 PROGNAME="$0"
 PROGARGS="$@"
 
@@ -41,7 +41,7 @@ start_vm() {
     screen -t $name \
 	start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
 	--start --startas $(which linux) -- \
-	uts=$name \
+	uts=$name mem=64M \
 	root=/dev/root rootfstype=hostfs init=$(readlink -f "$PROGNAME") \
 	"$@"
     screen -X select 0
@@ -67,6 +67,7 @@ cleanup() {
 }
 
 setup_quagga() {
+    echo "[+] Start Quagga"
     export VTYSH_PAGER=/bin/cat
     rm -rf /etc/quagga
     ln -s $PWD/$uts/quagga /etc/quagga
@@ -78,6 +79,30 @@ setup_quagga() {
     done
     cp quagga-debian.conf /etc/quagga/debian.conf
     /etc/init.d/quagga start
+}
+
+setup_racoon() {
+    rm -f /etc/racoon/racoon.conf
+    ln -s $PWD/$uts/racoon/racoon.conf /etc/racoon/.
+    mkdir /var/run/racoon
+    cp racoon-psk.txt /etc/racoon/psk.txt
+    chmod 600 /etc/racoon/psk.txt
+    chown root /etc/racoon/psk.txt
+    echo "[+] Setup IPsec policy"
+    local="$1" ; shift
+    remote="$1" ; shift
+    for net in "$@"; do
+	net1=${net%-*}
+	net2=${net#*-}
+	cat <<EOF
+spdadd $net2 $net1 any -P in ipsec
+  esp/tunnel/${remote}-${local}/require;
+spdadd $net1 $net2 any -P out ipsec
+  esp/tunnel/${local}-${remote}/require;
+EOF
+    done | setkey -c
+    echo "[+] Start racoon"
+    /etc/init.d/racoon start
 }
 
 case $$ in
@@ -174,24 +199,28 @@ case $$ in
 		ip addr add 1.1.2.1/24 dev eth1
 		ip route add default via 1.1.2.10
 		setup_quagga
+		setup_racoon 1.1.2.1 1.1.1.1 192.168.0.0/20-192.168.100.0/20
 		;;
 	    V2)
 		ip addr add 192.168.1.12/24 dev eth0
 		ip addr add 1.1.2.2/24 dev eth1
 		ip route add default via 1.1.2.10
 		setup_quagga
+		setup_racoon 1.1.2.2 1.1.1.2 192.168.0.0/20-192.168.100.0/20
 		;;
 	    V3)
 		ip addr add 192.168.101.13/24 dev eth0
 		ip addr add 1.1.1.1/24 dev eth1
 		ip route add default via 1.1.1.10
 		setup_quagga
+		setup_racoon 1.1.1.1 1.1.2.1 192.168.100.0/20-192.168.0.0/20
 		;;
 	    V4)
 		ip addr add 192.168.101.14/24 dev eth0
 		ip addr add 1.1.1.2/24 dev eth1
 		ip route add default via 1.1.1.10
 		setup_quagga
+		setup_racoon 1.1.1.2 1.1.2.2 192.168.100.0/20-192.168.0.0/20
 		;;
 	    I1)
 		ip addr add 1.1.1.10/24 dev eth0
