@@ -199,28 +199,28 @@ case $$ in
 		ip addr add 1.1.2.1/24 dev eth1
 		ip route add default via 1.1.2.10
 		setup_quagga
-		setup_racoon 1.1.2.1 1.1.1.1 192.168.0.0/20-192.168.100.0/20
+		setup_racoon 1.1.2.1 1.1.1.1 192.168.0.0/19-192.168.100.0/19
 		;;
 	    V2)
 		ip addr add 192.168.1.12/24 dev eth0
 		ip addr add 1.1.2.2/24 dev eth1
 		ip route add default via 1.1.2.10
 		setup_quagga
-		setup_racoon 1.1.2.2 1.1.1.2 192.168.0.0/20-192.168.100.0/20
+		setup_racoon 1.1.2.2 1.1.1.2 192.168.0.0/19-192.168.100.0/19
 		;;
 	    V3)
 		ip addr add 192.168.101.13/24 dev eth0
 		ip addr add 1.1.1.1/24 dev eth1
 		ip route add default via 1.1.1.10
 		setup_quagga
-		setup_racoon 1.1.1.1 1.1.2.1 192.168.100.0/20-192.168.0.0/20
+		setup_racoon 1.1.1.1 1.1.2.1 192.168.100.0/19-192.168.0.0/19
 		;;
 	    V4)
 		ip addr add 192.168.101.14/24 dev eth0
 		ip addr add 1.1.1.2/24 dev eth1
 		ip route add default via 1.1.1.10
 		setup_quagga
-		setup_racoon 1.1.1.2 1.1.2.2 192.168.100.0/20-192.168.0.0/20
+		setup_racoon 1.1.1.2 1.1.2.2 192.168.100.0/19-192.168.0.0/19
 		;;
 	    I1)
 		ip addr add 1.1.1.10/24 dev eth0
