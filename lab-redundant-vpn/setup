@@ -1,7 +1,7 @@
 #!/bin/sh
 
 LABNAME="redundant-vpn"
-DEPS="screen ip vde_switch linux bash start-stop-daemon"
+DEPS="screen ip vde_switch linux bash start-stop-daemon zsh"
 PROGNAME="$0"
 PROGARGS="$@"
 
@@ -66,6 +66,20 @@ cleanup() {
     done
 }
 
+setup_quagga() {
+    export VTYSH_PAGER=/bin/cat
+    rm -rf /etc/quagga
+    ln -s $PWD/$uts/quagga /etc/quagga
+    mkdir /var/log/quagga
+    chown quagga:quagga /var/log/quagga
+    :> /etc/quagga/daemons
+    for conf in /etc/quagga/*.conf; do
+	echo "$(basename ${conf%.conf})=yes" >> /etc/quagga/daemons
+    done
+    cp quagga-debian.conf /etc/quagga/debian.conf
+    /etc/init.d/quagga start
+}
+
 case $$ in
     1)
 	# Inside UML. Three states:
@@ -110,7 +124,11 @@ case $$ in
 	mount -t sysfs sysfs /sys
 	mount -t tmpfs tmpfs /dev -o rw && {
 	    cd /dev
-	    MAKEDEV null
+	    if [ -f $(dirname "$PROGNAME")/dev.tar ]; then
+		tar xf $(dirname "$PROGNAME")/dev.tar
+	    else
+		MAKEDEV null
+	    fi
 	}
 	mount -o bind /usr/lib/uml/modules /lib/modules
 	for fs in /var/run /var/tmp /var/log /tmp; do
@@ -129,6 +147,9 @@ case $$ in
 	rsyslogd
 
 	cd $(dirname "$PROGNAME")
+	[ -f dev.tar ] || {
+	    tar -C /dev -cf dev.tar.$uts . && mv dev.tar.$uts dev.tar
+	}
 
 	# Configure each UML
 	echo "[+] Setup UML"
@@ -139,32 +160,38 @@ case $$ in
 		ip link set up dev dummy0
 		ip addr add 192.168.15.1/24 dev dummy0
 		ip addr add 192.168.1.10/24 dev eth0
+		setup_quagga
 		;;
 	    R2)
 		modprobe dummy
 		ip link set up dev dummy0
 		ip addr add 192.168.115.1/24 dev dummy0
 		ip addr add 192.168.101.10/24 dev eth0
+		setup_quagga
 		;;
 	    V1)
 		ip addr add 192.168.1.11/24 dev eth0
 		ip addr add 1.1.2.1/24 dev eth1
 		ip route add default via 1.1.2.10
+		setup_quagga
 		;;
 	    V2)
 		ip addr add 192.168.1.12/24 dev eth0
 		ip addr add 1.1.2.2/24 dev eth1
 		ip route add default via 1.1.2.10
+		setup_quagga
 		;;
 	    V3)
 		ip addr add 192.168.101.13/24 dev eth0
 		ip addr add 1.1.1.1/24 dev eth1
 		ip route add default via 1.1.1.10
+		setup_quagga
 		;;
 	    V4)
 		ip addr add 192.168.101.14/24 dev eth0
 		ip addr add 1.1.1.2/24 dev eth1
 		ip route add default via 1.1.1.10
+		setup_quagga
 		;;
 	    I1)
 		ip addr add 1.1.1.10/24 dev eth0
@@ -173,7 +200,7 @@ case $$ in
 	esac
 
 	echo "[+] Drop to a shell"
-	exec /bin/bash
+	exec /bin/zsh
 
 	;;
     *)
@@ -195,6 +222,5 @@ case $$ in
 	start_vm I1 eth0=vde,$TMP/switch-internet.sock
 	display_help
 	cleanup
-	screen -X quit
 	;;
 esac
