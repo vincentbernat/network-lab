@@ -154,10 +154,12 @@ case $$ in
 		case ${uts} in
 		    L1)
 			ip addr add fd00::2/64 dev eth1
+			ip addr add 192.168.0.2/24 dev eth1
 			ip addr add 172.16.0.1/30 dev eth2
 			;;
 		    L2)
 			ip addr add fd00::3/64 dev eth1
+			ip addr add 192.168.0.3/24 dev eth1
 			ip addr add 172.16.0.2/30 dev eth2
 			;;
 		esac
