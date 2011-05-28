@@ -1,0 +1,46 @@
+#!/bin/sh
+
+set -e
+
+OID1=KEEPALIVED-MIB::virtualServerStatsConns.1
+OID2=KEEPALIVED-MIB::virtualServerStatsConns.2
+RRD=/tmp/mygraph.rrd
+
+rm $RRD
+rrdtool create $RRD --step 10 \
+    DS:IPv4:COUNTER:20:0:1000000 \
+    DS:IPv6:COUNTER:20:0:1000000 \
+    RRA:AVERAGE:0.5:1:60
+
+i=60
+while [ $i -ne 0 ]; do
+    i=$((i - 1))
+    values=$(snmpget -OqnU -v2c -cpublic localhost $OID1 $OID2 | \
+	awk '{print $2}' | tr '\n' ':' | sed 's/:$//')
+    echo "$(date +%s) Got ${values}"
+    rrdtool update $RRD N:${values}
+    sleep 10
+done
+
+rrdtool graph graph.png --end now --start end-600s \
+    -l 0 \
+    DEF:ipv4=$RRD:IPv4:AVERAGE \
+    DEF:ipv6=$RRD:IPv6:AVERAGE \
+    VDEF:ipv4max=ipv4,MAXIMUM \
+    VDEF:ipv4min=ipv4,MINIMUM \
+    VDEF:ipv4avg=ipv4,AVERAGE \
+    VDEF:ipv6max=ipv6,MAXIMUM \
+    VDEF:ipv6min=ipv6,MINIMUM \
+    VDEF:ipv6avg=ipv6,AVERAGE \
+    COMMENT:"        " \
+    COMMENT:"Maximum       " \
+    COMMENT:"Average       " \
+    COMMENT:"Minimum\l" \
+    AREA:ipv4#0000FF:"IPv4" \
+    GPRINT:ipv4max:"%6.0lf %Sconn/s" \
+    GPRINT:ipv4avg:"%6.0lf %Sconn/s" \
+    GPRINT:ipv4min:"%6.0lf %Sconn/s\l" \
+    AREA:ipv6#00FF00:"IPv6":STACK \
+    GPRINT:ipv6max:"%6.0lf %Sconn/s" \
+    GPRINT:ipv6avg:"%6.0lf %Sconn/s" \
+    GPRINT:ipv6min:"%6.0lf %Sconn/s\l" 
