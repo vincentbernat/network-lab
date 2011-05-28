@@ -143,18 +143,22 @@ case $$ in
 	modprobe ipv6
 	case ${uts} in
 	    C1)
-		ip addr add 1.1.1.1/24 dev eth0
-		ip -6 addr add 2001:db8::1/64 dev eth0
+		ip addr add 1.1.1.2/24 dev eth0
+		ip -6 addr add 2001:db8::2/64 dev eth0
 		;;
-	    L1)
+	    L1|L2)
 		modprobe ip_vs
 		sysctl -w net.ipv4.ip_forward=1
 		sysctl -w net.ipv6.conf.all.forwarding=1
-		ip addr add 1.1.1.2/24 dev eth0
-		ip -6 addr add 2001:db8::2/64 dev eth0
-		ip addr add 192.168.1.1/24 dev eth1
-		ip -6 addr add fd00::1/64 dev eth1
 		iptables -t mangle -A PREROUTING -d 1.1.1.20 -j MARK --set-mark 0x1
+		case ${uts} in
+		    L1)
+			ip addr add 172.16.0.1/30 dev eth2
+			;;
+		    L2)
+			ip addr add 172.16.0.2/30 dev eth2
+			;;
+		esac
 		# SNMP
 		rm -f /etc/snmp/snmpd.conf
 		ln -s $PWD/snmpd.conf /etc/snmp/snmpd.conf
@@ -164,7 +168,16 @@ case $$ in
 		# keepalived
 		mount -t hostfs hostfs ${KEEPALIVED} -o ${KEEPALIVED}
 	        rm -f /etc/keepalived/keepalived.conf
-		ln -s $PWD/keepalived.conf /etc/keepalived/keepalived.conf
+		case ${uts} in
+		    L1)
+			ln -s $PWD/keepalived.conf /etc/keepalived/keepalived.conf
+			;;
+		    L2)
+			sed -e 's/state MASTER/state BACKUP/' \
+			    -e 's/priority 150/priority 100/' \
+			    $PWD/keepalived.conf > /etc/keepalived/keepalived.conf
+			;;
+		esac
 		cat <<EOF > /usr/sbin/keepalived
 #!/bin/sh
 ulimit -c unlimited
@@ -201,7 +214,10 @@ EOF
 	setup_switch lab
 	# Start VM
 	start_vm C1 eth0=vde,$TMP/switch-lab.sock
-	start_vm L1 eth0=vde,$TMP/switch-lab.sock eth1=vde,$TMP/switch-lab.sock
+	start_vm L1 eth0=vde,$TMP/switch-lab.sock \
+	    eth1=vde,$TMP/switch-lab.sock eth2=vde,$TMP/switch-lab.sock
+	start_vm L2 eth0=vde,$TMP/switch-lab.sock \
+	    eth1=vde,$TMP/switch-lab.sock eth2=vde,$TMP/switch-lab.sock
 	start_vm W1 eth0=vde,$TMP/switch-lab.sock
 	display_help
 	cleanup
