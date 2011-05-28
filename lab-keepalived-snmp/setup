@@ -1,0 +1,209 @@
+#!/bin/sh
+
+LABNAME="keepalived-ipv6"
+KEEPALIVED=/home/bernat/code/orange/keepalived
+DEPS="screen ip vde_switch linux bash start-stop-daemon zsh mount.aufs nginx snmpd $KEEPALIVED/bin/keepalived"
+PROGNAME="$0"
+PROGARGS="$@"
+
+# Check for dependencies needed by this tool
+check_dependencies() {
+    for dep in $DEPS; do
+	which $dep 2> /dev/null > /dev/null || {
+	    echo "[!] Missing dependency: $dep"
+	    exit 1
+	}
+    done
+}
+
+# Run our lab in screen
+setup_screen() {
+    [ x"$TERM" = x"screen" ] || \
+	exec screen -ln -S $LABNAME -c /dev/null -t main "$PROGNAME" "$PROGARGS"
+    sleep 1
+    screen -X caption always "%{= wk}%-w%{= BW}%n %t%{-}%+w %-="
+}
+
+# Setup a VDE switch
+setup_switch() {
+    echo "[+] Setup switch $1"
+    screen -t "switch-$1" \
+	start-stop-daemon --make-pidfile --pidfile "$TMP/switch-$1.pid" \
+	--start --startas $(which vde_switch) -- \
+	--sock "$TMP/switch-$1.sock"
+    screen -X select 0
+}
+
+# Start a VM
+start_vm() {
+    echo "[+] Start VM $1"
+    name="$1"
+    shift
+    screen -t $name \
+	start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+	--start --startas $(which linux) -- \
+	uts=$name mem=96M \
+	root=/dev/root rootfstype=hostfs init=$(readlink -f "$PROGNAME") \
+	"$@"
+    screen -X select 0
+}
+
+display_help() {
+    cat <<EOF
+
+Some screen commands :
+ C-a d     - Detach the screen (resume with screen -r $LABNAME)
+ C-a "     - Select a window
+ C-a space - Next window
+ C-a C-a   - Previous window
+EOF
+echo "Press enter to exit the lab"
+read a
+}
+
+cleanup() {
+    for pid in $TMP/*.pid; do
+	kill $(cat $pid)
+    done
+}
+
+case $$ in
+    1)
+	# Inside UML. Three states:
+	#   1. Setup the getty
+	#   2. Setup AUFS
+	#   3. Remaining setup
+	STATE=${STATE:-1}
+
+	case $STATE in
+	    1)
+		echo "[+] Set hostname"
+		hostname -b ${uts}
+		echo "[+] Set path"
+		export TERM=xterm
+		export PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/local/sbin:/usr/sbin
+		
+		# Setup getty
+		export STATE=2
+		exec getty -n -l "$PROGNAME" 38400 /dev/tty0
+		;;
+	    2)
+		echo "[+] Setup AUFS"
+		mount -n -t proc proc /proc
+		mount -n -t sysfs sysfs /sys
+		mount -o bind /usr/lib/uml/modules /lib/modules
+		mount -n -t tmpfs tmpfs /tmp -o rw,nosuid,nodev
+		mkdir /tmp/ro
+		mkdir /tmp/rw
+		mkdir /tmp/aufs
+		mount -n -t hostfs hostfs /tmp/ro -o /,ro
+		mount -n -t aufs aufs /tmp/aufs -o noxino,noatime,dirs=/tmp/rw:/tmp/ro=ro
+
+		# Chroot inside our new root
+		export STATE=3
+		exec chroot /tmp/aufs "$PROGNAME"
+		;;
+	esac
+
+	echo "[+] Set filesystems"
+	rm /etc/mtab
+	mount -t proc proc /proc
+	mount -t sysfs sysfs /sys
+	mount -t tmpfs tmpfs /dev -o rw && {
+	    cd /dev
+	    if [ -f $(dirname "$PROGNAME")/dev.tar ]; then
+		tar xf $(dirname "$PROGNAME")/dev.tar
+	    else
+		MAKEDEV null
+	    fi
+	}
+	mount -o bind /usr/lib/uml/modules /lib/modules
+	for fs in /var/run /var/tmp /var/log /tmp; do
+	    mount -t tmpfs tmpfs $fs -o rw,nosuid,nodev
+	done
+	mount -t hostfs hostfs $(dirname "$PROGNAME") -o $(dirname "$PROGNAME")
+
+	# Interfaces
+	echo "[+] Set interfaces"
+	for intf in /sys/class/net/*; do
+	    intf=$(basename $intf)
+	    ip a l dev $intf 2> /dev/null >/dev/null && ip link set up dev $intf
+	done
+
+	echo "[+] Start syslog"
+	rsyslogd
+
+	cd $(dirname "$PROGNAME")
+	[ -f dev.tar ] || {
+	    tar -C /dev -cf dev.tar.$uts . && mv dev.tar.$uts dev.tar
+	}
+
+	# Configure each UML
+	echo "[+] Setup UML"
+	modprobe ipv6
+	case ${uts} in
+	    C1)
+		ip addr add 1.1.1.1/24 dev eth0
+		ip -6 addr add 2001:db8::1/64 dev eth0
+		;;
+	    L1)
+		modprobe ip_vs
+		sysctl -w net.ipv4.ip_forward=1
+		sysctl -w net.ipv6.conf.all.forwarding=1
+		ip addr add 1.1.1.2/24 dev eth0
+		ip -6 addr add 2001:db8::2/64 dev eth0
+		ip addr add 192.168.1.1/24 dev eth1
+		ip -6 addr add fd00::1/64 dev eth1
+		iptables -t mangle -A PREROUTING -d 1.1.1.20 -j MARK --set-mark 0x1
+		# SNMP
+		rm -f /etc/snmp/snmpd.conf
+		ln -s $PWD/snmpd.conf /etc/snmp/snmpd.conf
+		/etc/init.d/snmpd start
+		export MIBDIRS=/usr/share/mibs/ietf:/usr/share/mibs/iana
+		export MIBDIRS=${MIBDIRS}:${KEEPALIVED}/doc
+		# keepalived
+		mount -t hostfs hostfs ${KEEPALIVED} -o ${KEEPALIVED}
+	        rm -f /etc/keepalived/keepalived.conf
+		ln -s $PWD/keepalived.conf /etc/keepalived/keepalived.conf
+		cat <<EOF > /usr/sbin/keepalived
+#!/bin/sh
+ulimit -c unlimited
+exec ${KEEPALIVED}/bin/keepalived -x -D
+EOF
+		chmod +x /usr/sbin/keepalived
+		/etc/init.d/keepalived start
+		;;
+	    W1)
+		for i in $(seq 10 20); do
+		    ip addr add 192.168.1.${i}/24 dev eth0
+		    ip -6 addr add fd00::${i}/64 dev eth0
+		done
+		ip route add default via 192.168.1.1
+		ip -6 route add default via fd00::1
+		# Nginx
+		rm -f /etc/nginx/nginx.conf
+		ln -s $PWD/nginx.conf /etc/nginx/nginx.conf
+		mkdir /var/log/nginx
+		/etc/init.d/nginx start
+		;;
+	esac
+
+	echo "[+] Drop to a shell"
+	exec /bin/zsh
+
+	;;
+    *)
+	TMP=$(mktemp -d)
+	trap "rm -rf $TMP" EXIT
+	check_dependencies
+	setup_screen
+	# Setup switches
+	setup_switch lab
+	# Start VM
+	start_vm C1 eth0=vde,$TMP/switch-lab.sock
+	start_vm L1 eth0=vde,$TMP/switch-lab.sock eth1=vde,$TMP/switch-lab.sock
+	start_vm W1 eth0=vde,$TMP/switch-lab.sock
+	display_help
+	cleanup
+	;;
+esac
