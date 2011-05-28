@@ -188,17 +188,17 @@ EOF
 		chmod +x /usr/sbin/keepalived
 		/etc/init.d/keepalived start
 		;;
-	    W1)
-		for i in $(seq 10 14); do
-		    ip addr add 192.168.1.${i}/24 dev eth0
-		    ip -6 addr add fd00::${i}/64 dev eth0
-		done
+	    W*)
+		i=$(( ${uts#W} + 9))
+		ip addr add 192.168.1.${i}/24 dev eth0
+		ip -6 addr add fd00::${i}/64 dev eth0
 		ip route add default via 192.168.1.1
 		ip -6 route add default via fd00::1
 		# Nginx
 		rm -f /etc/nginx/nginx.conf
 		ln -s $PWD/nginx.conf /etc/nginx/nginx.conf
 		mkdir /var/log/nginx
+		echo $uts > /usr/share/nginx/www/index.html
 		/etc/init.d/nginx start
 		;;
 	esac
@@ -213,14 +213,18 @@ EOF
 	check_dependencies
 	setup_screen
 	# Setup switches
-	setup_switch lab
+	setup_switch internet
+	setup_switch ico
+	setup_switch front
 	# Start VM
-	start_vm C1 eth0=vde,$TMP/switch-lab.sock
-	start_vm L1 eth0=vde,$TMP/switch-lab.sock \
-	    eth1=vde,$TMP/switch-lab.sock eth2=vde,$TMP/switch-lab.sock
-	start_vm L2 eth0=vde,$TMP/switch-lab.sock \
-	    eth1=vde,$TMP/switch-lab.sock eth2=vde,$TMP/switch-lab.sock
-	start_vm W1 eth0=vde,$TMP/switch-lab.sock
+	start_vm C1 eth0=vde,$TMP/switch-internet.sock
+	start_vm L1 eth0=vde,$TMP/switch-internet.sock \
+	    eth1=vde,$TMP/switch-front.sock eth2=vde,$TMP/switch-ico.sock
+	start_vm L2 eth0=vde,$TMP/switch-internet.sock \
+	    eth1=vde,$TMP/switch-front.sock eth2=vde,$TMP/switch-ico.sock
+	for i in $(seq 1 4); do
+	    start_vm W${i} eth0=vde,$TMP/switch-front.sock
+	done
 	display_help
 	cleanup
 	;;
