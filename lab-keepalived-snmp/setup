@@ -189,7 +189,7 @@ EOF
 		/etc/init.d/keepalived start
 		;;
 	    W1)
-		for i in $(seq 10 20); do
+		for i in $(seq 10 14); do
 		    ip addr add 192.168.1.${i}/24 dev eth0
 		    ip -6 addr add fd00::${i}/64 dev eth0
 		done
