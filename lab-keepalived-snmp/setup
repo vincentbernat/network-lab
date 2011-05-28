@@ -2,7 +2,7 @@
 
 LABNAME="keepalived-ipv6"
 KEEPALIVED=/home/bernat/code/orange/keepalived
-DEPS="screen ip vde_switch linux bash start-stop-daemon zsh mount.aufs nginx snmpd $KEEPALIVED/bin/keepalived"
+DEPS="screen ip vde_switch linux bash start-stop-daemon zsh mount.aufs nginx snmpd $KEEPALIVED/bin/keepalived snmpwalk snmpget"
 PROGNAME="$0"
 PROGARGS="$@"
 
