@@ -162,6 +162,7 @@ protocol bgp {
    local as 6$as;
    neighbor $neigh as 6$otheras;
    gateway direct;
+   hold time 30;
    export all;
    import all;
 }
@@ -265,8 +266,8 @@ case $$ in
             NewYork-eth0-ffff:4600:4600:1::2/126 \
             NewYork-eth1-ffff:4600:4600:3::2/126 \
             NewYork-eth2-ffff:4600:4610::1/126 \
-            NewYork-eth2-ffff:4600:4620::1/126 \
-            NewYork-eth2-ffff:4600:4630::1/126 \
+            NewYork-eth3-ffff:4600:4620::1/126 \
+            NewYork-eth4-ffff:4600:4630::1/126 \
             Paris-eth0-ffff:4600:4600:1::1/126 \
             Paris-eth1-ffff:4600:4600:2::1/126 \
             Paris-eth2-ffff:4600:4650::1/126 \
@@ -274,8 +275,8 @@ case $$ in
             Tokyo-eth1-ffff:4600:4600:3::3/126 \
             Tokyo-eth2-ffff:4600:4640::1/126 \
             64610-eth0-ffff:4600:4610::2/126 \
-            64610-eth0-ffff:4610:4620::1/126 \
-            64610-eth0-ffff:4610:4630::1/126 \
+            64610-eth3-ffff:4610:4620::1/126 \
+            64610-eth4-ffff:4610:4630::1/126 \
             64610-eth1-ffff:4610:4611::1/126 \
             64610-eth2-ffff:4610:4612::1/126 \
             64611-eth0-ffff:4610:4611::2/126 \
@@ -283,8 +284,8 @@ case $$ in
             64612-eth0-ffff:4610:4612::2/126 \
             64612-eth1-4612::1/48 \
             64620-eth0-ffff:4600:4620::2/126 \
-            64620-eth0-ffff:4610:4620::2/126 \
-            64620-eth0-ffff:4620:4630::1/126 \
+            64620-eth3-ffff:4610:4620::2/126 \
+            64620-eth4-ffff:4620:4630::1/126 \
             64620-eth1-ffff:4620:4621::1/126 \
             64620-eth2-ffff:4620:4622::1/126 \
             64621-eth0-ffff:4620:4621::2/126 \
@@ -292,8 +293,8 @@ case $$ in
             64622-eth0-ffff:4620:4622::2/126 \
             64622-eth1-4622::1/48 \
             64630-eth0-ffff:4600:4630::2/126 \
-            64630-eth0-ffff:4610:4630::2/126 \
-            64630-eth0-ffff:4620:4630::2/126 \
+            64630-eth2-ffff:4610:4630::2/126 \
+            64630-eth3-ffff:4620:4630::2/126 \
             64630-eth1-ffff:4630:4631::1/126 \
             64631-eth0-ffff:4630:4631::2/126 \
             64631-eth1-4631::1/48 \
@@ -375,14 +376,14 @@ case $$ in
         for vm in \
             Paris:eth0:1:eth1:2:eth2:50 \
             Tokyo:eth0:2:eth1:3:eth2:40 \
-            NewYork:eth0:1:eth1:3:eth2:99 \
-            64610:eth0:99:eth1:11:eth2:12 \
+            NewYork:eth0:1:eth1:3:eth2:10:eth3:20:eth4:30 \
+            64610:eth0:10:eth1:11:eth2:12:eth3:120:eth4:130 \
             64611:eth0:11:eth1:111 \
             64612:eth0:12:eth1:112 \
-            64620:eth0:99:eth1:21:eth2:22 \
+            64620:eth0:20:eth1:21:eth2:22:eth3:120:eth4:230 \
             64621:eth0:21:eth1:121 \
             64622:eth0:22:eth1:122 \
-            64630:eth0:99:eth1:31 \
+            64630:eth0:30:eth1:31:eth2:130:eth3:230 \
             64631:eth0:31:eth1:131 \
             64640:eth0:40:eth1:41 \
             64641:eth0:41:eth1:141 \
@@ -413,7 +414,8 @@ EOF
         done
         echo start_vm $name $net >> $TMP/vm.rc
         done
-        echo "port/setnumports $port" > $TMP/switch2.rc
+        echo "port/setnumports $port" >> $TMP/switch2.rc
+        echo "vlan/create 4093" >> $TMP/switch2.rc
         cat $TMP/switch.rc | sort | uniq | sed 's/^alan/vlan/' >> $TMP/switch2.rc
         setup_switch switch $TMP/switch2.rc
         . $TMP/vm.rc
