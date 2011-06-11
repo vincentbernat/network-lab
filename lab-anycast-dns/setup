@@ -83,6 +83,7 @@ cleanup() {
     for pid in $TMP/*.pid; do
         kill $(cat $pid)
     done
+    rm -rf $TMP # sh does not seem to handle "trap EXIT"
 }
 
 bird() {
