@@ -1,0 +1,15 @@
+$TTL 3D
+@  IN         SOA ns.example.com. hostmaster.example.com. (
+                  2011061100
+                  8H     ; Refresh
+                  2H	 ; Retry
+		  4W	 ; Expire
+                  1D )	 ; Minimum TTL
+;
+	NS	ns.example.com.
+	MX	10 smtp.example.com.
+	TXT	@@UTS@@
+;
+ns	AAAA	2001:db8:aaaa::53
+www	AAAA	2001:db8:aaaa::80
+smtp	AAAA	2001:db8:aaaa::25

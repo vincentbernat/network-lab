@@ -141,6 +141,7 @@ protocol direct {
    description "Client networks";
    import filter {
      if net ~ [ 2001:db8:4600::/40{40,48} ] then accept;
+     if net ~ [ 2001:db8:aaaa::/48 ] then accept;
      reject;
    };
    export none;
@@ -149,6 +150,11 @@ protocol kernel {
    persist;
    import none;
    export all;
+}
+
+filter keep_local_dns {
+   if net ~ [ 2001:db8:aaaa::/48 ] then reject;
+   accept;
 }
 
 EOF
@@ -163,13 +169,23 @@ protocol bgp {
    neighbor $neigh as 6$otheras;
    gateway direct;
    hold time 30;
-   export all;
+   export $(case $as,$otheras in 4620,46[013]0) echo filter keep_local_dns ;; *) echo all ;; esac);
    import all;
 }
 
 EOF
     done
     /etc/init.d/bird6 restart
+}
+
+nsd3() {
+    echo "[+] Setup NSD3"
+    # Dunno why, but we can't delete /etc/nsd3
+    mount -n -t tmpfs tmpfs /etc/nsd3
+    ln -s $PWD/nsd.conf /etc/nsd3/.
+    sed  s/@@UTS@@/${uts}/ \
+        $PWD/example.com.zone > /etc/nsd3/example.com.zone
+    /etc/init.d/nsd3 stop ; sleep 1 ; /etc/init.d/nsd3 start
 }
 
 # Exec function associated to first argument if provided
@@ -283,6 +299,7 @@ case $$ in
             64611-eth1-4611::1/48 \
             64612-eth0-ffff:4610:4612::2/126 \
             64612-eth1-4612::1/48 \
+            64612-eth1-aaaa::1/48 \
             64620-eth0-ffff:4600:4620::2/126 \
             64620-eth3-ffff:4610:4620::2/126 \
             64620-eth4-ffff:4620:4630::1/126 \
@@ -290,6 +307,7 @@ case $$ in
             64620-eth2-ffff:4620:4622::1/126 \
             64621-eth0-ffff:4620:4621::2/126 \
             64621-eth1-4621::1/48 \
+            64621-eth1-aaaa::1/48 \
             64622-eth0-ffff:4620:4622::2/126 \
             64622-eth1-4622::1/48 \
             64630-eth0-ffff:4600:4630::2/126 \
@@ -307,6 +325,7 @@ case $$ in
             64650-eth2-ffff:4650:4652::1/126 \
             64651-eth0-ffff:4650:4651::2/126 \
             64651-eth1-4651::1/48 \
+            64651-eth1-aaaa::1/48 \
             64652-eth0-ffff:4650:4652::2/126 \
             64652-eth1-4652::1/48 \
             C1-eth0-4652::1001/48 \
@@ -315,8 +334,11 @@ case $$ in
             C4-eth0-4622::1004/48 \
             C5-eth0-4611::1005/48 \
             G1-eth0-4651::1:53/48 \
+            G1-eth0-aaaa::53/48   \
             G2-eth0-4612::2:53/48 \
-            L1-eth0-4621::3:53/48; do
+            G2-eth0-aaaa::53/48   \
+            L1-eth0-4621::3:53/48 \
+            L1-eth0-aaaa::53/48; do
                 OLDIFS="$IFS" ; IFS="-"
                 eval set -- $ip
                 IFS="$OLDIFS"
@@ -350,9 +372,13 @@ case $$ in
             ip route add default via 2001:db8:$2
         done
 
-        # Bird for routers
+        # Start BIRD and nsd3
         case $uts in
-            C?|L?|G?)
+            C?)
+                # Clients don't need anything
+                ;;
+            L?|G?)
+                nsd3
                 ;;
             *)
                 sysctl -w net.ipv6.conf.all.forwarding=1
