@@ -1,0 +1,319 @@
+#!/bin/sh
+
+LABNAME="s2s-vpn"
+# Change ROOT to the directory containing a chrooted system if you
+# don't want to use your own system as a reference
+ROOT=$(readlink -f ${ROOT:-/})
+DEPS="screen vde_switch linux start-stop-daemon"
+CHROOTDEPS="ip zsh mount.aufs bird vtysh racoon"
+PROGNAME=$(readlink -f $0)
+PROGARGS="$@"
+
+# Check for dependencies needed by this tool
+check_dependencies() {
+    WHICH=$(which which)
+    for dep in $DEPS; do
+        $WHICH $dep 2> /dev/null > /dev/null || {
+            echo "[!] Missing dependency: $dep"
+            exit 1
+        }
+    done
+    [ -d $ROOT ] || {
+        echo "[!] Chroot $ROOT does not exists"
+    }
+    for dep in $CHROOTDEPS; do
+        PATH=$ROOT/usr/local/bin:$ROOT/usr/bin:$ROOT/bin:$ROOT/sbin:$ROOT/usr/local/sbin:$ROOT/usr/sbin $WHICH $dep 2> /dev/null > /dev/null || {
+            echo "[!] Missing dependency: $dep (in $ROOT)"
+            exit 1
+        }
+    done
+    [ x"$ROOT" = x"/" ] || {
+        [ -d $(dirname $ROOT/$PROGNAME) ] || mkdir -p $(dirname $ROOT/$PROGNAME)
+        cp "$PROGNAME" "$ROOT/$PROGNAME"
+    }
+}
+
+# Run our lab in screen
+setup_screen() {
+    [ x"$TERM" = x"screen" ] || \
+        exec screen -ln -S $LABNAME -c /dev/null -t main "$PROGNAME" "$PROGARGS"
+    sleep 1
+    screen -X caption always "%{= wk}%-w%{= BW}%n %t%{-}%+w %-="
+}
+
+# Setup a VDE switch
+setup_switch() {
+    echo "[+] Setup switch $1"
+    screen -t "switch-$1" \
+        start-stop-daemon --make-pidfile --pidfile "$TMP/switch-$1.pid" \
+        --start --startas $(which vde_switch) -- \
+        --sock "$TMP/switch-$1.sock" -f $2
+    screen -X select 0
+}
+
+# Start a VM
+start_vm() {
+    echo "[+] Start VM $1"
+    name="$1"
+    shift
+    screen -t $name \
+        start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+        --start --startas $(which linux) -- \
+        uts=$name mem=64M \
+        root=/dev/root rootfstype=hostfs rootflags=$ROOT init="$PROGNAME" \
+        "$@"
+    screen -X select 0
+    sleep 0.3
+}
+
+display_help() {
+    cat <<EOF
+
+Some screen commands :
+ C-a d     - Detach the screen (resume with screen -r $LABNAME)
+ C-a "     - Select a window
+ C-a space - Next window
+ C-a C-a   - Previous window
+EOF
+    echo "Press enter to exit the lab"
+    read a
+}
+
+cleanup() {
+    for pid in $TMP/*.pid; do
+        kill $(cat $pid)
+    done
+    rm -rf $TMP # sh does not seem to handle "trap EXIT"
+}
+
+quagga() {
+    echo "[+] Start Quagga"
+    export VTYSH_PAGER=/bin/cat
+    rm -rf /etc/quagga
+    ln -s $PWD/$uts/quagga /etc/quagga
+    mkdir /var/log/quagga
+    chown quagga:quagga /var/log/quagga
+    :> /etc/quagga/daemons
+    for conf in /etc/quagga/*.conf; do
+	echo "$(basename ${conf%.conf})=yes" >> /etc/quagga/daemons
+    done
+    cp quagga-debian.conf /etc/quagga/debian.conf
+    /etc/init.d/quagga start
+}
+
+bird() {
+    echo "[+] Setup BIRD"
+    rm -f /etc/bird.conf
+    rm -f /etc/bird6.conf
+    ln -s $PWD/$uts/bird.conf /etc/bird.conf
+    /etc/init.d/bird start
+}
+
+racoon() {
+    rm -f /etc/racoon/racoon.conf
+    ln -s $PWD/$uts/racoon/racoon.conf /etc/racoon/.
+    mkdir /var/run/racoon
+    cp racoon-psk.txt /etc/racoon/psk.txt
+    chmod 600 /etc/racoon/psk.txt
+    chown root /etc/racoon/psk.txt
+    echo "[+] Setup IPsec policy"
+    local="$1" ; shift
+    remote="$1" ; shift
+    for net in "$@"; do
+	net1=${net%-*}
+	net2=${net#*-}
+	cat <<EOF
+spdadd $net2 $net1 any -P in ipsec
+  esp/tunnel/${remote}-${local}/require;
+spdadd $net1 $net2 any -P out ipsec
+  esp/tunnel/${local}-${remote}/require;
+EOF
+    done | setkey -c
+    echo "[+] Start racoon"
+    /etc/init.d/racoon start
+}
+
+
+# Exec function associated to first argument if provided
+case $1 in
+    ""|--)
+        ;;
+    *)
+        "$@"
+        exit 0
+        ;;
+esac
+
+# No argument is given, setup the lab or act as init.
+case $$ in
+    1)
+        # Inside UML. Three states:
+        #   1. Setup the getty
+        #   2. Setup AUFS
+        #   3. Remaining setup
+        STATE=${STATE:-1}
+
+        case $STATE in
+            1)
+                echo "[+] Set hostname"
+                hostname -b ${uts}
+                echo "[+] Set path"
+                export TERM=xterm
+                export PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/local/sbin:/usr/sbin
+                
+                # Setup getty
+                export STATE=2
+                exec getty -n -l "$PROGNAME" 38400 /dev/tty0
+                ;;
+            2)
+                echo "[+] Setup AUFS"
+                mount -n -t proc proc /proc
+                mount -n -t sysfs sysfs /sys
+                mount -n -t hostfs hostfs /lib/modules -o /usr/lib/uml/modules,ro
+                mount -n -t tmpfs tmpfs /tmp -o rw,nosuid,nodev
+                mkdir /tmp/ro
+                mkdir /tmp/rw
+                mkdir /tmp/aufs
+                mount -n -t hostfs hostfs /tmp/ro -o /,ro
+                mount -n -t aufs aufs /tmp/aufs -o noxino,noatime,dirs=/tmp/rw:/tmp/ro=ro
+                
+                # Chroot inside our new root
+                export STATE=3
+                exec chroot /tmp/aufs "$PROGNAME"
+                ;;
+        esac
+
+        echo "[+] Set filesystems"
+        rm /etc/mtab
+        mount -t proc proc /proc
+        mount -t sysfs sysfs /sys
+        mount -t tmpfs tmpfs /dev -o rw && {
+            cd /dev
+            if [ -f $(dirname "$PROGNAME")/dev.tar ]; then
+                tar xf $(dirname "$PROGNAME")/dev.tar
+            else
+                MAKEDEV null
+            fi
+        }
+        mount -o bind /usr/lib/uml/modules /lib/modules
+        for fs in /var/run /var/tmp /var/log /tmp; do
+            mount -t tmpfs tmpfs $fs -o rw,nosuid,nodev
+        done
+        mount -t hostfs hostfs $(dirname "$PROGNAME") -o $(dirname "$PROGNAME")
+        
+        # Interfaces
+        echo "[+] Set interfaces"
+        for intf in /sys/class/net/*; do
+            intf=$(basename $intf)
+            ip a l dev $intf 2> /dev/null >/dev/null && ip link set up dev $intf
+        done
+        
+        echo "[+] Start syslog"
+        rsyslogd
+        
+        cd $(dirname "$PROGNAME")
+        [ -f dev.tar ] || {
+            tar -C /dev -cf dev.tar.$uts . && mv dev.tar.$uts dev.tar
+        }
+        
+	# Configure each UML
+	echo "[+] Setup UML"
+	sysctl -w net.ipv4.ip_forward=1
+	case ${uts} in
+	    ?1)
+		offset=0
+		base=203.0.113
+		;;
+	    ?2)
+		offset=100
+		base=198.51.100
+		;;
+	esac
+	case ${uts} in
+	    R1|R2)
+		modprobe dummy
+		ip link set up dev dummy0
+		ip addr add 192.168.$((15+$offset)).1/24 dev dummy0
+		ip addr add 192.168.$((1+$offset)).10/24 dev eth0
+		ip addr add 192.168.$((2+$offset)).10/24 dev eth1
+		quagga
+		;;
+	    E1|E2)
+		ip addr add ${base}.1/26 dev eth0
+		ip addr add ${base}.65/26 dev eth1
+		ip addr add ${base}.194/26 dev eth2
+		ip route add default via ${base}.193
+		quagga
+		;;
+	    V1|V2)
+		ip addr add 192.168.$((1+$offset)).100/24 dev eth0
+		ip addr add 192.168.$((2+$offset)).100/24 dev eth1
+		ip addr add ${base}.2/26 dev eth2
+		ip addr add ${base}.66/26 dev eth3
+		ip addr add ${base}.150/32 dev lo
+		bird
+		case ${uts} in
+		    V1)
+			racoon 203.0.113.150 198.51.100.150 192.168.0.0/19-192.168.96.0/19
+			;;
+		    V2)
+			racoon 198.51.100.150 203.0.113.150 192.168.96.0/19-192.168.0.0/19
+			;;
+		esac
+		;;
+	    I1)
+		ip addr add 203.0.113.193/26 dev eth0
+		ip route add 203.0.113.0/24 via 203.0.113.194
+		ip addr add 198.51.100.193/26 dev eth0
+		ip route add 198.51.100.0/24 via 198.51.100.194
+		;;
+	esac
+        
+        echo "[+] Drop to a shell"
+        exec /bin/zsh
+        
+        ;;
+    *)
+        TMP=$(mktemp -d)
+        trap "rm -rf $TMP" EXIT
+        check_dependencies
+        setup_screen
+
+	# Setup switches
+	setup_switch s1-bai1
+	setup_switch s1-bai2
+	setup_switch s1-bae1
+	setup_switch s1-bae2
+
+	setup_switch s2-bai1
+	setup_switch s2-bai2
+	setup_switch s2-bae1
+	setup_switch s2-bae2
+
+	setup_switch internet
+	# Start VM
+	start_vm R1 eth0=vde,$TMP/switch-s1-bai1.sock eth1=vde,$TMP/switch-s1-bai2.sock
+	start_vm R2 eth0=vde,$TMP/switch-s2-bai1.sock eth1=vde,$TMP/switch-s2-bai2.sock
+	start_vm E1 eth0=vde,$TMP/switch-s1-bae1.sock eth1=vde,$TMP/switch-s1-bae2.sock \
+	    eth2=vde,$TMP/switch-internet.sock
+	start_vm E2 eth0=vde,$TMP/switch-s2-bae1.sock eth1=vde,$TMP/switch-s2-bae2.sock \
+	    eth2=vde,$TMP/switch-internet.sock
+	start_vm V1 eth0=vde,$TMP/switch-s1-bai1.sock eth1=vde,$TMP/switch-s1-bai2.sock \
+	    eth2=vde,$TMP/switch-s1-bae1.sock eth3=vde,$TMP/switch-s1-bae2.sock \
+	    eth4=vde,$TMP/switch-internet.sock
+	start_vm V2 eth0=vde,$TMP/switch-s2-bai1.sock eth1=vde,$TMP/switch-s2-bai2.sock \
+	    eth2=vde,$TMP/switch-s2-bae1.sock eth3=vde,$TMP/switch-s2-bae2.sock \
+	    eth4=vde,$TMP/switch-internet.sock
+	start_vm I1 eth0=vde,$TMP/switch-internet.sock
+    
+        display_help
+        cleanup
+        ;;
+esac
+
+# Local Variables:
+# mode: sh
+# indent-tabs-mode: nil
+# sh-basic-offset: 4
+# End:
+#!/bin/sh
