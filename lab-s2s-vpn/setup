@@ -39,6 +39,7 @@ setup_screen() {
         exec screen -ln -S $LABNAME -c /dev/null -t main "$PROGNAME" "$PROGARGS"
     sleep 1
     screen -X caption always "%{= wk}%-w%{= BW}%n %t%{-}%+w %-="
+    screen -X zombie cr
 }
 
 # Setup a VDE switch
@@ -84,6 +85,7 @@ cleanup() {
         kill $(cat $pid)
     done
     rm -rf $TMP # sh does not seem to handle "trap EXIT"
+    screen -X quit
 }
 
 quagga() {

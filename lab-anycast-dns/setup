@@ -38,6 +38,7 @@ setup_screen() {
     [ x"$TERM" = x"screen" ] || \
         exec screen -ln -S $LABNAME -c /dev/null -t main "$PROGNAME" "$PROGARGS"
     sleep 1
+    screen -X zombie cr
     screen -X caption always "%{= wk}%-w%{= BW}%n %t%{-}%+w %-="
 }
 
@@ -84,6 +85,7 @@ cleanup() {
         kill $(cat $pid)
     done
     rm -rf $TMP # sh does not seem to handle "trap EXIT"
+    screen -X quit
 }
 
 bird() {
