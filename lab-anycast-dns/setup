@@ -60,7 +60,7 @@ start_vm() {
         start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
         --start --startas $(which linux) -- \
         uts=$name mem=64M \
-        root=/dev/root rootfstype=hostfs rootflags=$ROOT init="$PROGNAME" \
+        root=/dev/root rootfstype=hostfs rootflags=$ROOT myroot=$ROOT init="$PROGNAME" \
         "$@"
     screen -X select 0
     sleep 0.3
@@ -229,7 +229,7 @@ case $$ in
                 mkdir /tmp/ro
                 mkdir /tmp/rw
                 mkdir /tmp/aufs
-                mount -n -t hostfs hostfs /tmp/ro -o /,ro
+                mount -n -t hostfs hostfs /tmp/ro -o $myroot,ro
                 mount -n -t aufs aufs /tmp/aufs -o noxino,noatime,dirs=/tmp/rw:/tmp/ro=ro
                 
                 # Chroot inside our new root
@@ -250,7 +250,7 @@ case $$ in
                 MAKEDEV null
             fi
         }
-        mount -o bind /usr/lib/uml/modules /lib/modules
+        mount -t hostfs hostfs /lib/modules -o /usr/lib/uml/modules,ro
         for fs in /var/run /var/tmp /var/log /tmp; do
             mount -t tmpfs tmpfs $fs -o rw,nosuid,nodev
         done
