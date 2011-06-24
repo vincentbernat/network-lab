@@ -1,7 +1,7 @@
 #!/bin/sh
 
 LABNAME="redundant-vpn"
-DEPS="screen ip vde_switch linux bash start-stop-daemon zsh racoon mount.aufs vtysh"
+DEPS="screen ip vde_switch linux bash start-stop-daemon zsh racoon vtysh"
 PROGNAME="$0"
 PROGARGS="$@"
 

@@ -5,7 +5,7 @@ LABNAME="s2s-vpn"
 # don't want to use your own system as a reference
 ROOT=$(readlink -f ${ROOT:-/})
 DEPS="screen vde_switch linux start-stop-daemon"
-CHROOTDEPS="ip zsh mount.aufs bird vtysh racoon"
+CHROOTDEPS="ip zsh bird vtysh racoon"
 PROGNAME=$(readlink -f $0)
 PROGARGS="$@"
 
