@@ -16,8 +16,8 @@
    inkscape:version="0.48.1 r9760"
    sodipodi:docname="bird.svg"
    inkscape:export-filename="/home/bernat/code/perso/www.luffy.cx/content/media/images/vpn-lab-bird.png"
-   inkscape:export-xdpi="25.48"
-   inkscape:export-ydpi="25.48">
+   inkscape:export-xdpi="33.98"
+   inkscape:export-ydpi="33.98">
   <defs
      id="defs3139">
     <marker
@@ -233,7 +233,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.49497475"
-     inkscape:cx="461.93472"
+     inkscape:cx="208.38643"
      inkscape:cy="337.40235"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -244,8 +244,8 @@
      fit-margin-bottom="0"
      inkscape:window-width="1271"
      inkscape:window-height="692"
-     inkscape:window-x="1521"
-     inkscape:window-y="114"
+     inkscape:window-x="1520"
+     inkscape:window-y="93"
      inkscape:window-maximized="0" />
   <metadata
      id="metadata3142">
@@ -272,7 +272,7 @@
        sodipodi:cy="300.80869"
        sodipodi:rx="135.36044"
        sodipodi:ry="125.25892"
-       d="m 406.08133,300.80869 a 135.36044,125.25892 0 1 1 -270.72089,0 135.36044,125.25892 0 1 1 270.72089,0 z"
+       d="m 406.08133,300.80869 c 0,69.17859 -60.60294,125.25891 -135.36044,125.25891 -74.75751,0 -135.36045,-56.08032 -135.36045,-125.25891 0,-69.1786 60.60294,-125.25892 135.36045,-125.25892 74.7575,0 135.36044,56.08032 135.36044,125.25892 z"
        transform="matrix(0.78907817,0,0,0.53235641,-4.9218838,-21.675558)" />
     <text
        xml:space="preserve"
@@ -287,7 +287,7 @@
          y="151.11819">kernel</tspan></text>
     <path
        transform="matrix(1.6054336,0,0,0.73769387,-225.92635,475.73655)"
-       d="m 406.08133,300.80869 a 135.36044,125.25892 0 1 1 -270.72089,0 135.36044,125.25892 0 1 1 270.72089,0 z"
+       d="m 406.08133,300.80869 c 0,69.17859 -60.60294,125.25891 -135.36044,125.25891 -74.75751,0 -135.36045,-56.08032 -135.36045,-125.25891 0,-69.1786 60.60294,-125.25892 135.36045,-125.25892 74.7575,0 135.36044,56.08032 135.36044,125.25892 z"
        sodipodi:ry="125.25892"
        sodipodi:rx="135.36044"
        sodipodi:cy="300.80869"
@@ -322,7 +322,7 @@
     </g>
     <path
        transform="matrix(2.0558367,0,0,0.73769387,111.29599,221.90259)"
-       d="m 406.08133,300.80869 a 135.36044,125.25892 0 1 1 -270.72089,0 135.36044,125.25892 0 1 1 270.72089,0 z"
+       d="m 406.08133,300.80869 c 0,69.17859 -60.60294,125.25891 -135.36044,125.25891 -74.75751,0 -135.36045,-56.08032 -135.36045,-125.25891 0,-69.1786 60.60294,-125.25892 135.36045,-125.25892 74.7575,0 135.36044,56.08032 135.36044,125.25892 z"
        sodipodi:ry="125.25892"
        sodipodi:rx="135.36044"
        sodipodi:cy="300.80869"
@@ -330,39 +330,35 @@
        id="use5399"
        style="color:#000000;fill:#ffdecc;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:3.24808669;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;filter:url(#filter6277);enable-background:accumulate"
        sodipodi:type="arc" />
-    <g
-       id="g5462"
-       transform="matrix(0.94303132,0,0,0.94303132,-122.78069,125.32981)">
-      <text
-         sodipodi:linespacing="125%"
-         id="text5401"
-         y="316.97113"
-         x="691.01025"
-         style="font-size:36px;font-style:normal;font-weight:bold;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans;-inkscape-font-specification:Sans Bold"
-         xml:space="preserve"><tspan
-           y="316.97113"
-           x="691.01025"
-           sodipodi:role="line"
-           id="tspan5405">ospf BAI</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-size:24px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans Mono;-inkscape-font-specification:Bitstream Vera Sans Mono Bold"
-         x="608.11182"
-         y="355.35696"
-         id="text5431"
-         sodipodi:linespacing="125%"><tspan
-           sodipodi:role="line"
-           id="tspan5433"
-           x="608.11182"
-           y="355.35696">192.168.15.0/24 via 192.168.1.10</tspan><tspan
-           id="tspan5435"
-           sodipodi:role="line"
-           x="608.11182"
-           y="385.35696">                via 192.168.2.10</tspan></text>
-    </g>
+    <text
+       xml:space="preserve"
+       style="font-size:33.9491272px;font-style:normal;font-weight:bold;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans;-inkscape-font-specification:Sans Bold"
+       x="591.42419"
+       y="424.2435"
+       id="text5401"
+       sodipodi:linespacing="125%"><tspan
+         id="tspan5405"
+         sodipodi:role="line"
+         x="591.42419"
+         y="424.2435">ospf INTERNAL</tspan></text>
+    <text
+       sodipodi:linespacing="125%"
+       id="text5431"
+       y="460.44257"
+       x="450.68781"
+       style="font-size:22.63275146px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans Mono;-inkscape-font-specification:Bitstream Vera Sans Mono Bold"
+       xml:space="preserve"><tspan
+         y="460.44257"
+         x="450.68781"
+         id="tspan5433"
+         sodipodi:role="line">192.168.15.0/24 via 192.168.1.10</tspan><tspan
+         y="488.73349"
+         x="450.68781"
+         sodipodi:role="line"
+         id="tspan5435">                via 192.168.2.10</tspan></text>
     <path
        transform="matrix(1.5420957,0,0,0.82134988,180.83619,-70.503089)"
-       d="m 406.08133,300.80869 a 135.36044,125.25892 0 1 1 -270.72089,0 135.36044,125.25892 0 1 1 270.72089,0 z"
+       d="m 406.08133,300.80869 c 0,69.17859 -60.60294,125.25891 -135.36044,125.25891 -74.75751,0 -135.36045,-56.08032 -135.36045,-125.25891 0,-69.1786 60.60294,-125.25892 135.36045,-125.25892 74.7575,0 135.36044,56.08032 135.36044,125.25892 z"
        sodipodi:ry="125.25892"
        sodipodi:rx="135.36044"
        sodipodi:cy="300.80869"
@@ -370,36 +366,32 @@
        id="use5391"
        style="color:#000000;fill:#ffdecc;fill-opacity:1;fill-rule:nonzero;stroke:#000000;stroke-width:3.55418682;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;filter:url(#filter6263);enable-background:accumulate"
        sodipodi:type="arc" />
-    <g
-       id="g5455"
-       transform="matrix(0.94303132,0,0,0.94303132,50.843451,39.127831)">
-      <text
-         xml:space="preserve"
-         style="font-size:36px;font-style:normal;font-weight:bold;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans;-inkscape-font-specification:Sans Bold"
-         x="496.5899"
-         y="127.06246"
-         id="text5393"
-         sodipodi:linespacing="125%"><tspan
-           id="tspan5397"
-           sodipodi:role="line"
-           x="496.5899"
-           y="127.06246">ospf BAE</tspan></text>
-      <text
-         sodipodi:linespacing="125%"
-         id="text5437"
-         y="161.40767"
-         x="408.10162"
-         style="font-size:24px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans Mono;-inkscape-font-specification:Bitstream Vera Sans Mono Bold"
-         xml:space="preserve"><tspan
-           y="161.40767"
-           x="408.10162"
-           sodipodi:role="line"
-           id="tspan5441">default via 203.0.113.1</tspan><tspan
-           id="tspan5445"
-           y="191.40767"
-           x="408.10162"
-           sodipodi:role="line">        via 203.0.113.65</tspan></text>
-    </g>
+    <text
+       sodipodi:linespacing="125%"
+       id="text5393"
+       y="158.95171"
+       x="434.23734"
+       style="font-size:33.9491272px;font-style:normal;font-weight:bold;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans;-inkscape-font-specification:Sans Bold"
+       xml:space="preserve"><tspan
+         y="158.95171"
+         x="434.23734"
+         sodipodi:role="line"
+         id="tspan5397">ospf EXTERNAL</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:22.63275146px;font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans Mono;-inkscape-font-specification:Bitstream Vera Sans Mono Bold"
+       x="435.69608"
+       y="191.34032"
+       id="text5437"
+       sodipodi:linespacing="125%"><tspan
+         id="tspan5441"
+         sodipodi:role="line"
+         x="435.69608"
+         y="191.34032">default via 203.0.113.1</tspan><tspan
+         sodipodi:role="line"
+         x="435.69608"
+         y="219.63126"
+         id="tspan5445">        via 203.0.113.65</tspan></text>
     <rect
        style="color:#000000;fill:#fffbd1;fill-opacity:1;stroke:#000000;stroke-width:4.24164057;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;visibility:visible;display:inline;overflow:visible;filter:url(#filter6183);enable-background:accumulate"
        id="rect5510"
