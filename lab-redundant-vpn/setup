@@ -1,7 +1,7 @@
 #!/bin/sh
 
 LABNAME="redundant-vpn"
-DEPS="screen ip vde_switch linux bash start-stop-daemon zsh racoon vtysh"
+DEPS="screen ip vde_switch linux bash start-stop-daemon racoon vtysh"
 PROGNAME="$0"
 PROGARGS="$@"
 
@@ -125,7 +125,14 @@ case $$ in
 		
 		# Setup getty
 		export STATE=2
-		exec getty -n -l "$PROGNAME" 38400 /dev/tty0
+		exec setsid python -c '
+import os, sys
+os.close(0)
+os.open("/dev/tty0", os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK, 0)
+os.dup2(0, 1)
+os.dup2(0, 2)
+# os.tcsetpgrp(0, 1)
+os.execv(sys.argv[1], [sys.argv[1]])' "$PROGNAME"
 		;;
 	    2)
 		echo "[+] Setup AUFS"
@@ -154,7 +161,7 @@ case $$ in
 	    if [ -f $(dirname "$PROGNAME")/dev.tar ]; then
 		tar xf $(dirname "$PROGNAME")/dev.tar
 	    else
-		MAKEDEV null
+		MAKEDEV null consoleonly
 	    fi
 	}
 	mount -o bind /usr/lib/uml/modules /lib/modules
@@ -231,7 +238,7 @@ case $$ in
 	esac
 
 	echo "[+] Drop to a shell"
-	exec /bin/zsh
+	exec /bin/bash
 
 	;;
     *)
