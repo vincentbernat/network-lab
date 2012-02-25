@@ -49,6 +49,13 @@ quagga() {
     /etc/init.d/quagga start
 }
 
+bird() {
+    echo "[+] Setup BIRD (IPv6)"
+    rm -f /etc/bird6.conf
+    ln -s $PWD/$uts/bird6.conf /etc/bird6.conf
+    /etc/init.d/bird6 start
+}
+
 # Run our lab in screen
 setup_screen() {
     [ x"$TERM" = x"screen" ] || \
@@ -224,6 +231,15 @@ os.execv(sys.argv[1], [sys.argv[1]])' "$PROGNAME"
                 ip addr add 2001:db8:cafe:4::1/64 dev dummy0
                 quagga
 		;;
+            pobae)
+                modprobe dummy0
+                ip link set up dev dummy0
+                sysctl -w net.ipv6.conf.all.forwarding=1
+                #ip addr add 2001:db8:cafe:1::3/64 dev eth0
+                #ip addr add 2001:db8:cafe:2::3/64 dev eth1
+                ip addr add 2001:db8:cafe:5::1/64 dev dummy0
+                bird
+                ;;
 	esac
         
         echo "[+] Drop to a shell"
@@ -244,9 +260,12 @@ os.execv(sys.argv[1], [sys.argv[1]])' "$PROGNAME"
 
 	# Start VM
         start_vm internet eth0=vde,$TMP/switch-internet.sock
-        start_vm esite01  eth0=vde,$TMP/switch-internet.sock eth1=vde,$TMP/switch-bae1.sock eth2=vde,$TMP/switch-ico.sock
-        start_vm esite02  eth0=vde,$TMP/switch-internet.sock eth1=vde,$TMP/switch-bae2.sock eth2=vde,$TMP/switch-ico.sock
+        start_vm esite01  eth0=vde,$TMP/switch-internet.sock \
+            eth1=vde,$TMP/switch-bae1.sock eth2=vde,$TMP/switch-ico.sock
+        start_vm esite02  eth0=vde,$TMP/switch-internet.sock \
+            eth1=vde,$TMP/switch-bae2.sock eth2=vde,$TMP/switch-ico.sock
         start_vm fabae    eth0=vde,$TMP/switch-bae1.sock eth1=vde,$TMP/switch-bae2.sock
+        start_vm pobae    eth0=vde,$TMP/switch-bae1.sock eth1=vde,$TMP/switch-bae2.sock
     
         display_help
         cleanup
