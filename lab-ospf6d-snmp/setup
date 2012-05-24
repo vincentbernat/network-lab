@@ -35,6 +35,12 @@ check_dependencies() {
 }
 
 quagga() {
+    # If QUAGGA_PATH is defined, use a custom path. Quagga should be compiled like this:
+    #   ../configure --enable-vtysh --enable-snmp \
+    #                --localstatedir=/var/run/quagga --prefix=/usr \
+    #                --sysconfdir=/etc/quagga
+    # And installed with
+    #   make install DESTDIR=${QUAGGA_PATH}
     echo "[+] Start Quagga"
     export VTYSH_PAGER=/bin/cat
     rm -rf /etc/quagga
@@ -46,7 +52,21 @@ quagga() {
         [ -h $conf ] && continue
 	echo "$(basename ${conf%.conf})=yes" >> /etc/quagga/daemons
     done
+    [ -z ${QUAGGA_PATH} ] || {
+        echo "D_PATH=${QUAGGA_PATH}/usr/sbin" >> /etc/quagga/daemons
+        export LD_LIBRARY_PATH=${QUAGGA_PATH}/usr/lib
+    }
     /etc/init.d/quagga start
+}
+
+snmpd() {
+    echo "[+] Start snmpd"
+    rm /etc/snmp/snmpd.conf
+    ln -s $PWD/snmpd.conf /etc/snmp/snmpd.conf
+    /etc/init.d/snmpd start
+    # Let everybody connect to master agent
+    sleep 1
+    chmod a+w /var/agentx/master
 }
 
 # Run our lab in screen
@@ -78,6 +98,7 @@ start_vm() {
         --start --startas $LINUX -- \
         uts=$name mem=64M \
         root=/dev/root rootfstype=hostfs rootflags=$ROOT myroot=$ROOT init="$PROGNAME" \
+        QUAGGA_PATH=${QUAGGA_PATH} \
         "$@"
     screen -X select 0
     sleep 0.3
@@ -98,7 +119,7 @@ EOF
 
 cleanup() {
     for pid in $TMP/*.pid; do
-        kill $(cat $pid) 2> /dev/null
+        kill -15 -$(cat $pid) 2> /dev/null || true
     done
     rm -rf $TMP # sh does not seem to handle "trap EXIT"
     screen -X quit
@@ -199,6 +220,7 @@ os.execv(sys.argv[1], [sys.argv[1]])' "$PROGNAME"
         modprobe dummy0
         ip link set up dev dummy0
 	sysctl -w net.ipv6.conf.all.forwarding=1
+        snmpd
 	case ${uts} in
             abr)
                 # In area 0, 1 and 2
