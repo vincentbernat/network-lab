@@ -1,4 +1,5 @@
 debian=yes
 ospf6d=yes
+ospfd=yes
 zebra=yes
 D_PATH=/home/bernat/code/orange/quagga/build/usr/sbin

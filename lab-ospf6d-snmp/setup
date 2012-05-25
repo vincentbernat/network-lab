@@ -225,52 +225,75 @@ os.execv(sys.argv[1], [sys.argv[1]])' "$PROGNAME"
             abr)
                 # In area 0, 1 and 2
                 ip addr add 2001:db8:cafe:0::1/64 dev eth0
+                ip addr add 192.168.0.1/24 dev eth0
                 ip addr add 2001:db8:cafe:1::1/64 dev eth1
+                ip addr add 192.168.1.1/24 dev eth1
                 ip addr add 2001:db8:cafe:2::1/64 dev eth2
+                ip addr add 192.168.2.1/24 dev eth2
                 quagga
                 ;;
             r01)
                 # In area 0
                 ip addr add 2001:db8:cafe:0::2/64 dev eth0
+                ip addr add 192.168.0.2/24 dev eth0
                 ip addr add 2001:db8:cafe:a011::1/64 dev dummy0
+                ip addr add 192.168.11.1/24 dev dummy0
                 ip addr add 2001:db8:cafe:a012::1/64 dev dummy0
+                ip addr add 192.168.12.1/24 dev dummy0
                 quagga
                 ;;
             r02)
                 # In area 0
                 ip addr add 2001:db8:cafe:0::3/64 dev eth0
+                ip addr add 192.168.0.3/24 dev eth0
                 ip addr add 2001:db8:cafe:a021::1/64 dev dummy0
+                ip addr add 192.168.21.1/24 dev dummy0
                 ip addr add 2001:db8:cafe:a022::1/64 dev dummy0
+                ip addr add 192.168.22.1/24 dev dummy0
                 quagga
                 ;;
             r03)
                 # In area 0
                 ip addr add 2001:db8:cafe:0::4/64 dev eth0
+                ip addr add 192.168.0.4/24 dev eth0
                 ip addr add 2001:db8:cafe:a031::1/64 dev dummy0
+                ip addr add 192.168.31.1/24 dev dummy0
                 ip addr add 2001:db8:cafe:a032::1/64 dev dummy0
+                ip addr add 192.168.32.1/24 dev dummy0
                 quagga
                 ;;
             r2)
                 # In area 2
                 ip addr add 2001:db8:cafe:2::2/64 dev eth0
+                ip addr add 192.168.2.2/24 dev eth0
                 ip addr add 2001:db8:cafe:a21::1/64 dev dummy0
+                ip addr add 192.168.51.1/24 dev dummy0
                 ip addr add 2001:db8:cafe:a22::1/64 dev dummy0
+                ip addr add 192.168.52.1/24 dev dummy0
                 quagga
                 ;;
             r1)
                 # In area 1
                 ip addr add 2001:db8:cafe:1::2/64 dev eth0
+                ip addr add 192.168.1.2/24 dev eth0
                 ip addr add 2001:db8:cafe:a111::1/64 dev dummy0
+                ip addr add 192.168.111.1/24 dev dummy0
                 ip addr add 2001:db8:cafe:a112::1/64 dev dummy0
+                ip addr add 192.168.112.1/24 dev dummy0
                 quagga
                 ;;
 	    asbr)
                 # In area 1, export external routes
                 ip addr add 2001:db8:cafe:1::3/64 dev eth0
+                ip addr add 192.168.1.3/24 dev eth0
                 ip addr add 2001:db8:cafe:a121::1/64 dev dummy0
+                ip addr add 192.168.121.1/24 dev dummy0
                 ip addr add 2001:db8:cafe:a122::1/64 dev dummy0
+                ip addr add 192.168.122.1/24 dev dummy0
                 ip route add 2001:db8:cafe:e1::/64 via 2001:db8:cafe:a121::2 dev dummy0
+                ip roue add 192.168.251.0/24 via 192.168.121.2 dev dummy0
                 ip route add 2001:db8:cafe:e2::/64 via 2001:db8:cafe:a122::2 dev dummy0
+                ip roue add 192.168.252.0/24 via 192.168.122.2 dev dummy0
                 quagga
 		;;
 	esac
