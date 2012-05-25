@@ -61,8 +61,13 @@ quagga() {
 
 snmpd() {
     echo "[+] Start snmpd"
-    rm /etc/snmp/snmpd.conf
+    rm /etc/snmp/snmpd.conf /etc/snmp/snmptrapd.conf
     ln -s $PWD/snmpd.conf /etc/snmp/snmpd.conf
+    ln -s $PWD/snmptrapd.conf /etc/snmp/snmptrapd.conf
+    sed -i \
+        -e 's/TRAPDRUN=.*/TRAPDRUN=yes/' \
+        -e 's/MIBS=.*/MIBS=OSPF-MIB:OSPFV3-MIB:OSPF-TRAP-MIB:BGP4-MIB/' \
+        /etc/default/snmpd
     /etc/init.d/snmpd start
     # Let everybody connect to master agent
     sleep 1
