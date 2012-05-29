@@ -101,7 +101,7 @@ start_vm() {
     screen -t $name \
         start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
         --start --startas $LINUX -- \
-        uts=$name mem=64M \
+        uts=$name mem=64M ssl0=pts \
         root=/dev/root rootfstype=hostfs rootflags=$ROOT myroot=$ROOT init="$PROGNAME" \
         QUAGGA_PATH=${QUAGGA_PATH} \
         "$@"
@@ -195,7 +195,7 @@ os.execv(sys.argv[1], [sys.argv[1]])' "$PROGNAME"
             if [ -f $(dirname "$PROGNAME")/dev.tar ]; then
                 tar xf $(dirname "$PROGNAME")/dev.tar
             else
-                MAKEDEV null consoleonly
+                MAKEDEV null consoleonly ttyS0
             fi
         }
         mount -t hostfs hostfs /lib/modules -o /usr/lib/uml/modules,ro
