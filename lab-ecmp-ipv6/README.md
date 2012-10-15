@@ -60,6 +60,7 @@ To run the lab, run:
 `/dev/ttyS1` is configured to be used by KGDB. You should get a note
 when `kvm` starts to boot about the appropriate `/dev/pts/X` device
 that you need to use as a remote target. You can then enter in KGDB
-with `echo g > /proc/sysrq-trigger`.
+with `echo g > /proc/sysrq-trigger`. The appropriate device can also
+be found in monitor mode with `info chardev`.
 
 `/dev/ttyS2` is free for another process.
