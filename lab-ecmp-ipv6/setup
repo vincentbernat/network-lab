@@ -181,9 +181,8 @@ start_vm() {
         -append "init=/bin/sh console=ttyS0 uts=$name" \
         $netargs \
         "$@"
-    sleep 0.3
-    screen -t $name-console \
-        socat UNIX:$TMP/vm-$name-console.pipe -
+    echo "GDB server listening on.... $TMP/vm-$name-gdb.pipe"
+    echo "monitor listening on....... $TMP/vm-$name-console.pipe"
     screen -X select 0
 }
 
@@ -218,8 +217,6 @@ EOF
 
 display_help() {
     cat <<EOF
-
-Work directory: $TMP
 
 Some screen commands :
  C-a d     - Detach the screen (resume with screen -r $LABNAME)
