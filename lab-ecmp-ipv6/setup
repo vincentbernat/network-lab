@@ -8,8 +8,8 @@ ROOT=$(readlink -f ${ROOT:-/})
 LINUX=$(readlink -f ${LINUX:-./linux})
 
 WHICH=$(which which)
-DEPS="screen vde_switch start-stop-daemon kvm busybox"
-CHROOTDEPS="ip"
+DEPS="screen vde_switch start-stop-daemon kvm busybox slirpvde"
+CHROOTDEPS="ip dhclient"
 
 info() {
     echo "[1;34m[+] $@[0m"
@@ -129,11 +129,19 @@ setup_initrd() {
 # Setup a VDE switch
 setup_switch() {
     info "Setup switch $1"
-    screen -t "sw-$1" \
-        start-stop-daemon --make-pidfile --pidfile "$TMP/switch-$1.pid" \
+    start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$1.pid" \
         --start --startas $($WHICH vde_switch) -- \
         --sock "$TMP/switch-$1.sock"
-    screen -X select 0
+}
+
+# Plug "Internet" to a switch
+setup_internet() {
+    info "Setup internet on switch $1"
+    start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/internet-$1.pid" \
+        --start --startas $($WHICH slirpvde) -- \
+        --sock "$TMP/switch-$1.sock" \
+        -H 192.168.$1.1/24 -D
+    sleep 0.3
 }
 
 # Start a VM
@@ -231,6 +239,10 @@ EOF
 cleanup() {
     for pid in $TMP/*.pid; do
         kill -15 -$(cat $pid) 2> /dev/null || true
+    done
+    sleep 1
+    for pid in $TMP/*.pid; do
+        kill -9 -$(cat $pid) 2> /dev/null || true
     done
     rm -rf $TMP # sh does not seem to handle "trap EXIT"
     screen -X quit
@@ -341,6 +353,11 @@ case $$,$0,$STATE in
                 ;;
         esac
 
+        info "Ask DHCP"
+        rm /etc/resolv.conf
+        rm /etc/dhcp*/dhclient-enter-hooks.d/resolvconf
+        dhclient eth2
+
         start_quagga
         ;;
     *,*,*)
@@ -353,10 +370,12 @@ case $$,$0,$STATE in
         setup_tmp
         setup_initrd
 
-        setup_switch 1
-        setup_switch 2
-        NET=1,2 start_vm r1
-        NET=1,2 start_vm r2
+        setup_switch   1
+        setup_switch   2
+        setup_switch   3
+        setup_internet 3
+        NET=1,2,3 start_vm r1
+        NET=1,2,3 start_vm r2
 
         display_help
         cleanup
