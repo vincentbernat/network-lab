@@ -374,6 +374,7 @@ case $$,$0,$STATE in
         setup_switch   1
         setup_switch   2
         setup_switch   3
+        sleep 0.3
         setup_internet 3
         NET=1,2,3 start_vm r1
         NET=1,2,3 start_vm r2
