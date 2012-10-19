@@ -170,7 +170,7 @@ start_vm() {
         \
         -chardev stdio,id=charserial0,signal=off \
         -device isa-serial,chardev=charserial0,id=serial0 \
-        -chardev pty,id=charserial1 \
+        -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server,nowait \
         -device isa-serial,chardev=charserial1,id=serial1 \
         \
         -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
@@ -191,6 +191,7 @@ start_vm() {
         "$@"
     echo "GDB server listening on.... $TMP/vm-$name-gdb.pipe"
     echo "monitor listening on....... $TMP/vm-$name-console.pipe"
+    echo "ttyS1 listening on......... $TMP/vm-$name-serial.pipe"
     screen -X select 0
 }
 
