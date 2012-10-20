@@ -90,6 +90,9 @@ start_vm() {
     done
     IFS="$saveifs"
 
+    # /root is mounted with version 9p2000.u to allow access to /dev,
+    # /sys and to mount new partitions over them. This is not the case
+    # for 9p2000.L.
     screen -t $name \
         start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
         --start --startas $($WHICH kvm) -- \
