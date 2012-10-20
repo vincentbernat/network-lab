@@ -8,7 +8,7 @@ ROOT=$(readlink -f ${ROOT:-/})
 LINUX=$(readlink -f ${LINUX:-./linux})
 
 WHICH=$(which which)
-DEPS="screen vde_switch start-stop-daemon kvm busybox slirpvde"
+DEPS="screen vde_switch start-stop-daemon kvm slirpvde"
 CHROOTDEPS="ip dhclient"
 
 info() {
