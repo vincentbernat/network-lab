@@ -55,77 +55,6 @@ setup_screen() {
     screen -X zombie cr
 }
 
-### Stolen from initramfs-tools
-# $1 = file to copy to ramdisk
-# $2 (optional) Name for the file on the ramdisk
-# Location of the image dir is assumed to be $DESTDIR
-# We never overwrite the target if it exists.
-copy_exec() {
-	local src target x nonoptlib
-	local libname dirname
-
-	src="${1}"
-	target="${2:-$1}"
-
-	[ -f "${src}" ] || return 1
-
-	if [ -d "${DESTDIR}/${target}" ]; then
-		# check if already copied
-		[ -e "${DESTDIR}/$target/${src##*/}" ] && return 0
-	else
-		[ -e "${DESTDIR}/$target" ] && return 0
-		#FIXME: inst_dir
-		mkdir -p "${DESTDIR}/${target%/*}"
-	fi
-
-	cp -pL "${src}" "${DESTDIR}/${target}"
-
-	# Copy the dependant libraries
-	for x in $(ldd "${src}" 2>/dev/null | sed -e '
-		/\//!d;
-		/linux-gate/d;
-		/=>/ {s/.*=>[[:blank:]]*\([^[:blank:]]*\).*/\1/};
-		s/[[:blank:]]*\([^[:blank:]]*\) (.*)/\1/' 2>/dev/null); do
-
-		# Try to use non-optimised libraries where possible.
-		# We assume that all HWCAP libraries will be in tls,
-		# sse2, vfp or neon.
-		nonoptlib=$(echo "${x}" | sed -e 's#/lib/\([^/]*/\)\?\(tls\|i686\|sse2\|neon\|vfp\).*/\(lib.*\)#/lib/\1\3#')
-		nonoptlib=$(echo "${nonoptlib}" | sed -e 's#-linux-gnu/\(tls\|i686\|sse2\|neon\|vfp\).*/\(lib.*\)#-linux-gnu/\2#')
-
-		if [ -e "${nonoptlib}" ]; then
-			x="${nonoptlib}"
-		fi
-
-		libname=$(basename "${x}")
-		dirname=$(dirname "${x}")
-
-		# FIXME inst_lib
-		mkdir -p "${DESTDIR}/${dirname}"
-		if [ ! -e "${DESTDIR}/${dirname}/${libname}" ]; then
-			cp -pL "${x}" "${DESTDIR}/${dirname}"
-		fi
-	done
-}
-
-# Setup initrd
-setup_initrd() {
-    info "Build initrd"
-    DESTDIR=$TMP/initrd
-    mkdir -p $DESTDIR
-
-    # Setup busybox
-    copy_exec $($WHICH busybox) /bin/busybox
-    for applet in $(${DESTDIR}/bin/busybox --list); do
-        ln -s busybox ${DESTDIR}/bin/${applet}
-    done
-
-    # Setup init
-    cp $PROGNAME ${DESTDIR}/init
-
-    cd "${DESTDIR}" && find . | cpio --quiet -R 0:0 -o -H newc | gzip > $TMP/initrd.gz
-}
-
 # Setup a VDE switch
 setup_switch() {
     info "Setup switch $1"
@@ -177,7 +106,7 @@ start_vm() {
         -mon chardev=con0,mode=readline,default \
         \
         -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT},readonly \
-        -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=rootshare \
+        -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=/dev/root \
         -fsdev local,security_model=none,id=fsdev-home,path=${HOME} \
         -device virtio-9p-pci,id=fs-home,fsdev=fsdev-home,mount_tag=homeshare \
         -fsdev local,security_model=none,id=fsdev-lab,path=$(dirname "$PROGNAME") \
@@ -185,8 +114,7 @@ start_vm() {
         \
         -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
         -kernel $LINUX \
-        -initrd $TMP/initrd.gz \
-        -append "init=/bin/sh console=ttyS0 uts=$name" \
+        -append "init=$PROGNAME console=ttyS0 uts=$name root=/dev/root rootflags=trans=virtio,version=9p2000.u ro rootfstype=9p" \
         $netargs \
         "$@"
     echo "GDB server listening on.... $TMP/vm-$name-gdb.pipe"
@@ -250,8 +178,8 @@ cleanup() {
 }
 
 export STATE=${STATE:-0}
-case $$,$0,$STATE in
-    1,/init,0)
+case $$,$STATE in
+    1,0)
         # Initrd
         info "Setup hostname"
         hostname ${uts}
@@ -261,31 +189,28 @@ case $$,$0,$STATE in
         export HOME=/root
 
         info "Setup overlayfs"
-        mkdir /target
-        mkdir /target/ro
-        mkdir /target/rw
-        mkdir /target/overlay
-        # Version 9p2000.u allows to access /dev, /sys and mount new
-        # partitions over them. This is not the case for 9p2000.L.
-        mount -t 9p        rootshare /target/ro      -o trans=virtio,version=9p2000.u
-        mount -t tmpfs     tmpfs     /target/rw      -o rw
-        mount -t overlayfs overlayfs /target/overlay -o lowerdir=/target/ro,upperdir=/target/rw
-        mount -n -t proc  proc /target/overlay/proc
-        mount -n -t sysfs sys  /target/overlay/sys
+        mount -t tmpfs tmpfs /tmp -o rw
+        mkdir /tmp/target
+        mkdir /tmp/target/rw
+        mkdir /tmp/target/overlay
+        mount -t tmpfs     tmpfs     /tmp/target/rw      -o rw
+        mount -t overlayfs overlayfs /tmp/target/overlay -o lowerdir=/,upperdir=/tmp/target/rw
+        mount -n -t proc  proc /tmp/target/overlay/proc
+        mount -n -t sysfs sys  /tmp/target/overlay/sys
 
         info "Mount home directory on /root"
-        mount -t 9p homeshare /target/overlay/root -o trans=virtio,version=9p2000.L,access=0,rw
+        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=0,rw
 
         info "Mount lab directory on /lab"
-        mkdir /target/overlay/lab
-        mount -t 9p labshare /target/overlay/lab -o trans=virtio,version=9p2000.L,access=0,rw
+        mkdir /tmp/target/overlay/lab
+        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=0,rw
 
         info "Chroot"
         export STATE=1
-        cp "$PROGNAME" /target/overlay
-        exec chroot /target/overlay "$PROGNAME"
+        cp "$PROGNAME" /tmp/target/overlay
+        exec chroot /tmp/target/overlay "$PROGNAME"
         ;;
-    1,/init,1)
+    1,1)
         # In chroot
         info "Start udev"
         /etc/init.d/udev start
@@ -313,7 +238,7 @@ case $$,$0,$STATE in
         export STATE=2
         exec setsid /sbin/getty -L ttyS0 -a root -l "$PROGNAME" -i 115200
         ;;
-    *,/init,2)
+    1,2)
         export TERM=screen
 
         info "Lab specific setup"
@@ -331,7 +256,7 @@ case $$,$0,$STATE in
             fi || sleep 1
         done
         ;;
-    *,/init,3)
+    *,3)
         # Specific setup for this lab
         info "Enable forwarding"
         sysctl -w net.ipv6.conf.all.forwarding=1
@@ -361,7 +286,7 @@ case $$,$0,$STATE in
 
         start_quagga
         ;;
-    *,*,*)
+    *,*)
         [ $(id -u) != 0 ] || {
             error "You should not run this as root"
             exit 1
@@ -369,7 +294,6 @@ case $$,$0,$STATE in
         check_dependencies
         setup_screen
         setup_tmp
-        setup_initrd
 
         setup_switch   1
         setup_switch   2
