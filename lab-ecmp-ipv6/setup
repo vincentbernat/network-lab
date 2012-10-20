@@ -215,13 +215,13 @@ case $$,$STATE in
         ;;
     1,1)
         # In chroot
-        info "Start udev"
-        /etc/init.d/udev start
-
         info "Clean out /tmp and /run directories"
         for fs in /run /var/run /var/tmp /var/log /tmp; do
             mount -t tmpfs tmpfs $fs -o rw,nosuid,nodev
         done
+
+        info "Start udev"
+        /etc/init.d/udev start
 
         info "Setup interfaces"
         for intf in /sys/class/net/*; do
