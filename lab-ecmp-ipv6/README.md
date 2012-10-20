@@ -1,11 +1,12 @@
+You can find more complete explanations
+[on my blog](http://vincent.bernat.im/en/blog/2012-network-lab-kvm.html).
+
 # Kernel configuration
 
 This lab makes use of a special kernel. The configuration of this
 kernel is provided in `config-3.6+ecmp`. The kernel used it is
 `7fe0b14b725d6d09a1d9e1409bd465cb88b587f9` from net-next. You can use
 anything from Linux 3.5.
-
-
 
 The kernel configuration is pretty minimal and is targeted for this
 lab. It should have the necessary drivers to use virtio (but nothing
@@ -53,14 +54,11 @@ Quagga is expected to be compiled with the following options:
 
 To run the lab, run:
 
-    ROOT=/var/cache/pbuilder/bases/debian.sid.lab.amd64 ./setup
+    $ ./setup
 
-# Debugging
+If you want to run the lab inside an alternative root file system, use:
 
-`/dev/ttyS1` is configured to be used by KGDB. You should get a note
-when `kvm` starts to boot about the appropriate `/dev/pts/X` device
-that you need to use as a remote target. You can then enter in KGDB
-with `echo g > /proc/sysrq-trigger`. The appropriate device can also
-be found in monitor mode with `info chardev`.
+    $ export ROOT=/var/cache/pbuilder/bases/debian.sid.lab.amd64
+    $ sudo bind --mount -o ro /home ${ROOT}/home
+    $ ./setup
 
-`/dev/ttyS2` is free for another process.
