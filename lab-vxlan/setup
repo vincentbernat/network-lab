@@ -1,0 +1,303 @@
+#!/bin/sh
+
+LABNAME="vxlan"
+PROGNAME=$(readlink -f $0)
+PROGARGS="$@"
+
+ROOT=$(readlink -f ${ROOT:-/})
+LINUX=$(readlink -f ${LINUX:-./linux})
+
+WHICH=$(which which)
+DEPS="screen vde_switch start-stop-daemon kvm slirpvde"
+CHROOTDEPS="ip xorp_rtrmgr"
+
+info() {
+    echo "[1;34m[+] $@[0m"
+}
+
+error() {
+    echo "[1;31m[+] $@[0m"
+}
+
+# Setup a TMP directory
+setup_tmp() {
+    TMP=$(mktemp -d)
+    trap "rm -rf $TMP" EXIT
+    info "TMP is $TMP"
+}
+
+# Check for dependencies needed by this tool
+check_dependencies() {
+    for dep in $DEPS; do
+        $WHICH $dep 2> /dev/null > /dev/null || {
+            error "Missing dependency: $dep"
+            exit 1
+        }
+    done
+    [ -d $ROOT ] || {
+        error "Chroot $ROOT does not exists"
+    }
+    for dep in $CHROOTDEPS; do
+        PATH=$ROOT/usr/local/bin:$ROOT/usr/bin:$ROOT/bin:$ROOT/sbin:$ROOT/usr/local/sbin:$ROOT/usr/sbin \
+            $WHICH $dep 2> /dev/null > /dev/null || {
+            error "Missing dependency: $dep (in $ROOT)"
+            exit 1
+        }
+    done
+}
+
+# Run our lab in screen
+setup_screen() {
+    [ x"$TERM" = x"screen" ] || \
+        exec screen -ln -S $LABNAME -c /dev/null -t main "$PROGNAME" "$PROGARGS"
+    sleep 1
+    screen -X caption always "%{= wk}%-w%{= BW}%n %t%{-}%+w %-="
+    screen -X zombie cr
+}
+
+# Setup a VDE switch
+setup_switch() {
+    info "Setup switch $1"
+    start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$1.pid" \
+        --start --startas $($WHICH vde_switch) -- \
+        --sock "$TMP/switch-$1.sock"
+}
+
+# Start a VM
+start_vm() {
+    info "Start VM $1"
+    name="$1"
+    shift
+
+    netargs=""
+    saveifs="$IFS"
+    IFS=,
+    for net in $NET; do
+        mac=$(echo $name-$net | sha1sum | \
+            awk '{print "52:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
+        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+    done
+    IFS="$saveifs"
+
+    # /root is mounted with version 9p2000.u to allow access to /dev,
+    # /sys and to mount new partitions over them. This is not the case
+    # for 9p2000.L.
+    screen -t $name \
+        start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+        --start --startas $($WHICH kvm) -- \
+        -nodefconfig -no-user-config -nodefaults \
+        -m 192m \
+        -display none \
+        \
+        -chardev stdio,id=charserial0,signal=off \
+        -device isa-serial,chardev=charserial0,id=serial0 \
+        -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server,nowait \
+        -device isa-serial,chardev=charserial1,id=serial1 \
+        \
+        -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+        -mon chardev=con0,mode=readline,default \
+        \
+        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT},readonly \
+        -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=/dev/root \
+        -fsdev local,security_model=none,id=fsdev-home,path=${HOME} \
+        -device virtio-9p-pci,id=fs-home,fsdev=fsdev-home,mount_tag=homeshare \
+        -fsdev local,security_model=none,id=fsdev-lab,path=$(dirname "$PROGNAME") \
+        -device virtio-9p-pci,id=fs-lab,fsdev=fsdev-lab,mount_tag=labshare \
+        \
+        -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
+        -kernel $LINUX \
+        -append "init=$PROGNAME console=ttyS0 uts=$name root=/dev/root rootflags=trans=virtio,version=9p2000.u ro rootfstype=9p" \
+        $netargs \
+        "$@"
+    echo "GDB server listening on.... $TMP/vm-$name-gdb.pipe"
+    echo "monitor listening on....... $TMP/vm-$name-console.pipe"
+    echo "ttyS1 listening on......... $TMP/vm-$name-serial.pipe"
+    screen -X select 0
+}
+
+start_xorp() {
+    [ -e /lab/xorp.$uts.conf ] || return
+    info "Running xorp"
+    sed -i 's/^xorp:x:\([0-9]*\):.*/\xorp:x:\1:root/' /etc/group
+    xorp_rtrmgr -d -P /var/run/xorp.pid -l /var/log/xorp.log -b /lab/xorp.$uts.conf
+}
+
+display_help() {
+    cat <<EOF
+
+Some screen commands :
+ C-a d     - Detach the screen (resume with screen -r $LABNAME)
+ C-a "     - Select a window
+ C-a space - Next window
+ C-a C-a   - Previous window
+EOF
+    echo "Press enter to exit the lab"
+    read a
+}
+
+cleanup() {
+    for pid in $TMP/*.pid; do
+        kill -15 -$(cat $pid) 2> /dev/null || true
+    done
+    sleep 1
+    for pid in $TMP/*.pid; do
+        kill -9 -$(cat $pid) 2> /dev/null || true
+    done
+    rm -rf $TMP # sh does not seem to handle "trap EXIT"
+    screen -X quit
+}
+
+export STATE=${STATE:-0}
+case $$,$STATE in
+    1,0)
+        # Initrd
+        info "Setup hostname"
+        hostname ${uts}
+        info "Set path"
+        export TERM=screen
+        export PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/local/sbin:/usr/sbin
+        export HOME=/root
+
+        info "Setup overlayfs"
+        mount -t tmpfs tmpfs /tmp -o rw
+        mkdir /tmp/target
+        mkdir /tmp/target/rw
+        mkdir /tmp/target/overlay
+        mount -t tmpfs     tmpfs     /tmp/target/rw      -o rw
+        mount -t overlayfs overlayfs /tmp/target/overlay -o lowerdir=/,upperdir=/tmp/target/rw
+        mount -n -t proc  proc /tmp/target/overlay/proc
+        mount -n -t sysfs sys  /tmp/target/overlay/sys
+
+        info "Mount home directory on /root"
+        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=0,rw
+
+        info "Mount lab directory on /lab"
+        mkdir /tmp/target/overlay/lab
+        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=0,rw
+
+        info "Chroot"
+        export STATE=1
+        cp "$PROGNAME" /tmp/target/overlay
+        exec chroot /tmp/target/overlay "$PROGNAME"
+        ;;
+    1,1)
+        # In chroot
+        info "Clean out /tmp and /run directories"
+        for fs in /run /var/run /var/tmp /var/log /tmp; do
+            mount -t tmpfs tmpfs $fs -o rw,nosuid,nodev
+        done
+
+        info "Start udev"
+        /etc/init.d/udev start
+
+        info "Setup interfaces"
+        for intf in /sys/class/net/*; do
+            intf=$(basename $intf)
+            ip a l dev $intf 2> /dev/null >/dev/null || continue
+            case $intf in
+                lo|eth*|dummy*)
+                    ip link set up dev $intf
+                    ;;
+            esac
+        done
+
+        info "Start syslog"
+        rsyslogd
+
+        info "Setup terminal"
+        export STATE=2
+        exec setsid /sbin/getty -L ttyS0 -a root -l "$PROGNAME" -i 115200
+        ;;
+    1,2)
+        export TERM=screen
+
+        info "Lab specific setup"
+        export STATE=3
+        . "$PROGNAME"
+
+        info "Setup additional commands"
+        cat <<EOF > /sbin/reboot
+echo b > /proc/sysrq-trigger
+EOF
+
+        while true; do
+            info "Spawning a shell"
+            cd $HOME
+            export SSH_TTY=$(tty)
+            if [ -f $HOME/.zshrc ]; then
+                /bin/zsh -i
+            else
+                /bin/bash -i
+            fi || sleep 1
+        done
+        ;;
+    *,3)
+        # Specific setup for this lab
+        info "Enable forwarding"
+        sysctl -w net.ipv6.conf.all.forwarding=1
+
+        info "Setup IP addresses"
+        case $uts in
+            r1)
+                ip -6 addr add 2001:db8:1::1/64 dev eth0
+                ip link del dummy0 # Otherwise, iperf will bind to it
+                ;;
+            r2)
+                ip -6 addr add 2001:db8:2::2/64 dev eth0
+                ip link del dummy0 # Otherwise, iperf will bind to it
+                ;;
+            r3)
+                ip -6 addr add 2001:db8:3::3/64 dev eth0
+                ip link del dummy0 # Otherwise, iperf will bind to it
+                ;;
+            c1)
+                ip -6 addr add 2001:db8:1::11/64 dev eth0
+                ip -6 addr add 2001:db8:2::11/64 dev eth1
+                ip -6 addr add 2001:db8:4::11/64 dev eth2
+                ;;
+            c2)
+                ip -6 addr add 2001:db8:2::22/64 dev eth0
+                ip -6 addr add 2001:db8:3::22/64 dev eth1
+                ip -6 addr add 2001:db8:4::22/64 dev eth2
+                ;;
+            c3)
+                ip -6 addr add 2001:db8:1::33/64 dev eth0
+                ip -6 addr add 2001:db8:3::33/64 dev eth1
+                ip -6 addr add 2001:db8:4::33/64 dev eth2
+                ;;
+        esac
+
+        start_xorp
+        ;;
+    *,*)
+        [ $(id -u) != 0 ] || {
+            error "You should not run this as root"
+            exit 1
+        }
+        check_dependencies
+        setup_screen
+        setup_tmp
+
+        setup_switch   1
+        setup_switch   2
+        setup_switch   3
+        setup_switch   4
+        sleep 0.3
+        NET=1     start_vm r1
+        NET=2     start_vm r2
+        NET=3     start_vm r3
+        NET=1,2,4 start_vm c1
+        NET=2,3,4 start_vm c2
+        NET=1,3,4 start_vm c3
+
+        display_help
+        cleanup
+        ;;
+esac
+
+# Local Variables:
+# mode: sh
+# indent-tabs-mode: nil
+# sh-basic-offset: 4
+# End:
