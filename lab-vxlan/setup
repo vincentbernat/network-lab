@@ -87,7 +87,7 @@ start_vm() {
         start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
         --start --startas $($WHICH kvm) -- \
         -nodefconfig -no-user-config -nodefaults \
-        -m 192m \
+        -m 128m \
         -display none \
         \
         -chardev stdio,id=charserial0,signal=off \
@@ -218,8 +218,23 @@ case $$,$STATE in
 
         info "Setup additional commands"
         cat <<EOF > /sbin/reboot
+#!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
+        case $uts in
+            r*)
+                # Before using this command, the path should be set
+                # such that "ip" is recent enough (the one that comes
+                # with Linux 3.7 should be fine).
+                cat <<EOF > /usr/local/bin/vxlan
+#!/bin/sh
+ip link add vxlan0 type vxlan id 20 group 239.0.0.20 ttl 10 dev eth0
+ip link set up dev vxlan0
+ip addr add 192.168.99.${uts#r}/24 dev vxlan0
+EOF
+                chmod +x /usr/local/bin/vxlan
+                ;;
+        esac
 
         while true; do
             info "Spawning a shell"
@@ -235,36 +250,54 @@ EOF
     *,3)
         # Specific setup for this lab
         info "Enable forwarding"
-        sysctl -w net.ipv6.conf.all.forwarding=1
+        sysctl -w net.ipv4.ip_forward=1
 
         info "Setup IP addresses"
         case $uts in
             r1)
-                ip -6 addr add 2001:db8:1::1/64 dev eth0
-                ip link del dummy0 # Otherwise, iperf will bind to it
+                ip addr add 192.168.1.1/24 dev eth0
+                ip route add 239.0.0.0/8 dev eth0 # Needed by iperf
                 ;;
             r2)
-                ip -6 addr add 2001:db8:2::2/64 dev eth0
-                ip link del dummy0 # Otherwise, iperf will bind to it
+                ip addr add 192.168.2.2/24 dev eth0
+                ip route add 239.0.0.0/8 dev eth0 # Needed by iperf
                 ;;
             r3)
-                ip -6 addr add 2001:db8:3::3/64 dev eth0
-                ip link del dummy0 # Otherwise, iperf will bind to it
+                ip addr add 192.168.3.3/24 dev eth0
+                ip route add 239.0.0.0/8 dev eth0 # Needed by iperf
+                ;;
+            e1)
+                ip addr add 192.168.1.11/24 dev eth0
+                ip addr add 192.168.11.11/24 dev eth1
+                ip addr add 192.168.21.11/24 dev eth2
+                ;;
+            e2)
+                ip addr add 192.168.2.22/24 dev eth0
+                ip addr add 192.168.12.22/24 dev eth1
+                ip addr add 192.168.22.22/24 dev eth2
+                ;;
+            e3)
+                ip addr add 192.168.3.33/24 dev eth0
+                ip addr add 192.168.13.33/24 dev eth1
+                ip addr add 192.168.23.33/24 dev eth2
                 ;;
             c1)
-                ip -6 addr add 2001:db8:1::11/64 dev eth0
-                ip -6 addr add 2001:db8:2::11/64 dev eth1
-                ip -6 addr add 2001:db8:4::11/64 dev eth2
+                ip addr add 192.168.11.111/24 dev eth0
+                ip addr add 192.168.12.111/24 dev eth1
+                ip addr add 192.168.101.111/24 dev eth2
+                ip addr add 192.168.102.111/24 dev eth3
                 ;;
             c2)
-                ip -6 addr add 2001:db8:2::22/64 dev eth0
-                ip -6 addr add 2001:db8:3::22/64 dev eth1
-                ip -6 addr add 2001:db8:4::22/64 dev eth2
+                ip addr add 192.168.13.122/24 dev eth0
+                ip addr add 192.168.22.122/24 dev eth1
+                ip addr add 192.168.102.122/24 dev eth2
+                ip addr add 192.168.103.122/24 dev eth3
                 ;;
             c3)
-                ip -6 addr add 2001:db8:1::33/64 dev eth0
-                ip -6 addr add 2001:db8:3::33/64 dev eth1
-                ip -6 addr add 2001:db8:4::33/64 dev eth2
+                ip addr add 192.168.21.133/24 dev eth0
+                ip addr add 192.168.23.133/24 dev eth1
+                ip addr add 192.168.101.133/24 dev eth2
+                ip addr add 192.168.103.133/24 dev eth3
                 ;;
         esac
 
@@ -282,14 +315,25 @@ EOF
         setup_switch   1
         setup_switch   2
         setup_switch   3
-        setup_switch   4
+        setup_switch   11
+        setup_switch   12
+        setup_switch   13
+        setup_switch   21
+        setup_switch   22
+        setup_switch   23
+        setup_switch   101
+        setup_switch   102
+        setup_switch   103
         sleep 0.3
-        NET=1     start_vm r1
-        NET=2     start_vm r2
-        NET=3     start_vm r3
-        NET=1,2,4 start_vm c1
-        NET=2,3,4 start_vm c2
-        NET=1,3,4 start_vm c3
+        NET=1 start_vm r1
+        NET=2 start_vm r2
+        NET=3 start_vm r3
+        NET=1,11,21 start_vm e1
+        NET=2,12,22 start_vm e2
+        NET=3,13,23 start_vm e3
+        NET=11,12,101,102 start_vm c1
+        NET=13,22,102,103 start_vm c2
+        NET=21,23,101,103 start_vm c3
 
         display_help
         cleanup
