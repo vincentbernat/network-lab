@@ -178,8 +178,15 @@ def loopback_ips():
     """Retrieve loopback IP addresses"""
     logger.debug("Retrieve loopback IP addresses")
     addresses = []
-    ipre = re.compile(r"^(?P<index>\d+):\s+(?P<name>\S+)\s+inet6?\s+(?P<ip>[\da-f.:]+)/(?P<netmask>\d+)\s+.*")
-    cmd = subprocess.Popen("/sbin/ip -o address show dev lo".split(), shell=False, stdout=subprocess.PIPE)
+
+    if sys.platform.startswith("linux"):
+        # Use "ip" (ifconfig is not able to see all addresses)
+        ipre = re.compile(r"^(?P<index>\d+):\s+(?P<name>\S+)\s+inet6?\s+(?P<ip>[\da-f.:]+)/(?P<netmask>\d+)\s+.*")
+        cmd = subprocess.Popen("/sbin/ip -o address show dev lo".split(), shell=False, stdout=subprocess.PIPE)
+    else:
+        # Try with ifconfig
+        ipre = re.compile(r"^\s+inet6?\s+(?P<ip>[\da-f.:]+)\s+(?:netmask 0x(?P<netmask>[0-9a-f]+)|prefixlen (?P<mask>\d+)).*")
+        cmd = subprocess.Popen("/sbin/ifconfig lo0".split(), shell=False, stdout=subprocess.PIPE)
     for line in cmd.stdout:
         line = line.decode("ascii", "ignore").strip()
         mo = ipre.match(line)
