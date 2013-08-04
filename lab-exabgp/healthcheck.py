@@ -358,6 +358,7 @@ if __name__ == "__main__":
     setup_logging(options.debug, options.name)
     if options.pid:
         options.pid.write("{}\n".format(os.getpid()))
+        options.pid.close()
     try:
         # Setup IP to use
         options.ips = options.ips or loopback_ips()
