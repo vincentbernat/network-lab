@@ -29,9 +29,6 @@ like this::
      command = curl -sf http://127.0.0.1/healthcheck
 
 The left-part of each line is the corresponding long option.
-
-When receiving a SIGHUP, this program will reexecute itself. If a
-configuration file has been used, this is like reloading it.
 """
 
 from __future__ import print_function
