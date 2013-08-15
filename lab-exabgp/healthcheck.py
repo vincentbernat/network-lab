@@ -67,9 +67,13 @@ def parse():
     parser = argparse.ArgumentParser(description=sys.modules[__name__].__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument("--debug", "-d", action="store_true",
-                        default=False,
-                        help="enable debugging")
+    g = parser.add_mutually_exclusive_group()
+    g.add_argument("--debug", "-d", action="store_true",
+                   default=False,
+                   help="enable debugging")
+    g.add_argument("--silent", "-s", action="store_true",
+                   default=False,
+                   help="don't log to console")
     parser.add_argument("--name", "-n", metavar="NAME",
                         help="name for this healthchecker")
     parser.add_argument("--config", "-F", metavar="FILE", type=open,
@@ -157,7 +161,7 @@ def parse():
         options = parser.parse_args(args)
     return options
 
-def setup_logging(debug, name):
+def setup_logging(debug, silent, name):
     """Setup logger"""
     logger.setLevel(debug and logging.DEBUG or logging.INFO)
     # To syslog
@@ -168,7 +172,7 @@ def setup_logging(debug, name):
                                                 os.getpid())))
     logger.addHandler(sh)
     # To console
-    if sys.stderr.isatty():
+    if sys.stderr.isatty() and not silent:
         ch = logging.StreamHandler()
         ch.setFormatter(logging.Formatter(
             "%(levelname)s[%(name)s] %(message)s"))
@@ -359,7 +363,7 @@ def loop(options):
 
 if __name__ == "__main__":
     options = parse()
-    setup_logging(options.debug, options.name)
+    setup_logging(options.debug, options.silent, options.name)
     if options.pid:
         options.pid.write("{}\n".format(os.getpid()))
         options.pid.close()
