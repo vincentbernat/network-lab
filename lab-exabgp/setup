@@ -163,7 +163,8 @@ start_quagga() {
         for conf in /lab/$uts/quagga/$daemon.conf /lab/quagga/$daemon.conf; do
             [ -f $conf ] || continue
             info "Running Quagga $daemon"
-            /usr/lib/quagga/$daemon -d -u root -g root -f $conf
+            /usr/lib/quagga/$daemon -d -u root -g root -f $conf \
+                $(cat ${conf%/*}/$daemon.options 2> /dev/null || true)
             break
         done
     done
