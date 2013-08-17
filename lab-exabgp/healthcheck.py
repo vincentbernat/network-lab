@@ -274,8 +274,7 @@ def loop(options):
         for ip in options.ips:
             announce = "route {}/{} next-hop {} med {}".format(str(ip),
                                                                ip.max_prefixlen,
-                                                               options.next_hop or
-                                                               (ip.version == 4 and "127.0.0.1" or "::1"),
+                                                               options.next_hop or "self",
                                                                weight)
             logger.debug("exabgp: {}".format(announce))
             print("announce {}".format(announce))
