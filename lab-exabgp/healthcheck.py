@@ -122,18 +122,18 @@ def parse():
     g.add_argument("--start-ip", metavar='N',
                    type=int, default=0,
                    help="index of the first IP in the list of IP addresses")
-    g.add_argument("--up-weight", metavar='W',
-                   type=int, default=1000,
-                   help="first IP get the weight W when the service is up")
-    g.add_argument("--down-weight", metavar='W',
+    g.add_argument("--up-metric", metavar='M',
                    type=int, default=100,
-                   help="first IP get the weight W when the service is down")
-    g.add_argument("--disabled-weight", metavar='W',
+                   help="first IP get the metric M when the service is up")
+    g.add_argument("--down-metric", metavar='M',
+                   type=int, default=1000,
+                   help="first IP get the metric M when the service is down")
+    g.add_argument("--disabled-metric", metavar='M',
                    type=int, default=500,
-                   help="first IP get the weight W when the service is disabled")
-    g.add_argument("--decrease", metavar='W',
+                   help="first IP get the metric M when the service is disabled")
+    g.add_argument("--increase", metavar='M',
                    type=int, default=1,
-                   help="for each additional IP address decrease the weight by W")
+                   help="for each additional IP address increase metric value by W")
 
     g = parser.add_argument_group("reporting")
     g.add_argument("--execute", metavar='CMD',
@@ -270,15 +270,15 @@ def loop(options):
         if target not in (states.UP, states.DOWN, states.DISABLED):
             return
         logger.info("send announces for {} state to ExaBGP".format(target))
-        weight = vars(options).get("{}_weight".format(str(target).lower()))
+        metric = vars(options).get("{}_metric".format(str(target).lower()))
         for ip in options.ips:
             announce = "route {}/{} next-hop {} med {}".format(str(ip),
                                                                ip.max_prefixlen,
                                                                options.next_hop or "self",
-                                                               weight)
+                                                               metric)
             logger.debug("exabgp: {}".format(announce))
             print("announce {}".format(announce))
-            weight -= options.decrease
+            metric += options.increase
         sys.stdout.flush()
 
     def trigger(target):
