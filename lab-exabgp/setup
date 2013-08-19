@@ -14,6 +14,8 @@ WHICH=$(which which)
 DEPS="tmux vde_switch start-stop-daemon kvm slirpvde"
 CHROOTDEPS="ip bird6 nginx vtysh ${EXABGP}"
 
+renice 10 -p $$ 2>/dev/null
+
 info() {
     echo "[1;34m[+] $@[0m"
 }
