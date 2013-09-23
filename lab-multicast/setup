@@ -10,8 +10,31 @@
 sleep 1
 screen -X caption always "%{= wk}%-w%{= BW}%n %t%{-}%+w %-="
 
-# Import veth and tun functions
-. ~/.zsh/rc/network.rc
+_vbe_add_to_bridge() {
+    # Optionally, add it to given bridge
+    [[ -z $2 ]] || {
+	[[ -f /sys/class/net/$2/brforward ]] || {
+	    sudo brctl addbr $2
+	    sudo brctl stp $2 off
+	    sudo ip link set $2 up
+	}
+	[[ -f /sys/class/net/$2/brif/$1 ]] || {
+	    # We need to check if it is in another bridge
+	    bridge=$(echo /sys/class/net/*/brif/$1 2> /dev/null | \
+		sed 's+/sys/class/net/\([^/]*\)/.*+\1+') 2> /dev/null
+	    [[ -n $bridge ]] && \
+		sudo brctl delif $bridge $1
+	    sudo brctl addif $2 $1
+        }
+    }
+}
+
+tun() {
+    sudo tunctl -b -u $USERNAME -t $1 > /dev/null
+    sudo ip link set up dev $1
+    _vbe_add_to_bridge $1 $2
+}
+
 
 # Fix rights
 sudo chmod -R g+rw conf
