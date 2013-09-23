@@ -1,0 +1,112 @@
+#!/bin/zsh
+
+# Some warnings:
+#   - do not run in a screen
+#   - ensure that sudo works accross different terminals
+#   - system vtysh.conf should not use integrated-vtysh-config
+
+[[ $TERM == "screen" ]] || \
+  exec screen -ln -S lab -c /dev/null -t main "$0" "$@"
+sleep 1
+screen -X caption always "%{= wk}%-w%{= BW}%n %t%{-}%+w %-="
+
+# Import veth and tun functions
+. ~/.zsh/rc/network.rc
+
+# Fix rights
+sudo chmod -R g+rw conf
+sudo chgrp -R quagga conf
+
+#########################
+## Setup interfaces
+#########################
+
+echo -n "Setting R1/R2/R3/R4 interfaces... "
+tun tap-R1-eth0 br-BAI1
+tun tap-R1-eth1 br-BAI2
+tun tap-R1-eth2 br-N1
+tun tap-R1-eth3 br-ico1
+tun tap-R2-eth0 br-BAI1
+tun tap-R2-eth1 br-BAI2
+tun tap-R2-eth2 br-N1
+tun tap-R2-eth3 br-ico1
+tun tap-R3-eth0 br-BAI1
+tun tap-R3-eth1 br-BAI2
+tun tap-R3-eth2 br-N2
+tun tap-R3-eth3 br-ico2
+tun tap-R4-eth0 br-BAI1
+tun tap-R4-eth1 br-BAI2
+tun tap-R4-eth2 br-N2
+tun tap-R4-eth3 br-ico2
+echo "OK"
+echo -n "Setting S1/S2/S3/S4 interfaces... "
+tun tap-S1-eth0 br-N1
+tun tap-S2-eth0 br-N2
+tun tap-S3-eth0 br-N2
+tun tap-S4-eth0 br-N2
+echo "OK"
+
+#########################
+## Setup virtual machines
+#########################
+
+ROUTERS="R1 R2 R3 R4 S1 S2 S3 S4"
+UML="linux root=/dev/root con=null ssl0=fd:0,fd:1 rootfstype=hostfs init=$PWD/uml.sh"
+
+# Setup routers
+for R in ${=ROUTERS}; do
+  echo -n "Running $R... "
+  PHYS=""
+  for intf in /sys/class/net/tap-$R-*; do
+    intf=${intf##*/}
+    PHYS="$PHYS ${intf##*-}=tuntap,tap-${R}-${intf##*-},,"
+  done
+  [[ -n "$PHYS" ]] || {
+    echo "abort: no interfaces available"
+    continue
+  }
+  [ -f conf/${R}.sh ] || {
+    echo "abort: missing conf/${R}.sh"
+    continue
+  }
+  chmod +x conf/${R}.sh
+  sleep 0.2
+  screen -t $R sh -c \
+    "$UML uts=${R} ${PHYS} ; echo ; echo 'Terminated' ; sleep 1000"
+  screen -X select 0
+  echo "OK"
+done
+
+# Some help screen
+cat <<EOF
+
+Some screen commands :
+ C-a d     - Detach the screen (resume with screen -r lab)
+ C-a "     - Select a window
+ C-a space - Next window
+ C-a C-a   - Previous window
+EOF
+echo "Press enter to exit the lab"
+read
+
+killall linux
+
+# Clean up
+for R in ${=ROUTERS}; do
+  for intf in /sys/class/net/tap-$R-*; do
+    intf=${intf##*/}
+    tunctl -d $intf
+  done
+done
+
+for br in /sys/class/net/*/brif; do
+  [[ $(ls $br | wc -l) -eq 0 ]] && {
+    br=$(basename $(dirname $br))
+    sudo ip link set down dev $br
+    sudo brctl delbr $br
+  }
+done
+
+sudo chown -R ${UID} conf
+
+screen -X quit
