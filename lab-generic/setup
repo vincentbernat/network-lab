@@ -135,7 +135,7 @@ start_vm() {
         exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
         --start --startas $($WHICH kvm) -- \
         -nodefconfig -no-user-config -nodefaults \
-        -m 256m \
+        -m 128m \
         -display none \
         \
         -chardev stdio,id=charserial0,signal=off \
