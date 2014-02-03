@@ -5,7 +5,8 @@ PROGNAME=$(readlink -f $0)
 PROGARGS="$@"
 
 ROOT=$(readlink -f ${ROOT:-/})
-LINUX=$(readlink -f ${LINUX:-/boot/vmlinuz-$(uname -r)})
+VERSION=${VERSION:-$(uname -r)}
+LINUX=$(readlink -f ${LINUX:-/boot/vmlinuz-${VERSION}})
 
 WHICH=$(which which)
 DEPS="tmux vde_switch start-stop-daemon kvm slirpvde busybox"
@@ -91,7 +92,7 @@ setup_initrd() {
 
     # Add some modules
     for mod in 9pnet_virtio 9p aufs virtio_pci; do
-        modprobe --all --set-version="$(uname -r)" \
+        modprobe --all --set-version="${VERSION}" \
             --ignore-install --quiet --show-depends $mod |
         while read prefix kmod options ; do
             [ "${prefix}" = "insmod" ] || continue
