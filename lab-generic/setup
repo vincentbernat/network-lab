@@ -63,11 +63,16 @@ setup_screen() {
 }
 
 # Setup a VDE switch
+# With the management socket, you can do something like that:
+#  socat - UNIX-CONNECT:switch-management-1.sock
+#  vde$ plugin/add /usr/lib/vde2/plugins/pdump.so
+#  vde$ pdump/filename /tmp/test-switch1.pcap
+#  vde$ pdump/active 1
 setup_switch() {
     info "Setup switch $1"
     start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$1.pid" \
         --start --startas $($WHICH vde_switch) -- \
-        --sock "$TMP/switch-$1.sock"
+        --sock "$TMP/switch-$1.sock" --mgmt "$TMP/switch-management-$1.sock"
 }
 
 # Build initrd
