@@ -10,7 +10,7 @@ LINUX=$(readlink -f ${LINUX:-/boot/vmlinuz-${VERSION}})
 
 WHICH=$(which which)
 DEPS="tmux vde_switch start-stop-daemon kvm slirpvde busybox"
-CHROOTDEPS="ip"
+CHROOTDEPS="ip nginx"
 
 renice 10 -p $$ 2>/dev/null
 
@@ -206,6 +206,14 @@ cleanup() {
     tmux kill-session -t $LABNAME
 }
 
+start_nginx() {
+    info "Running nginx"
+    mkdir /var/log/nginx
+    mkdir /usr/share/nginx/www
+    echo $uts > /usr/share/nginx/www/index.html
+    nginx -c /lab/nginx.conf
+}
+
 export STATE=${STATE:-0}
 case $$,$STATE in
     1,0)
@@ -305,6 +313,7 @@ EOF
                 ip addr add 10.234.78.66/27 dev eth0
                 ;;
         esac
+        start_nginx
         ;;
     *,*)
         [ $(id -u) != 0 ] || {
