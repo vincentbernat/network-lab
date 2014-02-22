@@ -133,6 +133,7 @@ try:
     print "[+] Try to open a connection with the same tuple"
     while True:
         s = socket.socket(family, socktype, proto)
+        before_connect = time.time()
         s.connect(sockaddr)
         newlocalport = s.getsockname()[1]
         if newlocalport != localport:
@@ -142,7 +143,9 @@ try:
             s.close()
             continue
         print
-        print "[+] Connected with the same tuple after %.2f seconds!" % (time.time() - start)
+        print "[+] Connected in %.2f milliseconds with the same tuple after %.2f seconds!" % \
+            ((time.time() - before_connect)*1000,
+             time.time() - start)
         break
 
     time.sleep(10)
