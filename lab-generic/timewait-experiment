@@ -127,7 +127,9 @@ try:
 
     print "[+] Close the connection to get a TIME-WAIT"
     s.shutdown(socket.SHUT_RDWR)
+    s.close()
 
+    start = time.time()
     print "[+] Try to open a connection with the same tuple"
     while True:
         s = socket.socket(family, socktype, proto)
@@ -135,10 +137,12 @@ try:
         newlocalport = s.getsockname()[1]
         if newlocalport != localport:
             print "\r[.] %6d != %-6d" % (localport, newlocalport),
+            if newlocalport - localport < 3 and newlocalport - localport > -3:
+                print
             s.close()
             continue
         print
-        print "[+] Connected with the same tuple!"
+        print "[+] Connected with the same tuple after %.2f seconds!" % (time.time() - start)
         break
 
     time.sleep(10)
