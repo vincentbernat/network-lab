@@ -1,0 +1,152 @@
+#!/usr/bin/env python
+
+"""Experiment with the TIME-WAIT state. We try to trigger a bug in the
+way `tw_reuse` and `tw_recycle` may be used. Mostly, we try to trigger
+a state where a socket in TIME-WAIT can be recycled/reused but the
+other end is still in LAST-ACK state.
+
+We need a remote server. It is not important what the remote server is
+as long as we are closing the connection first to get a TIME-WAIT
+state.
+
+A convenient way to get a remote server is to use a web server.
+
+We only expect to get SYN, SYN/ACK, ACK, FIN/ACK, FIN/ACK, ACK
+sequence. If the sequence is different, this won't work as expected.
+
+"""
+
+import os
+import sys
+import argparse
+import socket
+import subprocess
+import time
+import nfqueue
+import multiprocessing
+import signal
+import dpkt
+
+parser = argparse.ArgumentParser(description=sys.modules[__name__].__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+parser.add_argument("target", metavar="IP:PORT",
+                    help="remote server to connect to")
+parser.add_argument("--pcap", metavar="FILE", default="out.pcap",
+                    help="output to PCAP file FILE")
+parser.add_argument("--queue", metavar="NUM", default=10, type=int,
+                    help="queue to use for netfilter")
+parser.add_argument("--drop-last-ack", action="store_true",
+                    help="drop last ACK")
+parser.add_argument("--drop-duplicate-fin", action="store_true",
+                    help="drop duplicate FIN/ACK")
+options = parser.parse_args()
+host, port = options.target.rsplit(":", 1)
+
+def iptables(options, operation, localport, host, port):
+    subprocess.call(["iptables", "--%s" % operation, "OUTPUT",
+                     "-p", "tcp",
+                     "--sport", str(localport),
+                     "--dport", str(port),
+                     "-d", str(host),
+                     "-j", "NFQUEUE", "--queue-num", str(options.queue)])
+    subprocess.call(["iptables", "--%s" % operation, "INPUT",
+                     "-p", "tcp",
+                     "--dport", str(localport),
+                     "--sport", str(port),
+                     "-s", str(host),
+                     "-j", "NFQUEUE", "--queue-num", str(options.queue)])
+
+class NfQueue(object):
+    def __init__(self, options):
+        self.options = options
+        self.pcap = dpkt.pcap.Writer(open(options.pcap, "wb"))
+        self.gotfin = False
+        self.lastack = None
+        self.lastfinack = None
+        def terminate(num, frame):
+            self.pcap.close()
+            sys.exit()
+        signal.signal(signal.SIGTERM, terminate)
+
+    def packet(self, i, payload):
+        data = payload.get_data()
+        pkt = dpkt.ip.IP(data)
+        ether = dpkt.ethernet.Ethernet()
+        ether.data = pkt
+        assert pkt.p == dpkt.ip.IP_PROTO_TCP, "TCP packet received"
+        if not self.gotfin and pkt.tcp.flags == dpkt.tcp.TH_FIN | dpkt.tcp.TH_ACK:
+            print "\r[.] FIN/ACK"
+            self.gotfin = True
+        elif self.gotfin and pkt.tcp.flags == dpkt.tcp.TH_FIN | dpkt.tcp.TH_ACK:
+            if self.lastfinack is not None and self.lastfinack == pkt.tcp.ack:
+                print "\r[.] FIN/ACK (drop!)"
+                payload.set_verdict(nfqueue.NF_DROP)
+                return 1
+                print "\r[.] FIN/ACK (keep!)"
+            self.lastfinack = pkt.tcp.ack
+        elif self.gotfin and pkt.tcp.flags == dpkt.tcp.TH_ACK and \
+             (self.lastack is None or self.lastack == pkt.tcp.ack):
+            self.lastack = pkt.tcp.ack
+            if self.options.drop_last_ack:
+                print "\r[!] LAST ACK (drop!)"
+                payload.set_verdict(nfqueue.NF_DROP)
+                return 1
+            print "\r[!] LAST ACK (keep!)"
+        self.pcap.writepkt(ether)
+        payload.set_verdict(nfqueue.NF_ACCEPT)
+        return 1
+
+    def __call__(self, localport, host, port):
+        q = nfqueue.queue()
+        q.set_callback(self.packet)
+        q.fast_open(self.options.queue, socket.AF_INET)
+        q.try_run()
+
+print "[+] Solve %s:%s" % (host, port)
+addrs = socket.getaddrinfo(host, port, 0, 0, socket.SOL_TCP)
+family, socktype, proto, canonname, sockaddr = addrs[0]
+
+tcpdump = None
+pnf = None
+localport = None
+try:
+    s = socket.socket(family, socktype, proto)
+    s.bind(("", 0))     #  Get a local port
+    localport = s.getsockname()[1]
+
+    print "[+] Setting up iptables"
+    iptables(options, 'insert', localport, host, port)
+    print "[+] Setting up nfqueue"
+    pnf = multiprocessing.Process(target=NfQueue(options), name="queue",
+                                  args=(localport, host, port))
+    pnf.start()
+
+    print "[+] Connecting to %s (local port is %d)" % (sockaddr, localport)
+    s.connect(sockaddr)
+    time.sleep(0.1)
+
+    print "[+] Close the connection to get a TIME-WAIT"
+    s.shutdown(socket.SHUT_RDWR)
+
+    print "[+] Try to open a connection with the same tuple"
+    while True:
+        s = socket.socket(family, socktype, proto)
+        s.connect(sockaddr)
+        newlocalport = s.getsockname()[1]
+        if newlocalport != localport:
+            print "\r[.] %6d != %-6d" % (localport, newlocalport),
+            s.close()
+            continue
+        print
+        print "[+] Connected with the same tuple!"
+        break
+
+    time.sleep(10)
+except KeyboardInterrupt:
+    pass
+finally:
+    print "[+] Cleaning up"
+    if pnf:
+        pnf.terminate()
+    if localport:
+        iptables(options, "delete", localport, host, port)
