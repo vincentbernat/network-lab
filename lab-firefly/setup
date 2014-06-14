@@ -85,7 +85,7 @@ check_dependencies() {
         qemu-system-x86_64 \
         tmux vde_switch \
         start-stop-daemon \
-        bird6 \
+        bird \
         dnsmasq; do
         which $exec 2> /dev/null > /dev/null || log_error_msg "$exec is not installed"
     done
@@ -344,10 +344,10 @@ cleanup() {
 }
 
 start_bird() {
-    log_begin_msg "Running bird6"
+    log_begin_msg "Running bird"
     [ -d /run/bird ] || mkdir -p /run/bird
-    bird6 -c /lab/bird6.$uts.conf
-    log_ok_msg "bird6 started"
+    bird -c /lab/bird.$uts.conf
+    log_ok_msg "bird started"
 }
 
 start_dnsmasq() {
@@ -499,13 +499,13 @@ EOF
                 start_dnsmasq
                 ;;
             R1)
-                ip addr add 2001:db8:1::1/64 dev eth0
-                ip addr add 2001:db8:a1::1/64 dev dummy0
+                ip addr add 192.0.2.1/24 dev eth0
+                ip addr add 198.51.100.101/32 dev dummy0
                 start_bird
                 ;;
             R2)
-                ip addr add 2001:db8:1::2/64 dev eth0
-                ip addr add 2001:db8:a2::2/64 dev dummy0
+                ip addr add 192.0.2.2/24 dev eth0
+                ip addr add 198.51.100.102/32 dev dummy0
                 start_bird
                 ;;
         esac
@@ -529,15 +529,13 @@ EOF
         setup_initrd
 
         setup_switch 1
-        setup_switch 2
-        setup_switch 3
         setup_switch 9          # DHCP
         sleep 0.5
 
         NET=1     start_vm  R1
         NET=1     start_vm  R2
-        NET=9,1,2 start_srx SRX1
-        NET=9,1,3 start_srx SRX2
+        NET=9,1   start_srx SRX1
+        NET=9,1   start_srx SRX2
         NET=9     start_vm  dhcp
 
         display_help
