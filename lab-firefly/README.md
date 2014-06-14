@@ -1,21 +1,14 @@
 Lab with Juniper Firefly Perimeter
 ==================================
 
-Firefly Perimeter is a virtual SRX appliance. You can download it from
-[Juniper website][]. Choose the KVM image and extract it by using the
-`-x` flag. This should get you three files. One of them is the
-image. Put i in the `images/` directory and name it `junos-vsrx.img`.
+Firefly Perimeter is a virtual SRX appliance.
 
-[Juniper website]: http://www.juniper.net/us/en/products-services/security/firefly-perimeter/#evaluation
-
-When booting, the Juniper are starting from the factory default
-configuration and we exploit the auto installation feature to download
-the correct configuration through TFTP. To troubleshoot, look at what
-is happening in `/var/log/autod` on each Juniper.
+Lab
+---
 
 This lab is quite simple. Two Juniper SRX and two Linux running BIRD
-are plugged on the same virtual switches and we establish OSPF
-adjacencies between them (with BFD for faster convergence times).
+are plugged on the same virtual switch and establish OSPF adjacencies
+between them (with BFD for faster convergence times).
 
     root@SRX2> show ospf neighbor    
     Address          Interface              State     ID               Pri  Dead
@@ -45,3 +38,24 @@ adjacencies between them (with BFD for faster convergence times).
     
     3 sessions, 3 clients
     Cumulative transmit rate 15.0 pps, cumulative receive rate 15.0 pps
+
+The transmit interval for BFD is 200 ms but it can be reduced on real hardware.
+
+Download
+--------
+
+You can download it from [Juniper website][]. Choose the KVM image and
+extract it by using the `-x` flag. This should get you three
+files. One of them is the image. Put i in the `images/` directory and
+name it `junos-vsrx.img`.
+
+[Juniper website]: http://www.juniper.net/us/en/products-services/security/firefly-perimeter/#evaluation
+
+Autoconfiguration
+-----------------
+
+When booting, the Juniper are starting from the factory default
+configuration and we exploit the auto installation feature to download
+the correct configuration through TFTP. To troubleshoot, look at what
+is happening in `/var/log/autod` on each Juniper.
+
