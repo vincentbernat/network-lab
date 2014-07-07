@@ -348,7 +348,7 @@ start_nginx() {
     log_begin_msg "Running nginx"
     mkdir /var/log/nginx
     mkdir /usr/share/nginx/www
-    ln -s /lab /usr/share/nginx/www/$LABNAME
+    ln -s /lab /usr/share/nginx/www/lab
     echo $uts > /usr/share/nginx/www/index.html
     nginx -c /lab/nginx.conf
     log_ok_msg "nginx started"
@@ -507,6 +507,7 @@ EOF
             dhcp)
                 ip addr add 10.16.32.1/24 dev eth0
                 start_dnsmasq
+                start_nginx
                 ;;
             T1)
                 ip addr add 192.0.2.1/29 dev eth0
