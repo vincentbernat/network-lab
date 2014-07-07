@@ -473,7 +473,6 @@ case $$,$STATE in
         ;;
 
     1,GETTY)
-
         export STATE=SETUP
         . /lab/setup
 
@@ -510,14 +509,14 @@ EOF
                 start_dnsmasq
                 ;;
             T1)
-                ip addr add 192.0.2.1/30 dev eth0
+                ip addr add 192.0.2.1/29 dev eth0
                 ip addr add 8.8.8.8/32 dev dummy0
                 ip addr add 8.8.4.4/32 dev dummy0
                 start_bird
                 start_nginx
                 ;;
             T2)
-                ip addr add 198.51.100.1/30 dev eth0
+                ip addr add 198.51.100.1/29 dev eth0
                 ip addr add 8.8.8.8/32 dev dummy0
                 ip addr add 8.8.4.4/32 dev dummy0
                 start_bird
@@ -552,6 +551,7 @@ EOF
         setup_switch 5
         setup_switch 6
         setup_switch 7
+        setup_switch 8
         setup_switch 9          # DHCP
         sleep 0.5
 
@@ -562,6 +562,8 @@ EOF
         NET=9,2,4,6   start_srx E2
         NET=9,3,6,7   start_srx C1
         NET=9,4,5,7   start_srx C2
+        NET=9,1,8     start_srx EC1
+        NET=9,2,8     start_srx EC2
 
         display_help
         ;;
