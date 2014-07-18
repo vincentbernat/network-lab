@@ -86,7 +86,8 @@ check_dependencies() {
         tmux vde_switch \
         start-stop-daemon \
         bird \
-        dnsmasq; do
+        nginx \
+        guestfish ; do
         which $exec 2> /dev/null > /dev/null || log_error_msg "$exec is not installed"
     done
     log_ok_msg "All dependencies are met"
@@ -187,7 +188,6 @@ random_mac () {
     name=$1
     mac=$(echo $name-$net | sha1sum | \
         awk '{print "52:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
-    echo $mac $name >> $TMP/dnsmasq.leases
     echo $mac
 }
 
@@ -269,6 +269,10 @@ start_veos () {
 
     log_info_msg "Start vEOS $name"
     qemu-img create -q -f qcow2 -b $PWD/../images/vEOS.img $TMP/veos-$name.img
+    guestfish -a $TMP/veos-$name.img -m /dev/sda1 <<EOF
+copy-in $name.conf /
+cp /$name.conf /startup-config
+EOF
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
         echo
@@ -346,30 +350,6 @@ start_bird() {
     bird -c /lab/bird.$uts.conf
     log_ok_msg "bird started"
 }
-
-start_dnsmasq() {
-    log_begin_msg "Running dnsmasq"
-    mkdir -p /var/run/dnsmasq/tftp
-    j=10
-    dnsmasq \
-        --conf-file=/dev/null \
-        --no-hosts \
-        --user=root \
-        --dhcp-boot=network.conf,10.16.32.1 \
-        --dhcp-range 10.16.32.10,10.16.32.100,1h \
-        $(cat /tmp/lab/dnsmasq.leases | while read mac name; do
-            printf -- "--dhcp-host=$mac,10.16.32.$j,$name "
-            mkdir /var/run/dnsmasq/tftp/10.16.32.$j
-            ln -s /lab/$name.conf /var/run/dnsmasq/tftp/10.16.32.$j/network.conf
-            j=$(($j + 1))
-          done) \
-        --no-ping \
-        --enable-tftp \
-        --tftp-root /var/run/dnsmasq/tftp \
-        --tftp-unique-root
-    log_ok_msg "dnsmasq started"
-}
-
 
 # FSM
 export STATE=${STATE:-BEGIN}
@@ -495,10 +475,6 @@ EOF
     *,SETUP)
         log_info_msg "Setup IP addresses"
         case $uts in
-            dhcp)
-                ip addr add 10.16.32.1/24 dev eth0
-                start_dnsmasq
-                ;;
             R1)
                 ip addr add 192.0.2.1/24 dev eth0
                 ip addr add 198.51.100.101/32 dev dummy0
@@ -532,14 +508,13 @@ EOF
         setup_switch 1          # Internet
         setup_switch 2          # Interconnect
         setup_switch 3          # Clients
-        setup_switch 9          # DHCP
+        setup_switch 9          # Management
         sleep 0.5
 
         #NET=1     start_vm  R1
         #NET=1     start_vm  R2
         NET=9,1,2,3  start_veos vEOS1
         #NET=9,1,2,3  start_veos vEOS2
-        NET=9     start_vm  dhcp
 
         display_help
         ;;
