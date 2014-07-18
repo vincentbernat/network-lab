@@ -1,0 +1,552 @@
+#!/bin/sh
+
+LABNAME="arista-veos"
+
+set -e
+
+# Can't use tput, not available in busybox. Can't use escape, not available either...
+NORMAL="[0m"
+RED="[31;1m"
+GREEN="[32;1m"
+YELLOW="[33;1m"
+BLUE="[34;1m"
+BEGINNING="[K"
+
+log_begin_msg () {
+    printf "${BEGINNING}"
+    printf "${BLUE}[…]${NORMAL} $1${BLUE}...${NORMAL} "
+}
+log_ok_msg () {
+    printf "${BEGINNING}"
+    echo "$BOLD$GREEN[✔]$NORMAL $1."
+}
+log_warn_msg () {
+    printf "${BEGINNING}"
+    echo "$BOLD$YELLOW[⚡]$NORMAL $1!"
+}
+log_error_msg () {
+    printf "${BEGINNING}"
+    echo "$BOLD$RED[✘]$NORMAL $1!"
+    exit 1
+}
+log_info_msg () {
+    printf "${BEGINNING}"
+    echo "$BOLD$BLUE[∗]$NORMAL $1."
+}
+
+check_kernel() {
+    log_begin_msg "Checking kernel version"
+    [ -f "$KERNEL" ] || log_error_msg "Unable to find kernel $KERNEL"
+    VERSION=$(file "$KERNEL" | sed -n 's/.*: Linux kernel x86 boot executable bzImage, version \([^ ]*\) .*/\1/p')
+    [ -n "$VERSION" ] || log_error_msg "Unable to determine version for $KERNEL"
+    log_ok_msg "Found kernel $VERSION"
+
+    log_begin_msg "Check kernel configuration"
+    CONFIG="$(dirname $KERNEL)/config-$VERSION"
+    [ -f "$CONFIG" ] || log_error_msg "Unable to find configuration file $CONFIG"
+    cat <<EOF | while read el; do
+9P_FS=[ym]
+NET_9P=[ym]
+NET_9P_VIRTIO=[ym]
+VIRTIO=[ym]
+VIRTIO_PCI=[ym]
+SERIAL_8250=y
+SERIAL_8250_CONSOLE=y
+TMPFS=y
+BLK_DEV_INITRD=y
+EOF
+        grep -qx "CONFIG_$el" $CONFIG || log_error_msg "Kernel not configured with CONFIG_$el"
+    done
+    if grep -qc "CONFIG_AUFS_FS=[ym]" $CONFIG; then
+        log_ok_msg "Kernel configuration checked. AUFS present"
+        aufs=yes
+    else
+        log_warn_msg "Kernel configuration checked. AUFS *not* present"
+        aufs=no
+    fi
+
+    log_begin_msg "Search for modules"
+    for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" "/lib/modules/$VERSION"; do
+        [ -d $dir ] || continue
+        MODULES="$dir"
+        break
+    done
+    if [ -z "$MODULES" ]; then
+        log_warn_msg "Unable to find module directory"
+    else
+        log_ok_msg "Modules are in $MODULES"
+    fi
+}
+
+check_dependencies() {
+    log_begin_msg "Checking if dependencies are present"
+    for exec in \
+        busybox \
+        qemu-system-x86_64 \
+        tmux vde_switch \
+        start-stop-daemon \
+        bird \
+        dnsmasq; do
+        which $exec 2> /dev/null > /dev/null || log_error_msg "$exec is not installed"
+    done
+    log_ok_msg "All dependencies are met"
+}
+
+setup_tmp () {
+    TMP=$(mktemp -d)
+    trap "ret=$? ; cleanup" EXIT
+    log_info_msg "TMP is $TMP"
+}
+
+# Run our lab in tmux
+setup_screen() {
+    if [ -z "$TMUX" ] || [ x"$(tmux list-panes -F '#{session_name}')" != x"$LABNAME" ]; then
+        unset TMUX
+        exec tmux new-session -s "$LABNAME" -n main \
+            "env ROOT=$ROOT VERSION=$VERSION LINUX=$LINUX $PROGNAME $PROGARGS || read"
+    fi
+    sleep 1
+    tmux set-option -q prefix C-b
+    tmux set-option -q set-remain-on-exit on
+    tmux bind-key r respawn-window
+}
+
+# Setup a VDE switch
+setup_switch() {
+    log_begin_msg "Setup switch $1"
+    cat <<EOF > "$TMP/switch-$1.conf"
+plugin/add /usr/lib/vde2/plugins/pdump.so
+pdump/filename $TMP/switch-$1.pcap
+pdump/buffered 0
+pdump/active 1
+EOF
+    start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$1.pid" \
+        --start --startas $(which vde_switch) -- \
+        --sock "$TMP/switch-$1.sock" --mgmt "$TMP/switch-management-$1.sock" \
+        --rcfile "$TMP/switch-$1.conf"
+    # Management socket can be used with:
+    #    socat - UNIX-CONNECT:"$TMP/switch-management-$1.sock"
+    log_ok_msg "Switch $1 started"
+}
+
+setup_initrd () {
+    log_begin_msg "Build initrd"
+    DESTDIR=$TMP/initrd
+    mkdir -p $DESTDIR
+
+    # Copy busybox
+    install -D $(which busybox) ${DESTDIR}/bin/busybox
+    for applet in $(${DESTDIR}/bin/busybox --list); do
+        ln -s busybox ${DESTDIR}/bin/${applet}
+    done
+
+    # Add libs
+    for x in $(ldd $(which busybox) 2> /dev/null | sed -e '
+               /\//!d;
+               /linux-gate/d;
+               /=>/ {s/.*=>[[:blank:]]*\([^[:blank:]]*\).*/\1/};
+               s/[[:blank:]]*\([^[:blank:]]*\) (.*)/\1/' 2>/dev/null); do
+        install -D "$x" "${DESTDIR}/$x"
+    done
+
+    # Add modules
+    [ -z "$MODULES" ] || {
+        modules="9pnet_virtio 9p virtio_pci"
+        [ x"$aufs" != x"yes" ] || modules="$modules aufs"
+        for mod in $modules; do
+            modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
+                --ignore-install --quiet --show-depends $mod > /dev/null || {
+                log_warn_msg "Unable to find module $mod"
+                log_begin_msg "Continue building initrd"
+            }
+            modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
+                --ignore-install --quiet --show-depends $mod |
+            while read prefix kmod options ; do
+                [ "${prefix}" = "insmod" ] || continue
+                grep -qFw "$kmod" ${DESTDIR}/modules 2> /dev/null || {
+                    install -D "$kmod" "${DESTDIR}/${kmod}"
+                    echo $prefix $kmod $options >> ${DESTDIR}/modules
+                }
+            done
+        done
+    }
+
+    # Copy this program
+    cp $PROGNAME ${DESTDIR}/init
+
+    # Create /tmp
+    mkdir ${DESTDIR}/tmp
+
+    # Build initrd
+    (cd "${DESTDIR}" && find . | cpio --quiet -R 0:0 -o -H newc | gzip > $TMP/initrd.gz)
+
+    log_ok_msg "initrd built in $TMP/initrd.gz"
+}
+
+random_mac () {
+    name=$1
+    mac=$(echo $name-$net | sha1sum | \
+        awk '{print "52:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
+    echo $mac $name >> $TMP/dnsmasq.leases
+    echo $mac
+}
+
+start_vm () {
+    name=$1
+    shift
+
+    netargs=""
+    saveifs="$IFS"
+    IFS=,
+    for net in $NET; do
+        mac=$(random_mac $name)
+        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+    done
+    IFS="$saveifs"
+
+    log_info_msg "Start VM $name"
+    # /root is mounted with version 9p2000.u to allow access to /dev,
+    # /sys and to mount new partitions over them. This is not the case
+    # for 9p2000.L.
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+        echo
+        exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+        --start --startas $(which qemu-system-x86_64) -- \
+        -enable-kvm \
+        -nodefconfig -no-user-config -nodefaults \
+        -display none \
+        \
+        -chardev stdio,id=charserial0,signal=off \
+        -device isa-serial,chardev=charserial0,id=serial0 \
+        -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server,nowait \
+        -device isa-serial,chardev=charserial1,id=serial1 \
+        \
+        -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+        -mon chardev=con0,mode=readline,default \
+        \
+        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT},readonly \
+        -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=rootshare \
+        -fsdev local,security_model=none,id=fsdev-home,path=${HOME} \
+        -device virtio-9p-pci,id=fs-home,fsdev=fsdev-home,mount_tag=homeshare \
+        -fsdev local,security_model=none,id=fsdev-lab,path=${PWD} \
+        -device virtio-9p-pci,id=fs-lab,fsdev=fsdev-lab,mount_tag=labshare \
+        -fsdev local,security_model=none,id=fsdev-tmp,path=${TMP} \
+        -device virtio-9p-pci,id=fs-tmp,fsdev=fsdev-tmp,mount_tag=tmpshare \
+        -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/.. \
+        -device virtio-9p-pci,id=fs-modules,fsdev=fsdev-modules,mount_tag=moduleshare \
+        \
+        -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
+        -kernel $KERNEL \
+        -no-reboot \
+        -initrd $TMP/initrd.gz \
+        -append "uts=$name console=ttyS0 panic=1 TERM=$TERM aufs=$aufs quiet" \
+        $netargs \
+        $@
+EOF
+    log_info_msg "GDB server listening on $TMP/vm-$name-gdb.pipe"
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
+    chmod +x "$TMP/vm-$name.exec"
+    tmux new-window -n $name "$TMP/vm-$name.exec"
+    tmux select-window -t 1
+}
+
+start_veos () {
+    name=$1
+    shift
+
+    netargs=""
+    saveifs="$IFS"
+    IFS=,
+    for net in $NET; do
+        mac=$(random_mac $name)
+        netargs="$netargs -net nic,model=e1000,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+    done
+    IFS="$saveifs"
+
+    log_info_msg "Start vEOS $name"
+    qemu-img create -q -f qcow2 -b $PWD/../images/vEOS.img $TMP/veos-$name.img
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+        echo
+        start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+        --start --startas $(which qemu-system-x86_64) -- \
+        -enable-kvm \
+        -nodefconfig -no-user-config -nodefaults \
+        -display none \
+        \
+        -machine pc \
+        -m 1024M \
+        \
+        -usb \
+        \
+        -boot d \
+        -drive file=$PWD/../images/Aboot-veos.iso,if=ide,media=cdrom,cache=none \
+        -drive file=$TMP/veos-$name.img,if=ide,media=disk,cache=none \
+        \
+        -chardev stdio,id=charserial0,signal=off \
+        -device isa-serial,chardev=charserial0,id=serial0 \
+        -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server,nowait \
+        -device isa-serial,chardev=charserial1,id=serial1 \
+        -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+        -mon chardev=con0,mode=readline,default \
+        $netargs \
+        \
+        $@
+        sleep 1
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
+    chmod +x "$TMP/vm-$name.exec"
+    tmux new-window -n $name "$TMP/vm-$name.exec"
+    tmux select-window -t 1
+}
+
+display_help() {
+    cat <<EOF
+
+Some tmux commands (assuming default keybindings) :
+ C-b d     - Detach the lab (resume with "tmux attach -t $LABNAME")
+ C-b w     - Select a window
+ C-b n     - Next window
+ C-b p     - Previous window
+ C-b l     - Last window
+ C-b ?     - Get help
+EOF
+    echo "Press enter to exit the lab"
+    read a
+    done=1
+}
+
+
+cleanup() {
+    set +e
+    [ x"$done" = x"1" ] || {
+        printf "${BEGINNING}"
+        echo "$BOLD$RED[✘]$NORMAL Got a fatal error. Press enter to terminate everything!"
+        read a
+    }
+    for pid in $TMP/*.pid; do
+        kill -15 -$(cat $pid) 2> /dev/null || true
+    done
+    sleep 1
+    for pid in $TMP/*.pid; do
+        kill -9 -$(cat $pid) 2> /dev/null || true
+    done
+    rm -rf $TMP
+    tmux kill-session -t $LABNAME
+}
+
+start_bird() {
+    log_begin_msg "Running bird"
+    [ -d /run/bird ] || mkdir -p /run/bird
+    bird -c /lab/bird.$uts.conf
+    log_ok_msg "bird started"
+}
+
+start_dnsmasq() {
+    log_begin_msg "Running dnsmasq"
+    mkdir -p /var/run/dnsmasq/tftp
+    j=10
+    dnsmasq \
+        --conf-file=/dev/null \
+        --no-hosts \
+        --user=root \
+        --dhcp-boot=network.conf,10.16.32.1 \
+        --dhcp-range 10.16.32.10,10.16.32.100,1h \
+        $(cat /tmp/lab/dnsmasq.leases | while read mac name; do
+            printf -- "--dhcp-host=$mac,10.16.32.$j,$name "
+            mkdir /var/run/dnsmasq/tftp/10.16.32.$j
+            ln -s /lab/$name.conf /var/run/dnsmasq/tftp/10.16.32.$j/network.conf
+            j=$(($j + 1))
+          done) \
+        --no-ping \
+        --enable-tftp \
+        --tftp-root /var/run/dnsmasq/tftp \
+        --tftp-unique-root
+    log_ok_msg "dnsmasq started"
+}
+
+
+# FSM
+export STATE=${STATE:-BEGIN}
+case $$,$STATE in
+    1,BEGIN)
+        # In initrd
+        log_info_msg "initrd started"
+        hostname ${uts}
+        export PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/local/sbin:/usr/sbin
+        export HOME=/root
+
+        [ ! -f /modules ] || {
+            log_info_msg "Loading modules"
+            . /modules
+        }
+
+        log_begin_msg "Setup root file system"
+        mount -n -t tmpfs tmpfs /tmp -o rw
+        mkdir /tmp/target
+        mkdir /tmp/target/ro
+        mkdir /tmp/target/overlay
+        mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro
+        if [ x"$aufs" = x"yes" ]; then
+            mkdir /tmp/target/rw
+            mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
+            ls  /tmp/target/overlay /tmp/target/rw /tmp/target/ro
+            mount -n -t aufs  aufs      /tmp/target/overlay -o noxino,noatime,dirs=/tmp/target/rw:/tmp/target/ro=ro
+        else
+            mount -n --bind /tmp/target/ro /tmp/target/overlay
+        fi
+        mount -n -t proc  proc /tmp/target/overlay/proc
+        mount -n -t sysfs sys  /tmp/target/overlay/sys
+        log_ok_msg "Root file system setup"
+
+        log_begin_msg "Clean /tmp and /run"
+        for fs in /run /var/run /var/tmp /var/log /tmp; do
+            if [ -d /tmp/target/overlay$fs ] && [ ! -h /tmp/target/overlay$fs ]; then
+                mount -t tmpfs tmpfs /tmp/target/overlay$fs -o rw,nosuid,nodev
+            fi
+        done
+        log_ok_msg "/tmp, /run and others are clean"
+
+        log_begin_msg "Mount /root"
+        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=0,rw || \
+            log_error_msg "Unable to mount /root"
+        log_ok_msg "/root mounted"
+        log_begin_msg "Mount /lib/modules"
+        mount -t 9p moduleshare /tmp/target/overlay/lib/modules -o trans=virtio,version=9p2000.L,access=0,ro || \
+            log_error_msg "Unable to mount /lib/modules"
+        log_ok_msg "/root and /lib/modules mounted"
+
+        log_begin_msg "Mount /lab"
+        mkdir /tmp/target/overlay/lab
+        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=0,rw || \
+            log_error_msg "Unable to mount /lab"
+        log_ok_msg "/lab mounted"
+
+        log_begin_msg "Mount /tmp/lab"
+        mkdir /tmp/target/overlay/tmp/lab
+        mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=0,rw || \
+            log_error_msg "Unable to mount /tmp/lab"
+        log_ok_msg "/tmp/lab mounted"
+
+        log_info_msg "Change root"
+        export STATE=CHROOTED
+        exec chroot /tmp/target/overlay /lab/setup
+        ;;
+
+    1,CHROOTED)
+        log_info_msg "Start udev"
+        /etc/init.d/udev start
+
+        log_info_msg "Setup interfaces"
+        modprobe dummy 2 >/dev/null || true
+        for intf in /sys/class/net/*; do
+            intf=$(basename $intf)
+            ip a l dev $intf 2> /dev/null >/dev/null || continue
+            case $intf in
+                lo|eth*|dummy*)
+                    ip link set up dev $intf
+                    ;;
+            esac
+        done
+
+        log_info_msg "Start syslog"
+        rsyslogd
+
+        log_info_msg "Setup terminal"
+        export STATE=GETTY
+        exec setsid /sbin/getty -L ttyS0 -a root -l /lab/setup -i 115200 $TERM
+        ;;
+
+    1,GETTY)
+
+        export STATE=SETUP
+        . /lab/setup
+
+        log_begin_msg "Setup additional commands"
+        mkdir /tmp/tools
+        export PATH=$PATH:/tmp/tools
+        cat <<EOF > /sbin/reboot
+#!/bin/sh
+echo b > /proc/sysrq-trigger
+EOF
+        cat <<EOF > /sbin/halt
+#!/bin/sh
+echo b > /proc/sysrq-trigger
+EOF
+        log_ok_msg "System can be halted with halt or reboot"
+
+        while true; do
+            log_info_msg "Spawning a shell"
+            cd $HOME
+            export SSH_TTY=$(tty)
+            if [ -f $HOME/.zshrc ]; then
+                /bin/zsh -i
+            else
+                /bin/bash -i
+            fi || sleep 1
+        done
+        ;;
+
+    *,SETUP)
+        log_info_msg "Setup IP addresses"
+        case $uts in
+            dhcp)
+                ip addr add 10.16.32.1/24 dev eth0
+                start_dnsmasq
+                ;;
+            R1)
+                ip addr add 192.0.2.1/24 dev eth0
+                ip addr add 198.51.100.101/32 dev dummy0
+                start_bird
+                ;;
+            R2)
+                ip addr add 192.0.2.2/24 dev eth0
+                ip addr add 198.51.100.102/32 dev dummy0
+                start_bird
+                ;;
+        esac
+        ;;
+
+    *,BEGIN)
+        # Initial state
+        [ $(id -u) != 0 ] || {
+            log_error_msg "You should not run this as root"
+            exit 1
+        }
+        PROGNAME="$(readlink -f "$0")"
+        ROOT="$(readlink -f "${ROOT:-/}")" # Root filesystem
+        KERNEL="$(readlink -f "${1:-/boot/vmlinuz-$(uname -r)}")" # Kernel
+        [ $# -lt 1 ] || shift
+
+        check_kernel
+        check_dependencies
+        setup_screen
+        setup_tmp
+        setup_initrd
+
+        setup_switch 1          # Internet
+        setup_switch 2          # Interconnect
+        setup_switch 3          # Clients
+        setup_switch 9          # DHCP
+        sleep 0.5
+
+        #NET=1     start_vm  R1
+        #NET=1     start_vm  R2
+        NET=9,1,2,3  start_veos vEOS1
+        #NET=9,1,2,3  start_veos vEOS2
+        NET=9     start_vm  dhcp
+
+        display_help
+        ;;
+esac
+
+# Local Variables:
+# mode: sh
+# indent-tabs-mode: nil
+# sh-basic-offset: 4
+# End:
