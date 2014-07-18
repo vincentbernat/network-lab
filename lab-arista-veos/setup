@@ -114,20 +114,25 @@ setup_screen() {
 
 # Setup a VDE switch
 setup_switch() {
-    log_begin_msg "Setup switch $1"
-    cat <<EOF > "$TMP/switch-$1.conf"
+    nb=$1 ; shift
+    log_begin_msg "Setup switch $nb"
+    cat <<EOF > "$TMP/switch-$nb.conf"
 plugin/add /usr/lib/vde2/plugins/pdump.so
-pdump/filename $TMP/switch-$1.pcap
+pdump/filename $TMP/switch-$nb.pcap
 pdump/buffered 0
 pdump/active 1
 EOF
-    start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$1.pid" \
+    if [ x"$1" = x"hub" ]; then
+        echo port/sethub 1 >> "$TMP/switch-$nb.conf"
+        shift
+    fi
+    start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$nb.pid" \
         --start --startas $(which vde_switch) -- \
-        --sock "$TMP/switch-$1.sock" --mgmt "$TMP/switch-management-$1.sock" \
-        --rcfile "$TMP/switch-$1.conf"
+        --sock "$TMP/switch-$nb.sock" --mgmt "$TMP/switch-management-$nb.sock" \
+        --rcfile "$TMP/switch-$nb.conf"
     # Management socket can be used with:
-    #    socat - UNIX-CONNECT:"$TMP/switch-management-$1.sock"
-    log_ok_msg "Switch $1 started"
+    #    socat - UNIX-CONNECT:"$TMP/switch-management-$nb.sock"
+    log_ok_msg "Switch $nb started"
 }
 
 setup_initrd () {
@@ -505,16 +510,18 @@ EOF
         setup_tmp
         setup_initrd
 
-        setup_switch 1          # Internet
-        setup_switch 2          # Interconnect
-        setup_switch 3          # Clients
-        setup_switch 9          # Management
+        setup_switch 1 hub # Interconnect
+        setup_switch 2     # Internet
+        setup_switch 3     # Clients
+        setup_switch 9     # Management
         sleep 0.5
 
-        #NET=1     start_vm  R1
-        #NET=1     start_vm  R2
+        #NET=2     start_vm  R1
+        #NET=2     start_vm  R2
         NET=9,1,2,3  start_veos vEOS1
-        #NET=9,1,2,3  start_veos vEOS2
+        NET=9,1,2,3  start_veos vEOS2
+        #NET=3     start_vm C1
+        #NET=3     start_vm C2
 
         display_help
         ;;
