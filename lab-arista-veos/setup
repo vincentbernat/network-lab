@@ -86,7 +86,6 @@ check_dependencies() {
         tmux vde_switch \
         start-stop-daemon \
         bird \
-        nginx \
         guestfish ; do
         which $exec 2> /dev/null > /dev/null || log_error_msg "$exec is not installed"
     done
@@ -356,6 +355,14 @@ start_bird() {
     log_ok_msg "bird started"
 }
 
+start_lldpd() {
+    if which lldpd > /dev/null 2> /dev/null; then
+        log_begin_msg "Starting lldpd"
+        lldpd
+        log_ok_msg "lldpd started"
+    fi
+}
+
 # FSM
 export STATE=${STATE:-BEGIN}
 case $$,$STATE in
@@ -425,6 +432,7 @@ case $$,$STATE in
 
     1,CHROOTED)
         log_info_msg "Start udev"
+        rm -f /etc/udev/rules.d/70-persistent-net.rules
         /etc/init.d/udev start
 
         log_info_msg "Setup interfaces"
@@ -480,17 +488,16 @@ EOF
     *,SETUP)
         log_info_msg "Setup IP addresses"
         case $uts in
-            R1)
-                ip addr add 192.0.2.1/24 dev eth0
-                ip addr add 198.51.100.101/32 dev dummy0
+            R*)
+                ip addr add 203.0.113.1${uts#R}/24 dev eth0
                 start_bird
                 ;;
-            R2)
-                ip addr add 192.0.2.2/24 dev eth0
-                ip addr add 198.51.100.102/32 dev dummy0
-                start_bird
+            C*)
+                ip addr add 198.51.100.1${uts#C}/24 dev eth0
+                ip route add default via 198.51.100.1
                 ;;
         esac
+        start_lldpd
         ;;
 
     *,BEGIN)
@@ -516,12 +523,13 @@ EOF
         setup_switch 9     # Management
         sleep 0.5
 
-        #NET=2     start_vm  R1
-        #NET=2     start_vm  R2
+        NET=2     start_vm  R1
+        NET=2     start_vm  R2
         NET=9,1,2,3  start_veos vEOS1
         NET=9,1,2,3  start_veos vEOS2
-        #NET=3     start_vm C1
-        #NET=3     start_vm C2
+        NET=3     start_vm C1
+        NET=3     start_vm C2
+        NET=3     start_vm C3
 
         display_help
         ;;
