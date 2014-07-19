@@ -192,7 +192,7 @@ setup_initrd () {
 random_mac () {
     name=$1
     mac=$(echo $name-$net | sha1sum | \
-        awk '{print "52:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
+        awk '{print "50:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
     echo $mac
 }
 
