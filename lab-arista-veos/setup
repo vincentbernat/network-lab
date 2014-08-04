@@ -456,6 +456,44 @@ case $$,$STATE in
         ;;
 
     1,GETTY)
+        # We are guaranteed to be in a tmux session, so we will get an
+        # answer to the escape code we send. Otherwise, we may just
+        # block!
+        stty -echo
+        stty raw
+        printf '[18t'
+        width=
+        height=
+        p=0
+        while true; do
+            char="$(dd bs=1 count=1)"
+            case "$p,$char" in
+                "0,;")
+                    # End of CSI
+                    p=1
+                    ;;
+                "1,;")
+                    # End of height
+                    stty rows $height
+                    p=2
+                    ;;
+                "1,"*)
+                    height="$height$char"
+                    ;;
+                "2,;")
+                    # End of width
+                    stty columns $width
+                    p=3
+                    ;;
+                "2,"*)
+                    width="$width$char"
+                    ;;
+            esac
+            [ x"$p" != x"3" ] || break
+        done
+        stty -raw
+        stty echo
+        log_ok_msg "Terminal size is $(tput cols)x$(tput lines)"
 
         export STATE=SETUP
         . /lab/setup
