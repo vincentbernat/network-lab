@@ -1,6 +1,7 @@
 #!/bin/sh
 
 LABNAME="routereflector"
+DEPS="bird nginx dnsmasq"
 
 set -e
 
@@ -85,9 +86,7 @@ check_dependencies() {
         qemu-system-x86_64 \
         tmux vde_switch \
         start-stop-daemon \
-        bird \
-        nginx \
-        dnsmasq; do
+        $DEPS; do
         which $exec 2> /dev/null > /dev/null || log_error_msg "$exec is not installed"
     done
     log_ok_msg "All dependencies are met"
