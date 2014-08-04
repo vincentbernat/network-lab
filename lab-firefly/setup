@@ -394,7 +394,6 @@ case $$,$STATE in
         if [ x"$aufs" = x"yes" ]; then
             mkdir /tmp/target/rw
             mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
-            ls  /tmp/target/overlay /tmp/target/rw /tmp/target/ro
             mount -n -t aufs  aufs      /tmp/target/overlay -o noxino,noatime,dirs=/tmp/target/rw:/tmp/target/ro=ro
         else
             mount -n --bind /tmp/target/ro /tmp/target/overlay
