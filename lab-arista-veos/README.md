@@ -17,6 +17,24 @@ rely on any configuration files for serious work. The MLAG takes some
 time to detect failures (30 seconds). I don't know if it is expected
 (I hope not) and if there is a problem with the used configuration.
 
+The MLAG is a useless complication to this lab. VARP should work
+without it. To remove any trace of this MLAG, try the following
+commands:
+
+    no mlag configuration
+    no vlan 4094
+    no interface vlan 4094
+    no interface Port-Channel 3
+    interface eth3
+     switchport mode access
+     switchport access vlan 3
+    router ospf 10
+     no network 192.0.2.0/30 area 0.0.0.0
+    interface eth1
+     no description
+     no switchport mode
+     no switchport trunk group
+
 Download
 --------
 
@@ -132,3 +150,8 @@ Moreover, we can see its MAC address moving from one port to another:
     /usr/bin/vde_switch: MAC 00:1c:73:00:00:99 moved from port 1 to port 2
     /usr/bin/vde_switch: MAC 00:1c:73:00:00:99 moved from port 2 to port 1
     /usr/bin/vde_switch: MAC 00:1c:73:00:00:99 moved from port 1 to port 2
+
+And we can see on C2 that the virtual MAC is never used as a source address:
+
+    23:25:57.451429 50:54:58:5c:b4:7b > 50:54:93:35:24:50, ethertype IPv4 (0x0800), length 98: 203.0.113.11 > 198.51.100.12: ICMP echo request, id 238, seq 7, length 64
+    23:25:57.451447 50:54:93:35:24:50 > 00:1c:73:00:00:99, ethertype IPv4 (0x0800), length 98: 198.51.100.12 > 203.0.113.11: ICMP echo reply, id 238, seq 7, length 64
