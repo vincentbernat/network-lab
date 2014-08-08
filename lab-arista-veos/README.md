@@ -115,3 +115,20 @@ Check that OSPF is OK:
     203.0.113.2     default    1   2 WAYS/DROTHER   00:00:30    203.0.113.2     Vlan4
     203.0.113.12    default    1   FULL/DR          00:00:39    203.0.113.12    Vlan4
     203.0.113.11    default    1   FULL/BDR         00:00:39    203.0.113.11    Vlan4
+
+Check the virtual IP is here:
+
+    vEOS1(config)#show ip virtual-router 
+    IP virtual router is configured with MAC address: 001c.7300.0099
+    MAC address advertisement interval: 30 seconds
+    Interface  IP Address        Virtual IP Address   Status            Protocol         
+    Vlan3      198.51.100.2/24   198.51.100.1         up                up               
+
+Moreover, we can see its MAC address moving from one port to another:
+
+    /usr/bin/vde_switch: MAC 00:1c:73:00:00:99 moved from port 2 to port 1
+    /usr/bin/vde_switch: MAC 00:1c:73:00:00:99 moved from port 1 to port 2
+    /usr/bin/vde_switch: MAC 00:1c:73:00:00:99 moved from port 2 to port 1
+    /usr/bin/vde_switch: MAC 00:1c:73:00:00:99 moved from port 1 to port 2
+    /usr/bin/vde_switch: MAC 00:1c:73:00:00:99 moved from port 2 to port 1
+    /usr/bin/vde_switch: MAC 00:1c:73:00:00:99 moved from port 1 to port 2
