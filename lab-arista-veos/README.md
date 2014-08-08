@@ -12,6 +12,11 @@ those protocols are usually working in active/standby mode. VARP is an
 attempt to correct that by assigning each virtual router a MAC address
 shared by all the devices of the virtual router.
 
+As this is the first time I am playing with Arista EOS, you should not
+rely on any configuration files for serious work. The MLAG takes some
+time to detect failures (30 seconds). I don't know if it is expected
+(I hope not) and if there is a problem with the used configuration.
+
 Download
 --------
 
