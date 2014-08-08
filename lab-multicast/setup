@@ -298,6 +298,7 @@ case $$,$STATE in
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
+        chmod +x /sbin/reboot
 
         while true; do
             info "Spawning a shell"

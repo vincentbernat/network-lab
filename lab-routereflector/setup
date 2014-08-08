@@ -526,6 +526,7 @@ EOF
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
+        chmod +x /sbin/reboot /sbin/halt
         log_ok_msg "System can be halted with halt or reboot"
 
         while true; do

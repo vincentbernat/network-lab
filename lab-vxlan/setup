@@ -222,6 +222,7 @@ case $$,$STATE in
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
+        chmod +x /sbin/reboot
         case $uts in
             r*)
                 # Before using this command, the path should be set
