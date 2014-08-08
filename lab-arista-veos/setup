@@ -502,6 +502,7 @@ case $$,$STATE in
         log_begin_msg "Setup additional commands"
         mkdir /tmp/tools
         export PATH=$PATH:/tmp/tools
+        rm -f /sbin/reboot /sbin/halt
         cat <<EOF > /sbin/reboot
 #!/bin/sh
 echo b > /proc/sysrq-trigger

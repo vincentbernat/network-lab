@@ -293,6 +293,7 @@ case $$,$STATE in
         . "$PROGNAME"
 
         info "Setup additional commands"
+        rm -f /sbin/reboot
         cat <<EOF > /sbin/reboot
 #!/bin/sh
 echo b > /proc/sysrq-trigger
