@@ -14,7 +14,7 @@
    height="1080"
    id="svg2"
    version="1.1"
-   inkscape:version="0.48.4 r9939"
+   inkscape:version="0.48.5 r10040"
    sodipodi:docname="lab.svg"
    inkscape:export-filename="/home/bernat/code/perso/www.luffy.cx/content/media/images/vxlan/multicast-native.png"
    inkscape:export-xdpi="36.425449"
@@ -19097,7 +19097,7 @@
          sodipodi:role="line"
          id="tspan14241"
          x="375.06104"
-         y="-41.058636">.10</tspan></text>
+         y="-41.058636">.11</tspan></text>
     <text
        sodipodi:linespacing="125%"
        id="text14243"
@@ -19108,7 +19108,7 @@
          y="-41.268711"
          x="701.06104"
          id="tspan14245"
-         sodipodi:role="line">.11</tspan></text>
+         sodipodi:role="line">.12</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:37.41170883px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
@@ -19119,7 +19119,7 @@
          sodipodi:role="line"
          id="tspan14249"
          x="1031.061"
-         y="-41.076904">.12</tspan></text>
+         y="-41.076904">.13</tspan></text>
     <g
        transform="translate(-51.791847,381.06813)"
        id="g14251">
@@ -19160,7 +19160,8 @@
     <path
        inkscape:connector-curvature="0"
        d="m 294.48739,-265.66185 350.71207,0"
-       style="fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:3.99999999, 7.99999998;stroke-dashoffset:0" />
+       style="fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:3.99999999, 7.99999998;stroke-dashoffset:0"
+       id="path10616" />
     <path
        style="fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:4.00000003, 8.00000006;stroke-dashoffset:0"
        d="m 706.634,-265.66185 376.4189,0"
