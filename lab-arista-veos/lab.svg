@@ -19175,32 +19175,35 @@
        sodipodi:nodetypes="cc" />
     <text
        xml:space="preserve"
-       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:100%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
-       x="391.06946"
-       y="-540.51306"
+       style="font-size:37.41170883px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="349.06946"
+       y="-216.51306"
        id="text15477"
-       sodipodi:linespacing="100%"><tspan
+       sodipodi:linespacing="125%"><tspan
          sodipodi:role="line"
          id="tspan15479"
-         x="391.06946"
-         y="-540.51306">Without L2 switching,</tspan><tspan
+         x="349.06946"
+         y="-216.51306">VARP gateway</tspan></text>
+    <text
+       sodipodi:linespacing="100%"
+       id="text10646"
+       y="-496.51306"
+       x="385.06946"
+       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:100%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       xml:space="preserve"><tspan
+         y="-496.51306"
+         x="385.06946"
+         id="tspan10648"
+         sodipodi:role="line">Peer link for MLAG.</tspan><tspan
+         y="-449.74841"
+         x="385.06946"
          sodipodi:role="line"
-         x="391.06946"
-         y="-510.51306"
-         id="tspan10634">this link can be removed</tspan><tspan
-         sodipodi:role="line"
-         x="391.06946"
-         y="-480.51306"
-         id="tspan10640">and other links may be</tspan><tspan
-         sodipodi:role="line"
-         x="391.06946"
-         y="-450.51306"
-         id="tspan10644">converted to full L3.</tspan></text>
+         id="tspan10650">Totally useless, see README.md.</tspan></text>
     <path
        sodipodi:nodetypes="cc"
        inkscape:connector-curvature="0"
-       id="path10636"
-       d="m 897.09022,-400.54086 c -50.07103,-73.74454 -106.76032,-180.71627 -192,-148"
+       id="path10652"
+       d="m 937.09022,-390.54086 c -50.07103,-73.74454 -94.76032,-152.71627 -180,-120"
        style="color:#000000;fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;marker-start:url(#Arrow2Mstart-2);visibility:visible;display:inline;overflow:visible;enable-background:accumulate" />
   </g>
 </svg>
