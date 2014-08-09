@@ -32,7 +32,7 @@
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
-     inkscape:window-width="1912"
+     inkscape:window-width="1336"
      inkscape:window-height="1056"
      inkscape:window-x="1920"
      inkscape:window-y="16"
@@ -18091,28 +18091,6 @@
          sodipodi:role="line"
          x="1325.9456"
          y="-797.93219" /></text>
-    <text
-       xml:space="preserve"
-       style="font-size:37.41170883px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
-       x="371.06104"
-       y="-338.0769"
-       id="text15858"
-       sodipodi:linespacing="125%"><tspan
-         sodipodi:role="line"
-         id="tspan15860"
-         x="371.06104"
-         y="-338.0769">.1</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-size:37.41170883px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
-       x="515.28552"
-       y="-388.51306"
-       id="text15866"
-       sodipodi:linespacing="125%"><tspan
-         sodipodi:role="line"
-         id="tspan15868"
-         x="515.28552"
-         y="-388.51306">192.0.2.0/30</tspan></text>
     <path
        style="fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
        d="m 1096.4852,-342.48348 0,234.99906"
@@ -18123,11 +18101,6 @@
        id="use3907"
        d="m 263.18192,-342.48348 0,234.99906"
        style="fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
-    <path
-       style="fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none"
-       d="m 295.60006,-375.66185 790.48674,0"
-       id="path3346"
-       inkscape:connector-curvature="0" />
     <g
        style="display:inline"
        id="use3849"
@@ -18187,32 +18160,6 @@
              inkscape:connector-curvature="0" />
         </g>
       </g>
-    </g>
-    <g
-       style="display:inline"
-       transform="matrix(1.8705854,0,0,1.8705854,412.88364,853.6359)"
-       id="g15818">
-      <path
-         sodipodi:type="arc"
-         style="color:#000000;fill:#ec5f15;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:2;marker:none;visibility:visible;display:inline;overflow:visible;enable-background:accumulate"
-         id="path15820"
-         sodipodi:cx="535.25"
-         sodipodi:cy="275.25"
-         sodipodi:rx="18.25"
-         sodipodi:ry="18.25"
-         d="m 553.5,275.25 c 0,10.0792 -8.1708,18.25 -18.25,18.25 -10.0792,0 -18.25,-8.1708 -18.25,-18.25 0,-10.0792 8.1708,-18.25 18.25,-18.25 10.0792,0 18.25,8.1708 18.25,18.25 z"
-         transform="matrix(0.83561644,0,0,0.83561644,-251.33288,-885.68219)" />
-      <text
-         sodipodi:linespacing="125%"
-         id="text15822"
-         y="-648.52545"
-         x="195.92105"
-         style="font-size:20px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:center;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Sans"
-         xml:space="preserve"><tspan
-           y="-648.52545"
-           x="195.92105"
-           id="tspan15824"
-           sodipodi:role="line">1</tspan></text>
     </g>
     <use
        x="0"
@@ -18279,17 +18226,6 @@
            id="tspan16265"
            sodipodi:role="line">2</tspan></text>
     </g>
-    <text
-       sodipodi:linespacing="125%"
-       id="text13687"
-       y="-338.0769"
-       x="951.06104"
-       style="font-size:37.41170883px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
-       xml:space="preserve"><tspan
-         y="-338.0769"
-         x="951.06104"
-         id="tspan13689"
-         sodipodi:role="line">.2</tspan></text>
     <g
        style="display:inline"
        transform="matrix(1.4628492,0,0,1.4628492,109.20199,-503.37124)"
@@ -19185,25 +19121,26 @@
          x="349.06946"
          y="-216.51306">VARP gateway</tspan></text>
     <text
-       sodipodi:linespacing="100%"
-       id="text10646"
-       y="-496.51306"
-       x="385.06946"
-       style="font-size:30px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:100%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       sodipodi:linespacing="125%"
+       id="text6375"
+       y="-250.0769"
+       x="221.06104"
+       style="font-size:37.41170883px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
        xml:space="preserve"><tspan
-         y="-496.51306"
-         x="385.06946"
-         id="tspan10648"
-         sodipodi:role="line">Peer link for MLAG.</tspan><tspan
-         y="-449.74841"
-         x="385.06946"
+         y="-250.0769"
+         x="221.06104"
+         id="tspan6377"
+         sodipodi:role="line">.2</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:37.41170883px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;text-align:start;line-height:125%;letter-spacing:0px;word-spacing:0px;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;font-family:Droid Sans;-inkscape-font-specification:Droid Sans"
+       x="1119.061"
+       y="-250.0769"
+       id="text6379"
+       sodipodi:linespacing="125%"><tspan
          sodipodi:role="line"
-         id="tspan10650">Totally useless, see README.md.</tspan></text>
-    <path
-       sodipodi:nodetypes="cc"
-       inkscape:connector-curvature="0"
-       id="path10652"
-       d="m 937.09022,-390.54086 c -50.07103,-73.74454 -94.76032,-152.71627 -180,-120"
-       style="color:#000000;fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none;stroke-dashoffset:0;marker:none;marker-start:url(#Arrow2Mstart-2);visibility:visible;display:inline;overflow:visible;enable-background:accumulate" />
+         id="tspan6381"
+         x="1119.061"
+         y="-250.0769">.3</tspan></text>
   </g>
 </svg>

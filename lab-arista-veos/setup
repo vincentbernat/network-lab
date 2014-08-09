@@ -122,10 +122,6 @@ pdump/filename $TMP/switch-$nb.pcap
 pdump/buffered 0
 pdump/active 1
 EOF
-    if [ x"$1" = x"hub" ]; then
-        echo port/sethub 1 >> "$TMP/switch-$nb.conf"
-        shift
-    fi
     start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$nb.pid" \
         --start --startas $(which vde_switch) -- \
         --sock "$TMP/switch-$nb.sock" --mgmt "$TMP/switch-management-$nb.sock" \
@@ -558,7 +554,6 @@ EOF
         setup_tmp
         setup_initrd
 
-        setup_switch 1 hub # Interconnect
         setup_switch 2     # Internet
         setup_switch 3     # Clients
         setup_switch 9     # Management
@@ -566,8 +561,8 @@ EOF
 
         NET=2     start_vm  R1
         NET=2     start_vm  R2
-        NET=9,1,2,3  start_veos vEOS1
-        NET=9,1,2,3  start_veos vEOS2
+        NET=9,2,3 start_veos vEOS1
+        NET=9,2,3 start_veos vEOS2
         NET=3     start_vm C1
         NET=3     start_vm C2
         NET=3     start_vm C3

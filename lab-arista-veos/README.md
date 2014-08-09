@@ -13,27 +13,7 @@ attempt to correct that by assigning each virtual router a MAC address
 shared by all the devices of the virtual router.
 
 As this is the first time I am playing with Arista EOS, you should not
-rely on any configuration files for serious work. The MLAG takes some
-time to detect failures (30 seconds). I don't know if it is expected
-(I hope not) and if there is a problem with the used configuration.
-
-The MLAG is a useless complication to this lab. VARP should work
-without it. To remove any trace of this MLAG, try the following
-commands:
-
-    no mlag configuration
-    no vlan 4094
-    no interface vlan 4094
-    no interface Port-Channel 3
-    interface eth3
-     switchport mode access
-     switchport access vlan 3
-    router ospf 10
-     no network 192.0.2.0/30 area 0.0.0.0
-    interface eth1
-     no description
-     no switchport mode
-     no switchport trunk group
+rely on any configuration files for serious work.
 
 Download
 --------
@@ -63,41 +43,6 @@ Commands
 --------
 
 Some commands to check that everything works as expected.
-
-Check that MLAG is OK:
-
-    vEOS1# show mlag
-    MLAG Configuration:
-    domain-id           :               mlag1
-    local-interface     :            Vlan4094
-    peer-address        :           192.0.2.2
-    peer-link           :           Ethernet1
-                                             
-    MLAG Status:       
-    state               :              Active
-    negotiation status  :           Connected
-    peer-link status    :                  Up
-    local-int status    :                  Up
-    system-id           :   52:54:58:5c:b4:7b
-                                             
-    MLAG Ports:        
-    Disabled            :                   0
-    Configured          :                   0
-    Inactive            :                   0
-    Active-partial      :                   0
-    Active-full         :                   1
-
-    vEOS1#ping 192.0.2.2
-    PING 192.0.2.2 (192.0.2.2) 72(100) bytes of data.
-    80 bytes from 192.0.2.2: icmp_req=1 ttl=64 time=25.4 ms
-    80 bytes from 192.0.2.2: icmp_req=2 ttl=64 time=14.5 ms
-    80 bytes from 192.0.2.2: icmp_req=3 ttl=64 time=14.0 ms
-    80 bytes from 192.0.2.2: icmp_req=4 ttl=64 time=12.3 ms
-    80 bytes from 192.0.2.2: icmp_req=5 ttl=64 time=14.6 ms
-    
-    --- 192.0.2.2 ping statistics ---
-    5 packets transmitted, 5 received, 0% packet loss, time 94ms
-    rtt min/avg/max/mdev = 12.377/16.213/25.416/4.675 ms, ipg/ewma 23.641/20.648 ms
 
 Check that OSPF is OK:
 
