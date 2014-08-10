@@ -100,3 +100,7 @@ And we can see on C2 that the virtual MAC is never used as a source address:
 
     23:25:57.451429 50:54:58:5c:b4:7b > 50:54:93:35:24:50, ethertype IPv4 (0x0800), length 98: 203.0.113.11 > 198.51.100.12: ICMP echo request, id 238, seq 7, length 64
     23:25:57.451447 50:54:93:35:24:50 > 00:1c:73:00:00:99, ethertype IPv4 (0x0800), length 98: 198.51.100.12 > 203.0.113.11: ICMP echo reply, id 238, seq 7, length 64
+
+You should also see gratuitous ARP requests every 5 seconds (unless
+there are regular ARP requests in the same timeframe). This also means
+that it can take up to 5 seconds to recover from a failure.
