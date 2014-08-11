@@ -9,6 +9,9 @@ They are expected to run without being root on top of an up-to-date
 Debian sid. Some of them are using User-Mode-Linux, some other are
 using KVM.
 
+`lab-generic` should always contain the latest iteration of the lab
+and be used as a base for other labs.
+
 License
 -------
 
