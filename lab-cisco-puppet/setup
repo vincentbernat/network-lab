@@ -256,7 +256,7 @@ start_ios () {
     IFS=,
     i=1
     for net in $NET; do
-        netargs="$netargs -s 0:0:vde:$TMP/switch-$net.sock/ctl:$TMP/switch-$net.sock/$(printf %03d $i)"
+        netargs="$netargs -s 0:$(($i - 1)):vde:$TMP/switch-$net.sock/ctl:$TMP/switch-$net.sock/$(printf %03d $i)"
         i=$(($i + 1))
     done
     IFS="$saveifs"
@@ -269,12 +269,12 @@ start_ios () {
         --chdir $TMP \
         --start --startas $(which dynamips) -- \
         -l "$TMP/ios-$name.log" \
-        -r ${MEM:-256} \
         -C $PWD/$name.conf \
-        -p 0:C7200-IO-FE \
+        -P 2691 \
+        -p 1:NM-4T \
         $netargs \
         $@ \
-        $PWD/../images/c7200.bin
+        $PWD/../images/c2691.bin
 EOF
     chmod +x "$TMP/ios-$name.exec"
     tmux new-window -n $name "$TMP/ios-$name.exec"
