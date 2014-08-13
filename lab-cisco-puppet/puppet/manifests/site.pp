@@ -1,4 +1,4 @@
-node "cisco" {
+node "cisco.local" {
 
   vlan { "99":
     description => "Sales department"
