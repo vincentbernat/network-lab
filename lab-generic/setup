@@ -328,7 +328,7 @@ case $$,$STATE in
         log_ok_msg "/tmp, /run and others are clean"
 
         log_begin_msg "Mount /root"
-        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=0,rw || \
+        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /root"
         mount -t tmpfs tmpfs /tmp/target/overlay/root/.ssh -o rw,nosuid,nodev
         chmod 0700 /tmp/target/overlay/root/.ssh
@@ -340,13 +340,13 @@ case $$,$STATE in
 
         log_begin_msg "Mount /lab"
         mkdir /tmp/target/overlay/lab
-        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=0,rw || \
+        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /lab"
         log_ok_msg "/lab mounted"
 
         log_begin_msg "Mount /tmp/lab"
         mkdir /tmp/target/overlay/tmp/lab
-        mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=0,rw || \
+        mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /tmp/lab"
         log_ok_msg "/tmp/lab mounted"
 
