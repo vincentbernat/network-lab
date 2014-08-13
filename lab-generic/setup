@@ -55,16 +55,10 @@ SERIAL_8250=y
 SERIAL_8250_CONSOLE=y
 TMPFS=y
 BLK_DEV_INITRD=y
+AUFS_FS=[ym]
 EOF
         grep -qx "CONFIG_$el" $CONFIG || log_error_msg "Kernel not configured with CONFIG_$el"
     done
-    if grep -qc "CONFIG_AUFS_FS=[ym]" $CONFIG; then
-        log_ok_msg "Kernel configuration checked. AUFS present"
-        aufs=yes
-    else
-        log_warn_msg "Kernel configuration checked. AUFS *not* present"
-        aufs=no
-    fi
 
     log_begin_msg "Search for modules"
     for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" "/lib/modules/$VERSION"; do
@@ -152,8 +146,7 @@ setup_initrd () {
 
     # Add modules
     [ -z "$MODULES" ] || {
-        modules="9pnet_virtio 9p virtio_pci"
-        [ x"$aufs" != x"yes" ] || modules="$modules aufs"
+        modules="9pnet_virtio 9p virtio_pci aufs"
         for mod in $modules; do
             modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
                 --ignore-install --quiet --show-depends $mod > /dev/null || {
@@ -242,7 +235,7 @@ start_vm () {
         -kernel $KERNEL \
         -no-reboot \
         -initrd $TMP/initrd.gz \
-        -append "uts=$name console=ttyS0 panic=1 TERM=$TERM aufs=$aufs quiet" \
+        -append "uts=$name console=ttyS0 panic=1 TERM=$TERM quiet" \
         $netargs \
         $@
 EOF
@@ -319,13 +312,9 @@ case $$,$STATE in
         mkdir /tmp/target/ro
         mkdir /tmp/target/overlay
         mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro
-        if [ x"$aufs" = x"yes" ]; then
-            mkdir /tmp/target/rw
-            mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
-            mount -n -t aufs  aufs      /tmp/target/overlay -o noxino,noatime,dirs=/tmp/target/rw:/tmp/target/ro=ro
-        else
-            mount -n --bind /tmp/target/ro /tmp/target/overlay
-        fi
+        mkdir /tmp/target/rw
+        mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
+        mount -n -t aufs  aufs      /tmp/target/overlay -o noxino,noatime,dirs=/tmp/target/rw:/tmp/target/ro=ro
         mount -n -t proc  proc /tmp/target/overlay/proc
         mount -n -t sysfs sys  /tmp/target/overlay/sys
         log_ok_msg "Root file system setup"
