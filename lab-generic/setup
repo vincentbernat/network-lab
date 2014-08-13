@@ -217,6 +217,7 @@ start_vm () {
         -enable-kvm \
         -nodefconfig -no-user-config -nodefaults \
         -display none \
+        -m ${MEM:-128M} \
         \
         -chardev stdio,id=charserial0,signal=off \
         -device isa-serial,chardev=charserial0,id=serial0 \
