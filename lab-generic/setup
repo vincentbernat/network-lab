@@ -179,6 +179,7 @@ setup_initrd () {
 
 random_mac () {
     name=$1
+    net=$2
     mac=$(echo $name-$net | sha1sum | \
         awk '{print "50:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
     echo $mac
@@ -192,7 +193,7 @@ start_vm () {
     saveifs="$IFS"
     IFS=,
     for net in $NET; do
-        mac=$(random_mac $name)
+        mac=$(random_mac $name $net)
         netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
