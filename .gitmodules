@@ -1,0 +1,3 @@
+[submodule "lab-f5-puppet/puppet/modules/f5"]
+	path = lab-f5-puppet/puppet/modules/f5
+	url = git@github.com:puppetlabs/puppetlabs-f5.git
