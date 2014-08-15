@@ -1,0 +1,4 @@
+platform=Z99
+family=0x80000000
+host=Z99
+systype=0xb

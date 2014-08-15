@@ -10,19 +10,28 @@ There is no provision in this lab to get access to the web interface
 (a SLIRP VDE process would enable that). However, everything should be
 available through the command-line with `tmsh`.
 
+Licensing
+---------
+
 You need a valid license. Be careful, each time you reboot the lab,
-the license needs to be reloaded. From the command line, invoke
-`get_dossier`:
+the license needs to be reloaded. From the command line (login is
+`root`, password is `default`), invoke `get_dossier`:
 
     get_dossier -b XXXXX-XXXXX-XXXXX-XXXXX-XXXXXXX
 
-[Activate the license][3].
+[Activate the license][3] from the website.
 
 [3]: https://activate.f5.com/license/dossier.jsp
 
-A license needs to be enabled with the following `tmsh` command:
+Then, copy the license to `/config/bigip.license` and invoke `bigstart
+restart`. See the [official procedure][4] for more details. Also copy
+the license to `images/bigip.license` for future reuse. For the first
+boot, use an empty file.
 
-    install /sys license registration-key 
+[4]: http://support.f5.com/kb/en-us/solutions/public/13000/300/sol13369.html
+
+Puppet
+------
 
 On puppet, the F5 can be provisioned with:
 

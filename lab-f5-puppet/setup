@@ -205,12 +205,11 @@ start_f5 () {
     log_info_msg "Start F5 $name"
     qemu-img create -q -f qcow2 -b $PWD/../images/BIGIP.qcow2 $TMP/f5-$name.img
 
-    # The following is needed because the platform cannot be detected otherwise.
-    guestfish -a $TMP/f5-$name.img -m /dev/vg-db-hda/set.1.root upload - /PLATFORM <<EOF
-platform=Z100
-family=0x80000000
-host=SERVER_APPLIANCE
-systype=0xb
+    # The following is needed because the platform cannot be detected
+    # otherwise. We also enable a license.
+    guestfish -a $TMP/f5-$name.img -m /dev/vg-db-hda/set.1.root <<EOF
+upload $PWD/PLATFORM /PLATFORM
+upload $PWD/bigip.license /config/bigip.license
 EOF
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
@@ -223,7 +222,7 @@ EOF
         \
         -machine pc \
         -cpu host \
-        -rtc base="2014-06-09" \
+$([ ! -f $PWD/../images/bigip.license ] || sed -n 's/Licensed date : *\(....\)\(..\)\(..\)/-rtc base=\1-\2-\3/p' $PWD/../images/bigip.license) \
         -m 2G \
         \
         -boot c \
@@ -238,7 +237,6 @@ EOF
         $netargs \
         \
         $@
-        sleep 1
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
