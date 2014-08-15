@@ -40,6 +40,11 @@ On puppet, the F5 can be provisioned with:
 
     puppet device --debug
 
+You may have to install some gems if they are not available, notably
+`savon` which is needed by the F5 module. You can install them with
+`gem install savon`. If you don't want to install them each time, you
+can install them in your home with `gem install --user-install savon`.
+
 Once provisioned, you can get the collected facts in
 `/var/lib/puppet/yaml/facts/f5.local.yaml`. You can also check with
 `tmsh` that the provisioning has been done correctly:
