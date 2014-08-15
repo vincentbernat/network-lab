@@ -41,6 +41,15 @@ Once provisioned, you can get the collected facts in
 `/var/lib/puppet/yaml/facts/f5.local.yaml`. You can also check with
 `tmsh` that the provisioning has been done correctly:
 
+    show ltm pool webfront
+
+You should be able to get appropriate resource definitions with:
+
+    FACTER_url=https://admin:admin@f5.local/Common puppet resource f5_pool
+    FACTER_url=https://admin:admin@f5.local/Common puppet resource f5_rule
+
+For some reason, the first command doesn't work.
+
 You can find more info in the related [Puppetlabs blog post][2].
 
 [2]: http://puppetlabs.com/blog/managing-f5-big-ip-network-devices-with-puppet
