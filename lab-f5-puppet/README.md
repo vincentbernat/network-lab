@@ -6,6 +6,9 @@ device" with the following [appropriate Puppet module][1].
 
 [1]: https://github.com/puppetlabs/puppetlabs-f5
 
+The module is pulled through submodules. Don't forget to do `git
+submodule update`.
+
 There is no provision in this lab to get access to the web interface
 (a SLIRP VDE process would enable that). However, everything should be
 available through the command-line with `tmsh`.
