@@ -211,9 +211,12 @@ start_f5 () {
 
     # The following is needed because the platform cannot be detected
     # otherwise. We also enable a license.
-    guestfish -a $TMP/f5-$name.img -m /dev/vg-db-hda/set.1.root <<EOF
+    guestfish -a $TMP/f5-$name.img  <<EOF
+run
+mount /dev/vg-db-hda/set.1.root /
+mount /dev/vg-db-hda/set.1._config /config
 upload $PWD/PLATFORM /PLATFORM
-upload $PWD/bigip.license /config/bigip.license
+upload $PWD/../images/bigip.license /config/bigip.license
 EOF
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
