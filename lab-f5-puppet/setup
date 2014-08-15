@@ -179,6 +179,7 @@ setup_initrd () {
 
 random_mac () {
     name=$1
+    net=$2
     mac=$(echo $name-$net | sha1sum | \
         awk '{print "50:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
     echo $mac $name >> $TMP/dnsmasq.leases
@@ -194,8 +195,11 @@ start_f5 () {
     IFS=,
     i=0
     for net in $NET; do
-        # Don't ask a new license for each new reboot...
+        # Don't ask a new license for each new reboot (we could use
+        # random_mac here but I have already used my license with this
+        # MAC address, too bad).
         mac=50:54:F5:34:56:$(printf %02X $i)
+        echo $mac $name >> $TMP/dnsmasq.leases
         netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
         i=$(($i+1))
@@ -371,10 +375,10 @@ start_dnsmasq() {
         --conf-file=/dev/null \
         --no-hosts \
         --user=root \
-        --domain=local \
         --dhcp-range 10.16.32.10,10.16.32.100,1h \
         $(cat /tmp/lab/dnsmasq.leases | while read mac name; do
             printf -- "--dhcp-host=$mac,10.16.32.$j,$name "
+            echo  10.16.32.$j $name $name.local >> /etc/hosts
             j=$(($j + 1))
           done) \
         --no-ping \
