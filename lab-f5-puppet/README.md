@@ -47,6 +47,7 @@ You should be able to get appropriate resource definitions with:
 
     FACTER_url=https://admin:admin@f5.local/Common puppet resource f5_pool
     FACTER_url=https://admin:admin@f5.local/Common puppet resource f5_rule
+    FACTER_url=https://admin:admin@f5.local/Common puppet resource f5_node
 
 For some reason, the first command doesn't work.
 
