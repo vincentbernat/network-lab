@@ -5,13 +5,13 @@ DEPS="ip nginx"
 
 set -e
 
-# Can't use tput, not available in busybox. Can't use escape, not available either...
-NORMAL="[0m"
-RED="[31;1m"
-GREEN="[32;1m"
-YELLOW="[33;1m"
-BLUE="[34;1m"
-BEGINNING="[K"
+ESC="$(printf '\033')"
+NORMAL="${ESC}[0m"
+RED="${ESC}[31;1m"
+GREEN="${ESC}[32;1m"
+YELLOW="${ESC}[33;1m"
+BLUE="${ESC}[34;1m"
+BEGINNING="$(printf '\015\033')[K"
 
 log_begin_msg () {
     printf "${BEGINNING}"
