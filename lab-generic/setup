@@ -56,6 +56,7 @@ SERIAL_8250_CONSOLE=y
 TMPFS=y
 BLK_DEV_INITRD=y
 AUFS_FS=[ym]
+DEVTMPFS=[ym]
 EOF
         grep -qx "CONFIG_$el" $CONFIG || log_error_msg "Kernel not configured with CONFIG_$el"
     done
@@ -129,19 +130,23 @@ setup_initrd () {
     DESTDIR=$TMP/initrd
     mkdir -p $DESTDIR
 
-    # Copy busybox
-    install -D $(which busybox) ${DESTDIR}/bin/busybox
-    for applet in $(${DESTDIR}/bin/busybox --list); do
-        ln -s busybox ${DESTDIR}/bin/${applet}
-    done
-
-    # Add libs
-    for x in $(ldd $(which busybox) 2> /dev/null | sed -e '
+    # Copy busybox and eventually insmod
+    bins="busybox"
+    busybox --list | grep -qFx insmod || bins="$bins insmod"
+    for bin in $bins; do
+        install -D "$(which $bin)" ${DESTDIR}/bin/$bin
+        for x in $(ldd "$(which $bin)" 2> /dev/null | sed -e '
                /\//!d;
                /linux-gate/d;
                /=>/ {s/.*=>[[:blank:]]*\([^[:blank:]]*\).*/\1/};
                s/[[:blank:]]*\([^[:blank:]]*\) (.*)/\1/' 2>/dev/null); do
-        install -D "$x" "${DESTDIR}/$x"
+            [ -f "${DESTDIR}/$x" ] || install -D "$x" "${DESTDIR}/$x"
+        done
+    done
+
+    # Configure busybox
+    for applet in $(${DESTDIR}/bin/busybox --list); do
+        ln -s busybox ${DESTDIR}/bin/${applet}
     done
 
     # Add modules
@@ -166,7 +171,7 @@ setup_initrd () {
     }
 
     # Copy this program
-    cp $PROGNAME ${DESTDIR}/init
+    cp "$PROGNAME" ${DESTDIR}/init
 
     # Create /tmp
     mkdir ${DESTDIR}/tmp
@@ -209,7 +214,7 @@ start_vm () {
         exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
         --start --startas $(which qemu-system-x86_64) -- \
         -enable-kvm \
-        -nodefconfig -no-user-config -nodefaults \
+        -nodefconfig -nodefaults \
         -display none \
         -m ${MEM:-128M} \
         \
@@ -221,7 +226,7 @@ start_vm () {
         -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
         -mon chardev=con0,mode=readline,default \
         \
-        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT},readonly \
+        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT} \
         -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=rootshare \
         -fsdev local,security_model=none,id=fsdev-home,path=${HOME} \
         -device virtio-9p-pci,id=fs-home,fsdev=fsdev-home,mount_tag=homeshare \
@@ -229,7 +234,7 @@ start_vm () {
         -device virtio-9p-pci,id=fs-lab,fsdev=fsdev-lab,mount_tag=labshare \
         -fsdev local,security_model=none,id=fsdev-tmp,path=${TMP} \
         -device virtio-9p-pci,id=fs-tmp,fsdev=fsdev-tmp,mount_tag=tmpshare \
-        -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/.. \
+        -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/..,readonly \
         -device virtio-9p-pci,id=fs-modules,fsdev=fsdev-modules,mount_tag=moduleshare \
         \
         -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
@@ -357,9 +362,15 @@ case $$,$STATE in
         ;;
 
     1,CHROOTED)
-        log_info_msg "Start udev"
+        log_begin_msg "Starting udev"
+        udev_log=err
         rm -f /etc/udev/rules.d/70-persistent-net.rules
-        /etc/init.d/udev start
+        mount -n -o size=10M,mode=0755 -t devtmpfs devtmpfs /dev
+        udevadm info --cleanup-db
+        udevd --daemon
+        udevadm trigger --action=add
+        udevadm settle
+        log_ok_msg "udev started"
 
         log_info_msg "Setup interfaces"
         modprobe dummy 2 >/dev/null || true
@@ -393,7 +404,7 @@ case $$,$STATE in
         height=
         p=0
         while true; do
-            char="$(timeout --foreground 1s dd bs=1 count=1 status=none || true)"
+            char="$(timeout --foreground 1s dd bs=1 count=1 2> /dev/null || true)"
             case "$p,$char" in
                 "0,;")
                     # End of CSI
