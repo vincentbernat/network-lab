@@ -413,7 +413,7 @@ case $$,$STATE in
 
         log_info_msg "Setup terminal"
         export STATE=GETTY
-        exec setsid /sbin/getty -L ttyS0 -a root -l /lab/setup -i 115200 $TERM
+        exec setsid /sbin/agetty -L ttyS0 -a root -l /lab/setup -i 115200 $TERM
         ;;
 
     1,GETTY)
