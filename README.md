@@ -28,3 +28,23 @@ All the labs are distributed under the ISC license:
 > WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
 > ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 > OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+Other tools
+-----------
+
+There exist many other tools to run network labs:
+
+ - [CORE](http://www.nrl.navy.mil/itd/ncs/products/core). It uses
+   Linux network namespaces and provides a GUI tool. This is a very
+   good tool. Please, have a look at it. It doesn't use disk images
+   and the whole lab configuration fits into a single file that's easy
+   to share. Integration with Quagga or BIRD is very good.
+
+ - [GNS3](http://www.gns3.com/). It uses virtual machines and
+   emulators to build the network. It also comes with a GUI tool. You
+   can emulate Cisco, Juniper, Arista and other brands network
+   equipments. However, it relies heavily on disk images for anything
+   else than Cisco devices and it makes it harder to share your work
+   on GitHub.
+
+You will find a more comprehensive list (with tests) on [Brian Linkletter's blog](http://www.brianlinkletter.com/open-source-network-simulators/).
