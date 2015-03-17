@@ -5,13 +5,13 @@ DEPS="bird dnsmasq"
 
 set -e
 
-# Can't use tput, not available in busybox. Can't use escape, not available either...
-NORMAL="[0m"
-RED="[31;1m"
-GREEN="[32;1m"
-YELLOW="[33;1m"
-BLUE="[34;1m"
-BEGINNING="[K"
+ESC="$(printf '\033')"
+NORMAL="${ESC}[0m"
+RED="${ESC}[31;1m"
+GREEN="${ESC}[32;1m"
+YELLOW="${ESC}[33;1m"
+BLUE="${ESC}[34;1m"
+BEGINNING="$(printf '\015\033')[K"
 
 log_begin_msg () {
     printf "${BEGINNING}"
@@ -55,16 +55,24 @@ SERIAL_8250=y
 SERIAL_8250_CONSOLE=y
 TMPFS=y
 BLK_DEV_INITRD=y
+DEVTMPFS=[ym]
 EOF
         grep -qx "CONFIG_$el" $CONFIG || log_error_msg "Kernel not configured with CONFIG_$el"
     done
+
+    if grep -Eqc "CONFIG_OVERLAYFS_FS=[ym]" $CONFIG; then
+        log_ok_msg "Kernel configuration checked. overlayfs present"
+        UNION="${UNION}${UNION+ }overlayfs"
+    elif grep -Eqc "CONFIG_OVERLAY_FS=[ym]" $CONFIG; then
+        log_ok_msg "Kernel configuration checked. overlayfs present"
+        UNION="${UNION}${UNION+ }overlay"
+    fi
     if grep -qc "CONFIG_AUFS_FS=[ym]" $CONFIG; then
         log_ok_msg "Kernel configuration checked. AUFS present"
-        aufs=yes
-    else
-        log_warn_msg "Kernel configuration checked. AUFS *not* present"
-        aufs=no
+        UNION="${UNION}${UNION+ }aufs"
     fi
+    [ -n "$UNION" ] || \
+        log_error_msg "Kernel configuration checked. Neither overlayfs nor AUFS present"
 
     log_begin_msg "Search for modules"
     for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" "/lib/modules/$VERSION"; do
@@ -134,25 +142,28 @@ setup_initrd () {
     DESTDIR=$TMP/initrd
     mkdir -p $DESTDIR
 
-    # Copy busybox
-    install -D $(which busybox) ${DESTDIR}/bin/busybox
-    for applet in $(${DESTDIR}/bin/busybox --list); do
-        ln -s busybox ${DESTDIR}/bin/${applet}
-    done
-
-    # Add libs
-    for x in $(ldd $(which busybox) 2> /dev/null | sed -e '
+    # Copy busybox and eventually insmod
+    bins="busybox"
+    busybox --list | grep -qFx insmod || bins="$bins insmod"
+    for bin in $bins; do
+        install -D "$(which $bin)" ${DESTDIR}/bin/$bin
+        for x in $(ldd "$(which $bin)" 2> /dev/null | sed -e '
                /\//!d;
                /linux-gate/d;
                /=>/ {s/.*=>[[:blank:]]*\([^[:blank:]]*\).*/\1/};
                s/[[:blank:]]*\([^[:blank:]]*\) (.*)/\1/' 2>/dev/null); do
-        install -D "$x" "${DESTDIR}/$x"
+            [ -f "${DESTDIR}/$x" ] || install -D "$x" "${DESTDIR}/$x"
+        done
+    done
+
+    # Configure busybox
+    for applet in $(${DESTDIR}/bin/busybox --list); do
+        ln -s busybox ${DESTDIR}/bin/${applet}
     done
 
     # Add modules
     [ -z "$MODULES" ] || {
-        modules="9pnet_virtio 9p virtio_pci"
-        [ x"$aufs" != x"yes" ] || modules="$modules aufs"
+        modules="9pnet_virtio 9p virtio_pci $UNION"
         for mod in $modules; do
             modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
                 --ignore-install --quiet --show-depends $mod > /dev/null || {
@@ -172,7 +183,7 @@ setup_initrd () {
     }
 
     # Copy this program
-    cp $PROGNAME ${DESTDIR}/init
+    cp "$PROGNAME" ${DESTDIR}/init
 
     # Create /tmp
     mkdir ${DESTDIR}/tmp
@@ -185,6 +196,7 @@ setup_initrd () {
 
 random_mac () {
     name=$1
+    net=$2
     mac=$(echo $name-$net | sha1sum | \
         awk '{print "52:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
     echo $mac $name >> $TMP/dnsmasq.leases
@@ -199,7 +211,7 @@ start_vm () {
     saveifs="$IFS"
     IFS=,
     for net in $NET; do
-        mac=$(random_mac $name)
+        mac=$(random_mac $name $net)
         netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
@@ -215,7 +227,7 @@ start_vm () {
         exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
         --start --startas $(which qemu-system-x86_64) -- \
         -enable-kvm \
-        -nodefconfig -no-user-config -nodefaults \
+        -nodefconfig -nodefaults \
         -display none \
         \
         -chardev stdio,id=charserial0,signal=off \
@@ -226,7 +238,7 @@ start_vm () {
         -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
         -mon chardev=con0,mode=readline,default \
         \
-        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT},readonly \
+        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT} \
         -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=rootshare \
         -fsdev local,security_model=none,id=fsdev-home,path=${HOME} \
         -device virtio-9p-pci,id=fs-home,fsdev=fsdev-home,mount_tag=homeshare \
@@ -234,14 +246,14 @@ start_vm () {
         -device virtio-9p-pci,id=fs-lab,fsdev=fsdev-lab,mount_tag=labshare \
         -fsdev local,security_model=none,id=fsdev-tmp,path=${TMP} \
         -device virtio-9p-pci,id=fs-tmp,fsdev=fsdev-tmp,mount_tag=tmpshare \
-        -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/.. \
+        -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/..,readonly \
         -device virtio-9p-pci,id=fs-modules,fsdev=fsdev-modules,mount_tag=moduleshare \
         \
         -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
         -kernel $KERNEL \
         -no-reboot \
         -initrd $TMP/initrd.gz \
-        -append "uts=$name console=ttyS0 panic=1 TERM=$TERM aufs=$aufs quiet" \
+        -append "uts=$name console=ttyS0 panic=1 TERM=$TERM quiet" \
         $netargs \
         $@
 EOF
@@ -391,13 +403,20 @@ case $$,$STATE in
         mkdir /tmp/target/ro
         mkdir /tmp/target/overlay
         mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro
-        if [ x"$aufs" = x"yes" ]; then
-            mkdir /tmp/target/rw
-            mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
-            mount -n -t aufs  aufs      /tmp/target/overlay -o noxino,noatime,dirs=/tmp/target/rw:/tmp/target/ro=ro
-        else
-            mount -n --bind /tmp/target/ro /tmp/target/overlay
-        fi
+        mkdir /tmp/target/rw
+        mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
+        mkdir /tmp/target/rw/workdir
+        mkdir /tmp/target/rw/upperdir
+        mount -n -t aufs aufs /tmp/target/overlay \
+              -o noxino,noatime,dirs=/tmp/target/rw/upperdir:/tmp/target/ro=ro \
+              2> /dev/null || \
+            mount -n -t overlayfs overlayfs /tmp/target/overlay \
+                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,noatime \
+                  2> /dev/null || \
+            mount -n -t overlay overlayfs /tmp/target/overlay \
+                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,workdir=/tmp/target/rw/workdir,noatime \
+                  2> /dev/null ||
+            log_error_msg "Unable to mount AUFS/overlayfs"
         mount -n -t proc  proc /tmp/target/overlay/proc
         mount -n -t sysfs sys  /tmp/target/overlay/sys
         log_ok_msg "Root file system setup"
@@ -411,7 +430,7 @@ case $$,$STATE in
         log_ok_msg "/tmp, /run and others are clean"
 
         log_begin_msg "Mount /root"
-        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=0,rw || \
+        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /root"
         log_ok_msg "/root mounted"
         log_begin_msg "Mount /lib/modules"
@@ -421,13 +440,13 @@ case $$,$STATE in
 
         log_begin_msg "Mount /lab"
         mkdir /tmp/target/overlay/lab
-        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=0,rw || \
+        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /lab"
         log_ok_msg "/lab mounted"
 
         log_begin_msg "Mount /tmp/lab"
         mkdir /tmp/target/overlay/tmp/lab
-        mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=0,rw || \
+        mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /tmp/lab"
         log_ok_msg "/tmp/lab mounted"
 
@@ -437,8 +456,15 @@ case $$,$STATE in
         ;;
 
     1,CHROOTED)
-        log_info_msg "Start udev"
-        /etc/init.d/udev start
+        log_begin_msg "Starting udev"
+        udev_log=err
+        rm -f /etc/udev/rules.d/70-persistent-net.rules
+        mount -n -o size=10M,mode=0755 -t devtmpfs devtmpfs /dev
+        udevadm info --cleanup-db
+        udevd --daemon
+        udevadm trigger --action=add
+        udevadm settle
+        log_ok_msg "udev started"
 
         log_info_msg "Setup interfaces"
         modprobe dummy 2 >/dev/null || true
@@ -457,7 +483,7 @@ case $$,$STATE in
 
         log_info_msg "Setup terminal"
         export STATE=GETTY
-        exec setsid /sbin/getty -L ttyS0 -a root -l /lab/setup -i 115200 $TERM
+        exec setsid /sbin/agetty -L ttyS0 -a root -l /lab/setup -i 115200 $TERM
         ;;
 
     1,GETTY)
@@ -472,7 +498,7 @@ case $$,$STATE in
         height=
         p=0
         while true; do
-            char="$(timeout --foreground 1s dd bs=1 count=1 status=none || true)"
+            char="$(timeout --foreground 1s dd bs=1 count=1 2> /dev/null || true)"
             case "$p,$char" in
                 "0,;")
                     # End of CSI
