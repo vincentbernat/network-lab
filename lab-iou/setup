@@ -449,6 +449,7 @@ case $$,$STATE in
         udevadm settle
         log_ok_msg "udev started"
 
+        sleep 1
         log_info_msg "Setup interfaces"
         modprobe dummy 2 >/dev/null || true
         for intf in /sys/class/net/*; do
