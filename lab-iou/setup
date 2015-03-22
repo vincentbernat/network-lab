@@ -94,6 +94,7 @@ check_dependencies() {
         qemu-system-x86_64 \
         tmux \
         vde_switch vde_plug dpipe \
+        expect \
         start-stop-daemon \
         $DEPS; do
         which $exec 2> /dev/null > /dev/null || log_error_msg "$exec is not installed"
@@ -297,10 +298,23 @@ start_iou () {
 
     # Start instance
     cat <<EOF > "$TMP/vm-$name.exec"
-         exec start-stop-daemon --make-pidfile --pidfile $TMP/iou-$name.pid \
-                                --chdir $TMP/iou-$name \
-                                --start --startas $PWD/../images/i86bi-linux-l3.bin -- \
-                                -c $PWD/$name.conf $instance
+#!$(which expect) -f
+
+spawn $PWD/../images/i86bi-linux-l3.bin -c $PWD/$name.conf $instance
+set pidfile [open "$TMP/iou-$name.pid" w]
+set timeout 120
+puts \$pidfile [exp_pid]
+close \$pidfile
+expect {
+  "Would you like to enter the initial configuration dialog?" { send "no\r" }
+  timeout { interact }
+}
+set timeout 5
+expect {
+  "Would you like to terminate autoinstall?" { send "yes\r" }
+  timeout { interact }
+}
+interact
 EOF
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -n $name "$TMP/vm-$name.exec"
