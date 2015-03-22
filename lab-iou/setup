@@ -349,10 +349,12 @@ cleanup() {
     }
     for pid in $TMP/*.pid; do
         kill -15 -$(cat $pid) 2> /dev/null || true
+        kill -15 $(cat $pid) 2> /dev/null || true
     done
     sleep 1
     for pid in $TMP/*.pid; do
         kill -9 -$(cat $pid) 2> /dev/null || true
+        kill -9 $(cat $pid) 2> /dev/null || true
     done
     rm -rf $TMP
     tmux kill-session -t $LABNAME
