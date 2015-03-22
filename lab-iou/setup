@@ -93,8 +93,8 @@ check_dependencies() {
         busybox \
         qemu-system-x86_64 \
         tmux \
-        vde_switch vde_plug dpipe \
         expect \
+        vde_switch \
         start-stop-daemon \
         $DEPS; do
         which $exec 2> /dev/null > /dev/null || log_error_msg "$exec is not installed"
@@ -268,13 +268,17 @@ EOF
     tmux select-window -t 1
 }
 
-random_port () {
-    name=$1
-    net=$2
-    base=$3
-    port=$(echo $name-$net | sha1sum | cut -c1-2 | tr 'a-z' 'A-Z')
-    port=$(echo "ibase=16; $port" | bc)
-    echo $(( $port + $base ))
+next_port () {
+    net=$1
+    mkdir -p "$TMP/iou-vde"
+    if [ -f "$TMP/iou-vde/$1" ]; then
+        current=$(cat "$TMP/iou-vde/$1")
+        current=$(( $current + 1 ))
+    else
+        current=0
+    fi
+    echo $current > "$TMP/iou-vde/$1"
+    echo $current
 }
 
 start_iou () {
@@ -282,17 +286,15 @@ start_iou () {
     instance=$2
     shift
 
-    mkdir -p "$TMP/iou-$name"
-
     log_info_msg "Start IOU $name"
-    saveifs="$IFS"
 
     # Netmap file
+    saveifs="$IFS"
     i=0
     IFS=,
     for net in $NET; do
-        plug=$(random_port $name $net 500)
-        echo $instance:0/$i@$(hostname) $plug:0/0@$(hostname) >> "$TMP/iou-$name/NETMAP"
+        port=$(next_port $net)
+        echo $instance:0/$i 666:$net/$port 1 >> "$TMP/NETMAP"
     done
     IFS="$saveifs"
 
@@ -300,11 +302,11 @@ start_iou () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!$(which expect) -f
 
-spawn $PWD/../images/i86bi-linux-l3.bin -c $PWD/$name.conf $instance
+spawn $PWD/../images/i86bi-linux-l3.bin -c $PWD/$name.conf -e 8 -s 0 -t $instance
 set pidfile [open "$TMP/iou-$name.pid" w]
-set timeout 120
 puts \$pidfile [exp_pid]
 close \$pidfile
+set timeout 120
 expect {
   "Would you like to enter the initial configuration dialog?" { send "no\r" }
   timeout { interact }
@@ -318,23 +320,18 @@ interact
 EOF
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -n $name "$TMP/vm-$name.exec"
+    tmux select-window -t 1
+}
 
-    # Links
+start_iou2vde () {
+    args=""
     IFS=,
     for net in $NET; do
-        plug=$(random_port $name $net 500)
-        local=$(random_port $name $net 16500)
-        remote=$(random_port $name $net 16600)
-        start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/link-$name-$net-iou.pid" \
-                          --chdir "$TMP/iou-$name" \
-                          --start --startas $PWD/iou2net.pl -- -u $local:$remote -p $plug
-        start-stop-daemon -b --make-pidfile --pidfile "$TMP/link-$name-$net-udp.pid" \
-                          --start --startas $(which dpipe) -- \
-                          vde_plug "$TMP/switch-$net.sock" = socat STDIO "UDP-SENDTO:127.0.0.1:$local,bind=127.0.0.1:$remote"
+        args="$args $net:$TMP/switch-$net.sock"
     done
-    IFS="$saveifs"
-
-    tmux select-window -t 1
+    start-stop-daemon --background --no-close --make-pidfile --pidfile $TMP/iou-vde.pid \
+                      --start --startas $PWD/iou2vde.py -- \
+                      $args --netmap "$TMP/NETMAP"
 }
 
 display_help() {
@@ -597,6 +594,7 @@ EOF
         NET=1     start_vm  R2
         NET=1     start_iou IOU1 10
         NET=1     start_iou IOU2 11
+        NET=1     start_iou2vde
 
         display_help
         ;;

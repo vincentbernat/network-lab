@@ -194,7 +194,7 @@ int vde_close(VDECONN *);
                     self))
             return
         c = self._C
-        if c.vde_send(self._conn, buffer, len(buffer)) != len(buffer):
+        if c.vde_send(self._conn, buffer, len(buffer), 0) != len(buffer):
             logger.warning("{}: cannot send all data".format(self))
 
     def __repr__(self):
@@ -377,12 +377,18 @@ def setup_vde(loop, wires):
         for iouplug in wires[vdeplug]:
             iouplug.attach(loop, vdeplug)
 
+
+def stop_loop(loop, context):
+    logger.exception("Uncatched exception: %s", context['exception'])
+    loop.stop()
+
 if __name__ == "__main__":
     options = parse()
     setup_logging(options.debug, options.silent)
     try:
         os.umask(0o077)
         loop = asyncio.get_event_loop()
+        loop.set_exception_handler(stop_loop)
         IOUPlug = IOUPlugFactory(loop, options.instance, options.netio)
         wires = parse_netmap(options.instance,
                              options.netmap,
