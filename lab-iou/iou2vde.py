@@ -290,7 +290,7 @@ class IOUPlugBase(Plug):
             self._sock.sendto(header + buffer,
                               os.path.join(self._netio, str(self._instance)))
         except FileNotFoundError:
-            logger.warning("unable to send to {}: no appropriate socket".format(self))
+            logger.debug("unable to send to {}: no appropriate socket".format(self))
 
 
 def parse():
