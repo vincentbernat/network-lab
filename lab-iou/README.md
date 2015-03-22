@@ -13,9 +13,44 @@ This lab is quite simple. Two IOU instances and two Linux running BIRD
 are plugged on the same virtual switch and establish OSPF adjacencies
 between them (with BFD for faster convergence times).
 
-This lab is incomplete and doesn't work. I have yet to figure out how
-to make IOU speaks with the VDE swicth correctly. VDE seems to prefix
-the Ethernet frame with a port number. Not what I want.
+    IOU1>show ip ospf neighbor
+    
+    Neighbor ID     Pri   State           Dead Time   Address         Interface
+    1.1.1.1           1   FULL/BDR        00:00:39    192.0.2.1       Ethernet0/0
+    2.2.2.2           1   FULL/DR         00:00:39    192.0.2.2       Ethernet0/0
+    4.4.4.4           1   2WAY/DROTHER    00:00:34    192.0.2.4       Ethernet0/0
+
+    IOU1>show ip ospf rib
+    
+                OSPF Router with ID (3.3.3.3) (Process ID 1)
+    
+    
+                    Base Topology (MTID 0)
+    
+    OSPF local RIB
+    Codes: * - Best, > - Installed in global RIB
+    
+    *   192.0.2.0/24, Intra, cost 10, area 0, Connected
+          via 192.0.2.3, Ethernet0/0
+    *>  198.51.100.101/32, Intra, cost 10, area 0
+          via 192.0.2.1, Ethernet0/0
+    *>  198.51.100.102/32, Intra, cost 10, area 0
+          via 192.0.2.2, Ethernet0/0
+    *   198.51.100.103/32, Intra, cost 1, area 0, Connected
+          via 198.51.100.103, Loopback0
+    *>  198.51.100.104/32, Intra, cost 11, area 0
+          via 192.0.2.4, Ethernet0/0
+
+    IOU1>show bfd neighbors
+    
+    IPv4 Sessions
+    NeighAddr                              LD/RD         RH/RS     State     Int
+    192.0.2.1                               1/632309085  Up        Up        Et0/0
+    192.0.2.2                               2/2718792012 Up        Up        Et0/0
+
+The transmit interval for BFD is 200 ms but it can be reduced on real
+hardware. It seems that on Cisco, only fully adjacent routers are
+using BFD.
 
 Images
 ------
