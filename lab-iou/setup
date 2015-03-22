@@ -302,7 +302,8 @@ start_iou () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!$(which expect) -f
 
-spawn $PWD/../images/i86bi-linux-l3.bin -c $PWD/$name.conf -e 8 -s 0 -t $instance
+cd $TMP
+spawn /tmp/iou$name $PWD/../images/i86bi-linux-l3.bin -c $PWD/$name.conf -e 8 -s 0 $instance
 set pidfile [open "$TMP/iou-$name.pid" w]
 puts \$pidfile [exp_pid]
 close \$pidfile
