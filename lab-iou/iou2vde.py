@@ -246,10 +246,10 @@ class IOUPlugBase(Plug):
             logger.warning(
                 "Incorrect magic in header received from {}".format(addr))
             return
-        smajor = siface & 0xff
-        sminor = (siface >> 4) & 0xff
-        dmajor = diface & 0xff
-        dminor = (diface >> 4) & 0xff
+        smajor = siface & 0xf
+        sminor = (siface >> 4) & 0xf
+        dmajor = diface & 0xf
+        dminor = (diface >> 4) & 0xf
         destination = Plug(dinstance, dmajor, dminor)
         destination = cls._vdeplugs.get(destination, None)
         source = Plug(sinstance, smajor, sminor)
