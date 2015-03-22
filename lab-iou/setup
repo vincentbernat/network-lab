@@ -303,7 +303,7 @@ start_iou () {
 #!$(which expect) -f
 
 cd $TMP
-spawn /tmp/iou$name $PWD/../images/i86bi-linux-l3.bin -c $PWD/$name.conf -e 8 -s 0 $instance
+spawn $PWD/../images/i86bi-linux-l3.bin -c $PWD/$name.conf -e 8 -s 0 $instance
 set pidfile [open "$TMP/iou-$name.pid" w]
 puts \$pidfile [exp_pid]
 close \$pidfile
