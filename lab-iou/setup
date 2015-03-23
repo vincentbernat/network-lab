@@ -330,7 +330,7 @@ start_iou2vde () {
     for net in $NET; do
         args="$args $net:$TMP/switch-$net.sock"
     done
-    start-stop-daemon --background --make-pidfile --pidfile $TMP/iou-vde.pid \
+    start-stop-daemon --background --no-close --make-pidfile --pidfile $TMP/iou-vde.pid \
                       --start --startas $PWD/iou2vde.py -- \
                       $args --netmap "$TMP/NETMAP"
 }
