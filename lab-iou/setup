@@ -327,11 +327,13 @@ EOF
 }
 
 start_iou2vde () {
-    args=""
+    saveifs="$IFS"
     IFS=,
     for net in $NET; do
         args="$args $net:$TMP/switch-$net.sock"
     done
+    IFS="$saveifs"
+
     start-stop-daemon --background --no-close --make-pidfile --pidfile $TMP/iou-vde.pid \
                       --start --startas $PWD/iou2vde.py -- \
                       $args --netmap "$TMP/NETMAP"
