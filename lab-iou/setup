@@ -300,11 +300,12 @@ start_iou () {
     IFS="$saveifs"
 
     # Start instance
+    ln -s "$PWD/$name.conf" "$TMP"
     cat <<EOF > "$TMP/vm-$name.exec"
 #!$(which expect) -f
 
 cd $TMP
-spawn $PWD/../images/i86bi-linux-l3.bin -c $PWD/$name.conf -e 8 -s 0 $instance
+spawn $PWD/../images/i86bi-linux-l3.bin -c $name.conf -e 8 -s 0 $instance
 set pidfile [open "$TMP/iou-$name.pid" w]
 puts \$pidfile [exp_pid]
 close \$pidfile
