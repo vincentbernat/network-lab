@@ -295,6 +295,7 @@ start_iou () {
     for net in $NET; do
         port=$(next_port $net)
         echo $instance:0/$i 666:$net/$port 1 >> "$TMP/NETMAP"
+        i=$(($i + 1))
     done
     IFS="$saveifs"
 
