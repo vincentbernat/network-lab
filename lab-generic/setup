@@ -38,8 +38,34 @@ log_info_msg () {
 check_kernel() {
     log_begin_msg "Checking kernel version"
     [ -f "$KERNEL" ] || log_error_msg "Unable to find kernel $KERNEL"
-    VERSION=$(file "$KERNEL" | sed -n 's/.*: Linux kernel x86 boot executable bzImage, version \([^ ]*\) .*/\1/p')
+    [ -r "$KERNEL" ] || log_error_msg "Kernel $KERNEL is not readable.\n    Try \`setfacl -m u:$USER:r $KERNEL'"
+
+    # A recent version of `file` is able to extract the
+    # information. Since it is not widely available, let use some hack
+    # method.
+    VERSION=$(cat <<EOF |
+cat
+gunzip  \\\037\\\213\\\010 xy
+unxz    \\\3757zXZ\\\000   abcde
+bunzip2 BZh                xy
+unlzma  \\\135\\\0\\\0\\\0 xxx
+EOF
+              while read cmd sig1 sig2; do
+                  case $sig1,$sig2 in
+                      ,) poss="0:_" ;;
+                      *) poss=$(tr "${sig1}\n${sig2}" "\n${sig2}=" < "$KERNEL" | grep -abo "^${sig2}" || true) ;;
+                  esac
+                  [ -n "$poss" ] || continue
+                  for pos in $poss; do
+                      pos=${pos%%:*}
+                      tail -c+$pos "$KERNEL" | $cmd 2> /dev/null | strings -20 | \
+                          grep ^Linux.version | head -1
+                  done
+              done | head -1)
+
     [ -n "$VERSION" ] || log_error_msg "Unable to determine version for $KERNEL"
+    VERSION="${VERSION#Linux version }"
+    VERSION="${VERSION%% *}"
     log_ok_msg "Found kernel $VERSION"
 
     log_begin_msg "Check kernel configuration"
