@@ -291,11 +291,16 @@ start_iou () {
     # Netmap file
     saveifs="$IFS"
     i=0
+    j=0
     IFS=,
     for net in $NET; do
         port=$(next_port $net)
-        echo $instance:0/$i 666:$net/$port 1 >> "$TMP/NETMAP"
+        echo $instance:$j/$i 666:$net/$port 1 >> "$TMP/NETMAP"
         i=$(($i + 1))
+        [ $i -lt 4 ] || {
+            i=0
+            j=$(($j + 1))
+        }
     done
     IFS="$saveifs"
 
