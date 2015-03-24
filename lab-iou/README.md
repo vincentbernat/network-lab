@@ -61,7 +61,11 @@ persons at Cisco are authorized to use it. However, if you search for
 Bittorrent.
 
 Once you have obtained your IOU images, link your favorite pick to
-`images/i86bi-linux-l3.bin`.
+`images/i86bi-linux-l3.bin`. Please note that older images may be
+missing a lot of features (for example, VLAN, port channels). More
+recent ones (15.x) are more likely to have the features you need. See
+[Andrea Dainese's blog post](http://www.routereflector.com/cisco/cisco-iou-web-interface/features-not-supported/)
+for some details on this.
 
 You may need to patch it if you get an error like this:
 
