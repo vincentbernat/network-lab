@@ -343,11 +343,13 @@ close \$pidfile
 set timeout 120
 expect {
   "Would you like to enter the initial configuration dialog?" { send "no\r" }
+  "Press RETURN to get started!" { interact }
   timeout { interact }
 }
 set timeout 5
 expect {
   "Would you like to terminate autoinstall?" { send "yes\r" }
+  "Press RETURN to get started!" { interact }
   timeout { interact }
 }
 interact
