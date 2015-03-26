@@ -291,8 +291,8 @@ class IOUPlugBase(Plug):
                               os.path.join(self._netio, str(self._instance)))
         except FileNotFoundError:
             logger.debug("unable to send to {}: no appropriate socket".format(self))
-        except ConnectionRefusedError:
-            logger.warning("unable to send to {}: no one listening to the socket".format(self))
+        except Exception as e:
+            logger.warning("unable to send to {}: {}".format(self, e))
 
 
 def parse():
