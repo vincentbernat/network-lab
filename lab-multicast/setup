@@ -165,7 +165,7 @@ EOF
     echo "GDB server listening on.... $TMP/vm-$name-gdb.pipe"
     echo "monitor listening on....... $TMP/vm-$name-console.pipe"
     echo "ttyS1 listening on......... $TMP/vm-$name-serial.pipe"
-    tmux select-window -t 1
+    tmux select-window -t ":^"
 }
 
 display_help() {

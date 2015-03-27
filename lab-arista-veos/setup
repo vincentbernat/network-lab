@@ -251,7 +251,7 @@ EOF
     log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -n $name "$TMP/vm-$name.exec"
-    tmux select-window -t 1
+    tmux select-window -t ":^"
 }
 
 start_veos () {
@@ -307,7 +307,7 @@ EOF
     log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -n $name "$TMP/vm-$name.exec"
-    tmux select-window -t 1
+    tmux select-window -t ":^"
 }
 
 display_help() {
