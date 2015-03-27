@@ -317,7 +317,7 @@ def parse():
     parser.add_argument("--netio", metavar="DIR",
                         default="/tmp/netio{}".format(os.getuid()),
                         help="Directory for netio sockets")
-    parser.add_argument("--netmap", "-N", metavar="NETMAP", type=open,
+    parser.add_argument("--netmap", "-N", metavar="NETMAP", type=str,
                         default="NETMAP",
                         help="NETMAP file")
     parser.add_argument("--instance", "-p", metavar="INSTANCE", type=int,
@@ -327,6 +327,7 @@ def parse():
                         help="Port to VDE socket mapping")
 
     options = parser.parse_args()
+    options.netmap = open(options.netmap)
     return options
 
 
