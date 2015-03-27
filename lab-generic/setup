@@ -423,7 +423,7 @@ case $$,$STATE in
         log_ok_msg "udev started"
 
         log_info_msg "Setup interfaces"
-        modprobe dummy 2 >/dev/null || true
+        modprobe dummy 2>/dev/null || true
         for intf in /sys/class/net/*; do
             intf=$(basename $intf)
             ip a l dev $intf 2> /dev/null >/dev/null || continue
