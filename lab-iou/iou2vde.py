@@ -42,10 +42,15 @@ import re
 import logging
 import logging.handlers
 import argparse
-import asyncio
 import collections
 import struct
 import socket
+
+try:
+    import asyncio
+except ImportError:
+    import trollius as asyncio
+
 
 from cffi import FFI
 
