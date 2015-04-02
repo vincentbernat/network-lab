@@ -310,7 +310,8 @@ next_port () {
 start_iou () {
     name=$1
     instance=$2
-    shift
+    shift 2
+    image=${1:-i86bi-linux-l3.bin}
 
     log_info_msg "Start IOU $name"
 
@@ -336,7 +337,7 @@ start_iou () {
 #!$(which expect) -f
 
 cd $TMP
-spawn $PWD/../images/i86bi-linux-l3.bin -c $name.conf -e 8 -s 0 $instance
+spawn $PWD/../images/$image -c $name.conf -e 8 -s 0 $instance
 set pidfile [open "$TMP/iou-$name.pid" w]
 puts \$pidfile [exp_pid]
 close \$pidfile
