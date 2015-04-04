@@ -510,6 +510,7 @@ case $$,$STATE in
             ip a l dev $intf 2> /dev/null >/dev/null || continue
             case $intf in
                 lo|eth*|dummy*)
+                    echo 0 > /proc/sys/net/ipv6/conf/$intf/accept_dad
                     ip link set up dev $intf
                     ;;
             esac
