@@ -414,6 +414,7 @@ start_bird() {
     log_begin_msg "Running bird"
     [ -d /run/bird ] || mkdir -p /run/bird
     bird -c /lab/bird.$uts.conf
+    bird6 -c /lab/bird6.$uts.conf
     log_ok_msg "bird started"
 }
 
@@ -599,11 +600,13 @@ EOF
             R1)
                 ip addr add 192.0.2.1/24 dev eth0
                 ip addr add 198.51.100.101/32 dev dummy0
+                ip addr add 2001:db8::100:101/128 dev dummy0
                 start_bird
                 ;;
             R2)
                 ip addr add 192.0.2.2/24 dev eth0
                 ip addr add 198.51.100.102/32 dev dummy0
+                ip addr add 2001:db8::100:102/128 dev dummy0
                 start_bird
                 ;;
         esac
