@@ -149,9 +149,16 @@ setup_screen() {
 setup_switch() {
     nb=$1 ; shift
     log_begin_msg "Setup switch $nb"
+    cat <<EOF > "$TMP/switch-$nb.conf"
+plugin/add /usr/lib/vde2/plugins/pdump.so
+pdump/filename $TMP/switch-$nb.pcap
+pdump/buffered 0
+pdump/active 0
+EOF
     start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$nb.pid" \
         --start --startas $(which vde_switch) -- \
-        --sock "$TMP/switch-$nb.sock" --mgmt "$TMP/switch-management-$nb.sock"
+        --sock "$TMP/switch-$nb.sock" --mgmt "$TMP/switch-management-$nb.sock" \
+        --rcfile "$TMP/switch-$nb.conf"
     # Management socket can be used with:
     #    socat - UNIX-CONNECT:"$TMP/switch-management-$nb.sock"
     log_ok_msg "Switch $nb started"
