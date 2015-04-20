@@ -424,6 +424,7 @@ case $$,$STATE in
 
         log_info_msg "Setup interfaces"
         modprobe dummy 2>/dev/null || true
+        sleep 0.5
         for intf in /sys/class/net/*; do
             intf=$(basename $intf)
             ip a l dev $intf 2> /dev/null >/dev/null || continue
