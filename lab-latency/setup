@@ -545,7 +545,9 @@ EOF
                 ip addr add 192.0.2.1/24 dev eth0
                 ip addr add 203.0.113.1/24 dev eth1
                 sysctl -qw net.ipv4.conf.all.forwarding=1
-                # Delay
+                # Delay and loss. For loss, 0.0001% (10^-6) is
+                # equivalent to a BER of 10^-10 (which is not very
+                # good, so this is a conservative hypthosis).
                 tc qdisc add dev eth0 root netem delay 50ms 5ms 25% loss 0.0001%
                 tc qdisc add dev eth1 root netem delay 50ms 5ms 25% loss 0.0001%
                 ;;
