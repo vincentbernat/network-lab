@@ -553,6 +553,7 @@ EOF
 
         case $uts in
             Paris|NewYork)
+                sysctl -qw net.ipv4.tcp_no_metrics_save=1 # Better benchmark reproductability
                 start_nginx
                 ;;
         esac
