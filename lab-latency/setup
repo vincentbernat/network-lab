@@ -595,8 +595,8 @@ EOF
         sleep 0.3
 
         NET=1,2   start_vm  internet
-        NET=1     start_vm  Paris
-        NET=2     start_vm  NewYork
+        MEM=512M NET=1     start_vm  Paris
+        MEM=512M NET=2     start_vm  NewYork
 
         display_help
         ;;
