@@ -51,3 +51,10 @@ On the other side, the utility `ss` will give plenty of information (depending o
     State      Recv-Q Send-Q               Local Address:Port                 Peer Address:Port
     ESTAB      0      1116408                 203.0.113.2:80                      192.0.2.2:49062  timer:(on,208ms,0) users:(("nginx",pid=213,fd=10)) uid:33 ino:8291 sk:ffff88001df43040 <->
              skmem:(r0,rb374400,t0,tb3394560,f44288,w3355392,o0,bl0) ts cubic wscale:6,6 rto:304 rtt:101.248/1.899 ato:40 mss:1448 cwnd:193 ssthresh:193 send 22.1Mbps pacing_rate 176.4Mbps unacked:771 retrans:1/512 lost:1 sacked:597 reordering:15 rcv_space:28960
+
+Additional documentation
+-----------------------
+
+ - http://www.psc.edu/index.php/networking/641-tcp-tune
+ - http://www.netcraftsmen.com/tcpip-performance-factors/
+ - http://www.netcraftsmen.com/tcp-performance-and-the-mathis-equation/
