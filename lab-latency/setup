@@ -332,6 +332,9 @@ start_nginx() {
     mkdir /var/log/nginx
     mkdir /usr/share/nginx/www
     echo $uts > /usr/share/nginx/www/index.html
+    for size in 1M 100M 1G 10G; do
+        dd if=/dev/zero of=/usr/share/nginx/www/$size bs=1 count=1 seek=$size 2> /dev/null
+    done
     nginx -c /lab/nginx.conf
     log_ok_msg "nginx started"
 }
