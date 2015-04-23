@@ -158,7 +158,7 @@ EOF
     start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$nb.pid" \
         --start --startas $(which vde_switch) -- \
         --sock "$TMP/switch-$nb.sock" --mgmt "$TMP/switch-management-$nb.sock" \
-        --rcfile "$TMP/switch-$nb.conf"
+        --rcfile "$TMP/switch-$nb.conf" --hub
     # Management socket can be used with:
     #    socat - UNIX-CONNECT:"$TMP/switch-management-$nb.sock"
     log_ok_msg "Switch $nb started"
