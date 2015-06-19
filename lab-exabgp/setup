@@ -1,103 +1,264 @@
 #!/bin/sh
 
 LABNAME="exabgp"
-PROGNAME=$(readlink -f $0)
-PROGARGS="$@"
-
-ROOT=$(readlink -f ${ROOT:-/})
-LINUX=$(readlink -f ${LINUX:-./linux})
 [ ! -x ~/code/dailymotion/exabgp/sbin/exabgp ] || \
     EXABGP=~/code/dailymotion/exabgp/sbin/exabgp
 EXABGP=${EXABGP:-exabgp}
+DEPS="ip bird6 nginx vtysh ${EXABGP}"
 
-WHICH=$(which which)
-DEPS="tmux vde_switch start-stop-daemon kvm slirpvde"
-CHROOTDEPS="ip bird6 nginx vtysh ${EXABGP}"
+set -e
 
-renice 10 -p $$ 2>/dev/null
+ESC="$(printf '\033')"
+NORMAL="${ESC}[0m"
+RED="${ESC}[31;1m"
+GREEN="${ESC}[32;1m"
+YELLOW="${ESC}[33;1m"
+BLUE="${ESC}[34;1m"
+BEGINNING="$(printf '\015\033')[K"
 
-info() {
-    echo "[1;34m[+] $@[0m"
+log_begin_msg () {
+    printf "${BEGINNING}"
+    printf "${BLUE}[…]${NORMAL} $1${BLUE}...${NORMAL} "
+}
+log_ok_msg () {
+    printf "${BEGINNING}"
+    echo "$BOLD$GREEN[✔]$NORMAL $1."
+}
+log_warn_msg () {
+    printf "${BEGINNING}"
+    echo "$BOLD$YELLOW[⚡]$NORMAL $1!"
+}
+log_error_msg () {
+    printf "${BEGINNING}"
+    echo "$BOLD$RED[✘]$NORMAL $1!"
+    exit 1
+}
+log_info_msg () {
+    printf "${BEGINNING}"
+    echo "$BOLD$BLUE[∗]$NORMAL $1."
 }
 
-error() {
-    echo "[1;31m[+] $@[0m"
+check_kernel() {
+    log_begin_msg "Checking kernel version"
+    [ -f "$KERNEL" ] || log_error_msg "Unable to find kernel $KERNEL"
+    [ -r "$KERNEL" ] || log_error_msg "Kernel $KERNEL is not readable.\n    Try \`setfacl -m u:$USER:r $KERNEL'"
+
+    # A recent version of `file` is able to extract the
+    # information. Since it is not widely available, let use some hack
+    # method.
+    VERSION=$(cat <<EOF |
+cat
+gunzip  \\\037\\\213\\\010 xy
+unxz    \\\3757zXZ\\\000   abcde
+bunzip2 BZh                xy
+unlzma  \\\135\\\0\\\0\\\0 xxx
+EOF
+              while read cmd sig1 sig2; do
+                  case $sig1,$sig2 in
+                      ,) poss="0:_" ;;
+                      *) poss=$(tr "${sig1}\n${sig2}" "\n${sig2}=" < "$KERNEL" | grep -abo "^${sig2}" || true) ;;
+                  esac
+                  [ -n "$poss" ] || continue
+                  for pos in $poss; do
+                      pos=${pos%%:*}
+                      tail -c+$pos "$KERNEL" | $cmd 2> /dev/null | strings -20 | \
+                          grep ^Linux.version | head -1
+                  done
+              done | head -1)
+
+    [ -n "$VERSION" ] || log_error_msg "Unable to determine version for $KERNEL"
+    VERSION="${VERSION#Linux version }"
+    VERSION="${VERSION%% *}"
+    log_ok_msg "Found kernel $VERSION"
+
+    log_begin_msg "Check kernel configuration"
+    CONFIG="$(dirname $KERNEL)/config-$VERSION"
+    [ -f "$CONFIG" ] || log_error_msg "Unable to find configuration file $CONFIG"
+    cat <<EOF | while read el; do
+9P_FS=[ym]
+NET_9P=[ym]
+NET_9P_VIRTIO=[ym]
+VIRTIO=[ym]
+VIRTIO_PCI=[ym]
+SERIAL_8250=y
+SERIAL_8250_CONSOLE=y
+TMPFS=y
+BLK_DEV_INITRD=y
+DEVTMPFS=[ym]
+EOF
+        grep -qx "CONFIG_$el" $CONFIG || log_error_msg "Kernel not configured with CONFIG_$el"
+    done
+
+    if grep -Eqc "CONFIG_OVERLAYFS_FS=[ym]" $CONFIG; then
+        log_ok_msg "Kernel configuration checked. overlayfs present"
+        UNION="${UNION}${UNION+ }overlayfs"
+    elif grep -Eqc "CONFIG_OVERLAY_FS=[ym]" $CONFIG; then
+        log_ok_msg "Kernel configuration checked. overlayfs present"
+        UNION="${UNION}${UNION+ }overlay"
+    fi
+    if grep -qc "CONFIG_AUFS_FS=[ym]" $CONFIG; then
+        log_ok_msg "Kernel configuration checked. AUFS present"
+        UNION="${UNION}${UNION+ }aufs"
+    fi
+    [ -n "$UNION" ] || \
+        log_error_msg "Kernel configuration checked. Neither overlayfs nor AUFS present"
+
+    log_begin_msg "Search for modules"
+    for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" "/lib/modules/$VERSION"; do
+        [ -d $dir ] || continue
+        MODULES="$dir"
+        break
+    done
+    if [ -z "$MODULES" ]; then
+        log_warn_msg "Unable to find module directory"
+    else
+        log_ok_msg "Modules are in $MODULES"
+    fi
 }
 
-# Setup a TMP directory
-setup_tmp() {
-    TMP=$(mktemp -d)
-    trap "rm -rf $TMP" EXIT
-    info "TMP is $TMP"
-}
-
-# Check for dependencies needed by this tool
 check_dependencies() {
-    for dep in $DEPS; do
-        $WHICH $dep 2> /dev/null > /dev/null || {
-            error "Missing dependency: $dep"
-            exit 1
-        }
+    log_begin_msg "Checking if dependencies are present"
+    for exec in \
+        busybox \
+        qemu-system-x86_64 \
+        tmux vde_switch \
+        start-stop-daemon \
+        $DEPS; do
+        which $exec 2> /dev/null > /dev/null || log_error_msg "$exec is not installed"
     done
-    [ -d $ROOT ] || {
-        error "Chroot $ROOT does not exists"
-    }
-    for dep in $CHROOTDEPS; do
-        PATH=$ROOT/usr/local/bin:$ROOT/usr/bin:$ROOT/bin:$ROOT/sbin:$ROOT/usr/local/sbin:$ROOT/usr/sbin \
-            $WHICH $dep 2> /dev/null > /dev/null || {
-            error "Missing dependency: $dep (in $ROOT)"
-            exit 1
-        }
-    done
+    log_ok_msg "All dependencies are met"
+}
+
+setup_tmp () {
+    TMP=$(mktemp -d)
+    trap "ret=$? ; cleanup" EXIT
+    log_info_msg "TMP is $TMP"
 }
 
 # Run our lab in tmux
 setup_screen() {
     if [ -z "$TMUX" ] || [ x"$(tmux list-panes -F '#{session_name}')" != x"$LABNAME" ]; then
         unset TMUX
-        exec tmux new-session -s "$LABNAME" -n main "$PROGNAME $PROGARGS"
+        exec tmux new-session -s "$LABNAME" -n main \
+            "env ROOT=$ROOT VERSION=$VERSION LINUX=$LINUX $PROGNAME $PROGARGS || read"
     fi
     sleep 1
-    tmux set-option prefix C-b
-    tmux set-option set-remain-on-exit
+    tmux set-option -q prefix C-b
+    tmux set-option -q set-remain-on-exit on
     tmux bind-key r respawn-window
 }
 
 # Setup a VDE switch
 setup_switch() {
-    info "Setup switch $1"
-    start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$1.pid" \
-        --start --startas $($WHICH vde_switch) -- \
-        --sock "$TMP/switch-$1.sock"
+    nb=$1 ; shift
+    log_begin_msg "Setup switch $nb"
+    cat <<EOF > "$TMP/switch-$nb.conf"
+plugin/add /usr/lib/vde2/plugins/pdump.so
+pdump/filename $TMP/switch-$nb.pcap
+pdump/buffered 0
+pdump/active 1
+EOF
+    start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$nb.pid" \
+        --start --startas $(which vde_switch) -- \
+        --sock "$TMP/switch-$nb.sock" --mgmt "$TMP/switch-management-$nb.sock" \
+        --rcfile "$TMP/switch-$nb.conf" --hub
+    # Management socket can be used with:
+    #    socat - UNIX-CONNECT:"$TMP/switch-management-$nb.sock"
+    log_ok_msg "Switch $nb started"
 }
 
-# Start a VM
-start_vm() {
-    info "Start VM $1"
-    name="$1"
+setup_initrd () {
+    log_begin_msg "Build initrd"
+    DESTDIR=$TMP/initrd
+    mkdir -p $DESTDIR
+
+    # Copy busybox and eventually insmod
+    bins="busybox"
+    busybox --list | grep -qFx insmod || bins="$bins insmod"
+    for bin in $bins; do
+        install -D "$(which $bin)" ${DESTDIR}/bin/$bin
+        for x in $(ldd "$(which $bin)" 2> /dev/null | sed -e '
+               /\//!d;
+               /linux-gate/d;
+               /=>/ {s/.*=>[[:blank:]]*\([^[:blank:]]*\).*/\1/};
+               s/[[:blank:]]*\([^[:blank:]]*\) (.*)/\1/' 2>/dev/null); do
+            [ -f "${DESTDIR}/$x" ] || install -D "$x" "${DESTDIR}/$x"
+        done
+    done
+
+    # Configure busybox
+    for applet in $(${DESTDIR}/bin/busybox --list); do
+        ln -s busybox ${DESTDIR}/bin/${applet}
+    done
+
+    # Add modules
+    [ -z "$MODULES" ] || {
+        modules="9pnet_virtio 9p virtio_pci $UNION"
+        for mod in $modules; do
+            modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
+                --ignore-install --quiet --show-depends $mod > /dev/null || {
+                log_warn_msg "Unable to find module $mod"
+                log_begin_msg "Continue building initrd"
+            }
+            modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
+                --ignore-install --quiet --show-depends $mod |
+            while read prefix kmod options ; do
+                [ "${prefix}" = "insmod" ] || continue
+                grep -qFw "$kmod" ${DESTDIR}/modules 2> /dev/null || {
+                    install -D "$kmod" "${DESTDIR}/${kmod}"
+                    echo $prefix $kmod $options >> ${DESTDIR}/modules
+                }
+            done
+        done
+    }
+
+    # Copy this program
+    cp "$PROGNAME" ${DESTDIR}/init
+
+    # Create /tmp
+    mkdir ${DESTDIR}/tmp
+
+    # Build initrd
+    (cd "${DESTDIR}" && find . | cpio --quiet -R 0:0 -o -H newc | gzip > $TMP/initrd.gz)
+
+    log_ok_msg "initrd built in $TMP/initrd.gz"
+}
+
+random_mac () {
+    name=$1
+    net=$2
+    mac=$(echo $name-$net | sha1sum | \
+        awk '{print "50:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
+    echo $mac
+}
+
+start_vm () {
+    name=$1
     shift
 
     netargs=""
     saveifs="$IFS"
     IFS=,
     for net in $NET; do
-        mac=$(echo $name-$net | sha1sum | \
-            awk '{print "52:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
+        mac=$(random_mac $name $net)
         netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
     IFS="$saveifs"
 
+    log_info_msg "Start VM $name"
     # /root is mounted with version 9p2000.u to allow access to /dev,
     # /sys and to mount new partitions over them. This is not the case
     # for 9p2000.L.
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
+        echo
         exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
-        --start --startas $($WHICH kvm) -- \
-        -nodefconfig -no-user-config -nodefaults \
-        -m 128m \
+        --start --startas $(which qemu-system-x86_64) -- \
+        -enable-kvm \
+        -nodefconfig -nodefaults \
         -display none \
+        -m ${MEM:-128M} \
         \
         -chardev stdio,id=charserial0,signal=off \
         -device isa-serial,chardev=charserial0,id=serial0 \
@@ -107,24 +268,30 @@ start_vm() {
         -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
         -mon chardev=con0,mode=readline,default \
         \
-        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT},readonly \
-        -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=/dev/root \
+        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT} \
+        -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=rootshare \
         -fsdev local,security_model=none,id=fsdev-home,path=${HOME} \
         -device virtio-9p-pci,id=fs-home,fsdev=fsdev-home,mount_tag=homeshare \
-        -fsdev local,security_model=none,id=fsdev-lab,path=$(dirname "$PROGNAME") \
+        -fsdev local,security_model=none,id=fsdev-lab,path=${PWD} \
         -device virtio-9p-pci,id=fs-lab,fsdev=fsdev-lab,mount_tag=labshare \
+        -fsdev local,security_model=none,id=fsdev-tmp,path=${TMP} \
+        -device virtio-9p-pci,id=fs-tmp,fsdev=fsdev-tmp,mount_tag=tmpshare \
+        -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/..,readonly \
+        -device virtio-9p-pci,id=fs-modules,fsdev=fsdev-modules,mount_tag=moduleshare \
         \
         -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
-        -kernel $LINUX \
-        -append "init=$PROGNAME console=ttyS0 uts=$name root=/dev/root rootflags=trans=virtio,version=9p2000.u ro rootfstype=9p" \
+        -kernel $KERNEL \
+        -no-reboot \
+        -initrd $TMP/initrd.gz \
+        -append "uts=$name console=ttyS0 panic=1 TERM=$TERM quiet" \
         $netargs \
         $@
 EOF
+    log_info_msg "GDB server listening on $TMP/vm-$name-gdb.pipe"
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -n $name "$TMP/vm-$name.exec"
-    echo "GDB server listening on.... $TMP/vm-$name-gdb.pipe"
-    echo "monitor listening on....... $TMP/vm-$name-console.pipe"
-    echo "ttyS1 listening on......... $TMP/vm-$name-serial.pipe"
     tmux select-window -t ":^"
 }
 
@@ -141,9 +308,17 @@ Some tmux commands (assuming default keybindings) :
 EOF
     echo "Press enter to exit the lab"
     read a
+    done=1
 }
 
+
 cleanup() {
+    set +e
+    [ x"$done" = x"1" ] || {
+        printf "${BEGINNING}"
+        echo "$BOLD$RED[✘]$NORMAL Got a fatal error. Press enter to terminate everything!"
+        read a
+    }
     for pid in $TMP/*.pid; do
         kill -15 -$(cat $pid) 2> /dev/null || true
     done
@@ -151,7 +326,7 @@ cleanup() {
     for pid in $TMP/*.pid; do
         kill -9 -$(cat $pid) 2> /dev/null || true
     done
-    rm -rf $TMP # sh does not seem to handle "trap EXIT"
+    rm -rf $TMP
     tmux kill-session -t $LABNAME
 }
 
@@ -164,75 +339,124 @@ start_quagga() {
     for daemon in $(ls /usr/lib/quagga); do
         for conf in /lab/$uts/quagga/$daemon.conf /lab/quagga/$daemon.conf; do
             [ -f $conf ] || continue
-            info "Running Quagga $daemon"
+            log_begin_msg "Running Quagga $daemon"
             /usr/lib/quagga/$daemon -d -u root -g root -f $conf \
-                $(cat ${conf%/*}/$daemon.options 2> /dev/null || true)
+                                    $(cat ${conf%/*}/$daemon.options 2> /dev/null || true)
+            log_ok_msg "Quagga $daemon started"
             break
         done
     done
 }
 start_bird() {
     [ -e /lab/bird6.$uts.conf ] || return
-    info "Running bird6"
+    log_begin_msg "Running bird6"
     bird6 -c /lab/bird6.$uts.conf
+    log_ok_msg "bird6 started"
 }
 start_nginx() {
-    info "Running nginx"
+    log_begin_msg "Running nginx"
     mkdir /var/log/nginx
     mkdir /usr/share/nginx/www
     echo $uts > /usr/share/nginx/www/index.html
     nginx -c /lab/nginx.conf
+    log_ok_msg "nginx started"
 }
+
 start_exabgp() {
-    info "Running exabgp"
+    log_info_msg "Running exabgp"
     # We need a recent enough version of exabgp which works correctly with IPv6
     ${EXABGP} -e /lab/exabgp.env /lab/exabgp.$uts.conf &
 }
 
-export STATE=${STATE:-0}
+# FSM
+export STATE=${STATE:-BEGIN}
 case $$,$STATE in
-    1,0)
-        # Initrd
-        info "Setup hostname"
+    1,BEGIN)
+        # In initrd
+        log_info_msg "initrd started"
         hostname ${uts}
-        info "Set path"
-        export TERM=screen
         export PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/local/sbin:/usr/sbin
         export HOME=/root
 
-        info "Setup overlayfs"
-        mount -t tmpfs tmpfs /tmp -o rw
+        [ ! -f /modules ] || {
+            log_info_msg "Loading modules"
+            . /modules
+        }
+
+        log_begin_msg "Setup root file system"
+        mount -n -t tmpfs tmpfs /tmp -o rw
         mkdir /tmp/target
-        mkdir /tmp/target/rw
+        mkdir /tmp/target/ro
         mkdir /tmp/target/overlay
-        mount -t tmpfs     tmpfs     /tmp/target/rw      -o rw
-        mount -t overlayfs overlayfs /tmp/target/overlay -o lowerdir=/,upperdir=/tmp/target/rw
+        mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro
+        mkdir /tmp/target/rw
+        mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
+        mkdir /tmp/target/rw/workdir
+        mkdir /tmp/target/rw/upperdir
+        mount -n -t aufs aufs /tmp/target/overlay \
+              -o noxino,noatime,dirs=/tmp/target/rw/upperdir:/tmp/target/ro=ro \
+              2> /dev/null || \
+            mount -n -t overlayfs overlayfs /tmp/target/overlay \
+                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,noatime \
+                  2> /dev/null || \
+            mount -n -t overlay overlayfs /tmp/target/overlay \
+                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,workdir=/tmp/target/rw/workdir,noatime \
+                  2> /dev/null ||
+            log_error_msg "Unable to mount AUFS/overlayfs"
         mount -n -t proc  proc /tmp/target/overlay/proc
         mount -n -t sysfs sys  /tmp/target/overlay/sys
+        log_ok_msg "Root file system setup"
 
-        info "Mount home directory on /root"
-        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=0,rw
-
-        info "Mount lab directory on /lab"
-        mkdir /tmp/target/overlay/lab
-        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=0,rw
-
-        info "Chroot"
-        export STATE=1
-        cp "$PROGNAME" /tmp/target/overlay
-        exec chroot /tmp/target/overlay "$PROGNAME"
-        ;;
-    1,1)
-        # In chroot
-        info "Clean out /tmp and /run directories"
+        log_begin_msg "Clean /tmp and /run"
         for fs in /run /var/run /var/tmp /var/log /tmp; do
-            mount -t tmpfs tmpfs $fs -o rw,nosuid,nodev
+            if [ -d /tmp/target/overlay$fs ] && [ ! -h /tmp/target/overlay$fs ]; then
+                mount -t tmpfs tmpfs /tmp/target/overlay$fs -o rw,nosuid,nodev
+            fi
         done
+        log_ok_msg "/tmp, /run and others are clean"
 
-        info "Start udev"
-        /etc/init.d/udev start
+        log_begin_msg "Mount /root"
+        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=any,rw || \
+            log_error_msg "Unable to mount /root"
+        mount -t tmpfs tmpfs /tmp/target/overlay/root/.ssh -o rw,nosuid,nodev
+        chmod 0700 /tmp/target/overlay/root/.ssh
+        log_ok_msg "/root mounted"
+        log_begin_msg "Mount /lib/modules"
+        mount -t 9p moduleshare /tmp/target/overlay/lib/modules -o trans=virtio,version=9p2000.L,access=0,ro || \
+            log_error_msg "Unable to mount /lib/modules"
+        log_ok_msg "/root and /lib/modules mounted"
 
-        info "Setup interfaces"
+        log_begin_msg "Mount /lab"
+        mkdir /tmp/target/overlay/lab
+        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
+            log_error_msg "Unable to mount /lab"
+        log_ok_msg "/lab mounted"
+
+        log_begin_msg "Mount /tmp/lab"
+        mkdir /tmp/target/overlay/tmp/lab
+        mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
+            log_error_msg "Unable to mount /tmp/lab"
+        log_ok_msg "/tmp/lab mounted"
+
+        log_info_msg "Change root"
+        export STATE=CHROOTED
+        exec chroot /tmp/target/overlay /lab/setup
+        ;;
+
+    1,CHROOTED)
+        log_begin_msg "Starting udev"
+        udev_log=err
+        rm -f /etc/udev/rules.d/70-persistent-net.rules
+        mount -n -o size=10M,mode=0755 -t devtmpfs devtmpfs /dev
+        udevadm info --cleanup-db
+        udevd --daemon
+        udevadm trigger --action=add
+        udevadm settle
+        log_ok_msg "udev started"
+
+        log_info_msg "Setup interfaces"
+        modprobe dummy 2>/dev/null || true
+        sleep 0.5               # Some interfaces may take some time to appear
         for intf in /sys/class/net/*; do
             intf=$(basename $intf)
             ip a l dev $intf 2> /dev/null >/dev/null || continue
@@ -243,30 +467,75 @@ case $$,$STATE in
             esac
         done
 
-        info "Start syslog"
+        log_info_msg "Start syslog"
         rsyslogd
 
-        info "Setup terminal"
-        export STATE=2
-        exec setsid /sbin/getty -L ttyS0 -a root -l "$PROGNAME" -i 115200
+        log_info_msg "Setup terminal"
+        export STATE=GETTY
+        exec setsid /sbin/agetty -L ttyS0 -a root -l /lab/setup -i 115200 $TERM
         ;;
-    1,2)
-        export TERM=screen
 
-        info "Lab specific setup"
-        export STATE=3
-        . "$PROGNAME"
+    1,GETTY)
+        log_begin_msg "Setup terminal size"
+        # We are guaranteed to be in a tmux session, so we will get an
+        # answer to the escape code we send. Otherwise, we may just
+        # block!
+        stty -echo
+        stty raw
+        printf '[18t'
+        width=
+        height=
+        p=0
+        while true; do
+            char="$(timeout --foreground 1s dd bs=1 count=1 2> /dev/null || true)"
+            case "$p,$char" in
+                "0,;")
+                    # End of CSI
+                    p=1
+                    ;;
+                "1,;")
+                    # End of height
+                    stty rows $height
+                    p=2
+                    ;;
+                "1,"*)
+                    height="$height$char"
+                    ;;
+                "2,t"|"2,")
+                    # End of width
+                    stty columns $width
+                    p=3
+                    ;;
+                "2,"*)
+                    width="$width$char"
+                    ;;
+            esac
+            [ x"$p" != x"3" ] || break
+        done
+        stty -raw
+        stty echo
+        log_ok_msg "Terminal size is $(tput cols)x$(tput lines)"
 
-        info "Setup additional commands"
-        rm -f /sbin/reboot
+        export STATE=SETUP
+        . /lab/setup
+
+        log_begin_msg "Setup additional commands"
+        mkdir /tmp/tools
+        export PATH=$PATH:/tmp/tools
+        rm -f /sbin/reboot /sbin/halt
         cat <<EOF > /sbin/reboot
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
-        chmod +x /sbin/reboot
+        cat <<EOF > /sbin/halt
+#!/bin/sh
+echo b > /proc/sysrq-trigger
+EOF
+        chmod +x /sbin/reboot /sbin/halt
+        log_ok_msg "System can be halted with halt or reboot"
 
         while true; do
-            info "Spawning a shell"
+            log_info_msg "Spawning a shell"
             cd $HOME
             export SSH_TTY=$(tty)
             if [ -f $HOME/.zshrc ]; then
@@ -276,18 +545,18 @@ EOF
             fi || sleep 1
         done
         ;;
-    *,3)
-        # Specific setup for this lab
+
+    *,SETUP)
+        log_info_msg "Setup IP addresses"
         case $uts in
             rs*)
-                info "No forwarding for this host"
+                # No forwarding for this host
                 ;;
             *)
-                info "Enable forwarding"
-                sysctl -w net.ipv6.conf.all.forwarding=1
+                # Enable forwarding
+                sysctl -qw net.ipv6.conf.all.forwarding=1
         esac
 
-        info "Setup IP addresses"
         case $uts in
             r1)
                 ip -6 addr add 2001:db8:1000::1/120 dev eth0
@@ -324,14 +593,24 @@ EOF
         start_bird
         start_quagga
         ;;
-    *,*)
+
+    *,BEGIN)
+        # Initial state
         [ $(id -u) != 0 ] || {
-            error "You should not run this as root"
+            log_error_msg "You should not run this as root"
             exit 1
         }
+        PROGNAME="$(readlink -f "$0")"
+        ROOT="$(readlink -f "${ROOT:-/}")" # Root filesystem
+        KERNEL="$(readlink -f "${1:-/boot/vmlinuz-$(uname -r)}")" # Kernel
+        PATH="$PATH":/usr/local/sbin:/usr/sbin:/sbin
+        [ $# -lt 1 ] || shift
+
+        check_kernel
         check_dependencies
         setup_screen
         setup_tmp
+        setup_initrd
 
         setup_switch   1
         setup_switch   6
@@ -339,20 +618,20 @@ EOF
         setup_switch   8
         setup_switch   1000
         sleep 0.3
-        NET=1000 start_vm r1
-        NET=1000,1 start_vm er2
-        NET=1000,1 start_vm er3
-        NET=1 start_vm rs4
-        NET=8 start_vm rs5
-        NET=1,6 start_vm dr6
-        NET=1,7 start_vm dr7
-        NET=1,8 start_vm dr8
-        NET=6 start_vm w1
-        NET=7 start_vm w2
-        NET=8 start_vm w3
+
+        NET=1000    start_vm r1
+        NET=1000,1  start_vm er2
+        NET=1000,1  start_vm er3
+        NET=1       start_vm rs4
+        NET=8       start_vm rs5
+        NET=1,6     start_vm dr6
+        NET=1,7     start_vm dr7
+        NET=1,8     start_vm dr8
+        NET=6       start_vm w1
+        NET=7       start_vm w2
+        NET=8       start_vm w3
 
         display_help
-        cleanup
         ;;
 esac
 
