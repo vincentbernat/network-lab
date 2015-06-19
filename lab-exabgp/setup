@@ -419,8 +419,10 @@ case $$,$STATE in
         log_begin_msg "Mount /root"
         mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /root"
-        mount -t tmpfs tmpfs /tmp/target/overlay/root/.ssh -o rw,nosuid,nodev
-        chmod 0700 /tmp/target/overlay/root/.ssh
+        [ ! -d /tmp/target/overlay/root/.ssh ] || {
+            mount -t tmpfs tmpfs /tmp/target/overlay/root/.ssh -o rw,nosuid,nodev
+            chmod 0700 /tmp/target/overlay/root/.ssh
+        }
         log_ok_msg "/root mounted"
         log_begin_msg "Mount /lib/modules"
         mount -t 9p moduleshare /tmp/target/overlay/lib/modules -o trans=virtio,version=9p2000.L,access=0,ro || \
