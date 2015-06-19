@@ -452,7 +452,10 @@ case $$,$STATE in
         rm -f /etc/udev/rules.d/70-persistent-net.rules
         mount -n -o size=10M,mode=0755 -t devtmpfs devtmpfs /dev
         udevadm info --cleanup-db
-        udevd --daemon
+        for udev in /lib/systemd/systemd-udevd /usr/lib/systemd/systemd-udevd $(command -v udevd 2> /dev/null); do
+            [ ! -x $udev ] || break
+        done
+        $udev --daemon
         udevadm trigger --action=add
         udevadm settle
         log_ok_msg "udev started"
