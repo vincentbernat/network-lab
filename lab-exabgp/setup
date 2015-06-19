@@ -331,7 +331,7 @@ cleanup() {
 }
 
 start_quagga() {
-    [ -d /lab/$uts/quagga ] || return
+    [ -d /lab/$uts/quagga ] || return 0
     export VTYSH_PAGER=/bin/cat
     [ -d /var/log/quagga ] || mkdir /var/log/quagga
     [ -d /var/run/quagga ] || mkdir /var/run/quagga
@@ -348,7 +348,7 @@ start_quagga() {
     done
 }
 start_bird() {
-    [ -e /lab/bird6.$uts.conf ] || return
+    [ -e /lab/bird6.$uts.conf ] || return 0
     log_begin_msg "Running bird6"
     mkdir -p /var/run/bird
     bird6 -c /lab/bird6.$uts.conf
