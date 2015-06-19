@@ -350,6 +350,7 @@ start_quagga() {
 start_bird() {
     [ -e /lab/bird6.$uts.conf ] || return
     log_begin_msg "Running bird6"
+    mkdir -p /var/run/bird
     bird6 -c /lab/bird6.$uts.conf
     log_ok_msg "bird6 started"
 }
