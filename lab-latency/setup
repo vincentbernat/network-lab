@@ -568,13 +568,13 @@ EOF
         cat <<EOF > /etc/hosts
 127.0.0.1	localhost.localdomain localhost
 192.0.2.1	eth0.internet
-192.0.2.2	eth0.Paris Paris
+192.0.2.2	Paris eth0.Paris
 2001:db8:1::1   eth0.internet
-2001:db8:1::2   eth0.Paris Paris
+2001:db8:1::2   Paris eth0.Paris
 203.0.113.1	eth1.internet
-203.0.113.2	eth0.NewYork NewYork
+203.0.113.2	NewYork eth0.NewYork
 2001:db8:2::1	eth1.internet
-2001:db8:2::2	eth0.NewYork NewYork
+2001:db8:2::2	NewYork eth0.NewYork
 EOF
         ;;
 
