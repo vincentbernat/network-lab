@@ -221,6 +221,38 @@ setup_initrd () {
     log_ok_msg "initrd built in $TMP/initrd.gz"
 }
 
+setup_ssh () {
+    log_begin_msg "Setup SSH between hosts"
+    mkdir ${TMP}/ssh
+    chmod 700 ${TMP}/ssh
+    # Generate a key, both for clients and servers
+    ssh-keygen -q -t rsa -N "" -b 1024 -f ${TMP}/ssh/id_rsa
+    ln -s id_rsa.pub ${TMP}/ssh/authorized_keys
+    # Don't care about host key checking
+    cat <<EOF > ${TMP}/ssh/config
+Host *
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  StrictHostKeyChecking no
+  PasswordAuthentication no
+  IdentitiesOnly yes
+  LogLevel FATAL
+EOF
+    cat <<EOF > ${TMP}/ssh/sshd_config
+Port 22
+Protocol 2
+StrictModes no
+HostKey /root/.ssh/id_rsa
+UsePrivilegeSeparation no
+PermitRootLogin yes
+RSAAuthentication yes
+PubkeyAuthentication yes
+PasswordAuthentication no
+UsePAM no
+EOF
+    log_ok_msg "SSH setup"
+}
+
 random_mac () {
     name=$1
     net=$2
@@ -345,6 +377,16 @@ start_iperf3() {
     log_ok_msg "iperf3 started"
 }
 
+start_sshd() {
+    log_begin_msg "Running sshd"
+    [ -d /dev/pts ] || {
+        mkdir /dev/pts
+        mount -n -t devpts devpts /dev/pts -o rw,nosuid,noexec,gid=5,mode=0620
+    }
+    /usr/sbin/sshd -f /root/.ssh/sshd_config
+    log_ok_msg "sshd started"
+}
+
 # FSM
 export STATE=${STATE:-BEGIN}
 case $$,$STATE in
@@ -395,8 +437,6 @@ case $$,$STATE in
         log_begin_msg "Mount /root"
         mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /root"
-        mount -t tmpfs tmpfs /tmp/target/overlay/root/.ssh -o rw,nosuid,nodev
-        chmod 0700 /tmp/target/overlay/root/.ssh
         log_ok_msg "/root mounted"
         log_begin_msg "Mount /lib/modules"
         mount -t 9p moduleshare /tmp/target/overlay/lib/modules -o trans=virtio,version=9p2000.L,access=0,ro || \
@@ -414,6 +454,14 @@ case $$,$STATE in
         mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /tmp/lab"
         log_ok_msg "/tmp/lab mounted"
+
+        log_begin_msg "Mount /root/.ssh"
+        # We copy from /tmp/lab/ssh because we don't know how to
+        # translate UID and ssh can be picky about that.
+        mount -t tmpfs tmpfs /tmp/target/overlay/root/.ssh -o rw,nosuid,nodev
+        chmod 0700 /tmp/target/overlay/root/.ssh
+        cp -r /tmp/target/overlay/tmp/lab/ssh/* /tmp/target/overlay/root/.ssh/.
+        log_ok_msg "/root/.ssh mounted"
 
         log_info_msg "Change root"
         export STATE=CHROOTED
@@ -572,15 +620,18 @@ EOF
                 start_nginx
                 start_iperf3
                 ;;
+            internet)
+                start_sshd
+                ;;
         esac
 
         # Setup resolver
         rm -f /etc/resolv.conf
         cat <<EOF > /etc/hosts
 127.0.0.1	localhost.localdomain localhost
-192.0.2.1	eth0.internet
+192.0.2.1	internet eth0.internet
 192.0.2.2	Paris eth0.Paris
-2001:db8:1::1   eth0.internet
+2001:db8:1::1   internet eth0.internet
 2001:db8:1::2   Paris eth0.Paris
 203.0.113.1	eth1.internet
 203.0.113.2	NewYork eth0.NewYork
@@ -606,6 +657,7 @@ EOF
         setup_screen
         setup_tmp
         setup_initrd
+        setup_ssh
 
         setup_switch 1
         setup_switch 2
