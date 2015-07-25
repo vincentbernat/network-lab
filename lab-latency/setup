@@ -1,7 +1,7 @@
 #!/bin/sh
 
 LABNAME="latency"
-DEPS="ip nginx"
+DEPS="ip nginx rsyslogd iperf3"
 
 set -e
 
@@ -339,6 +339,12 @@ start_nginx() {
     log_ok_msg "nginx started"
 }
 
+start_iperf3() {
+    log_begin_msg "Running iperf3"
+    iperf3 -s -D --json
+    log_ok_msg "iperf3 started"
+}
+
 # FSM
 export STATE=${STATE:-BEGIN}
 case $$,$STATE in
@@ -557,9 +563,14 @@ EOF
         esac
 
         case $uts in
-            Paris|NewYork)
+            Paris)
                 sysctl -qw net.ipv4.tcp_no_metrics_save=1 # Better benchmark reproductability
                 start_nginx
+                ;;
+            NewYork)
+                sysctl -qw net.ipv4.tcp_no_metrics_save=1 # Better benchmark reproductability
+                start_nginx
+                start_iperf3
                 ;;
         esac
 
