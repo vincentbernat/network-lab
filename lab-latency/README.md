@@ -112,7 +112,8 @@ On the other side, the utility `ss` will give plenty of information (depending o
  - `cwnd` is the congestion window. The actual value should be
    obtained by multiplying this value with the MSS.
 
- - `send` is the theoritical bandwidth computed from `cwnd` and `rtt`.
+ - `send` is the theoritical bandwidth computed from `cwnd`, `mss` and
+   `rtt` (bandwidth-delay product).
 
  - `ssthresh` is the TCP slow start threshold. Because of the use of
     fast recovery, this is the value used to fallback the congestion
@@ -121,6 +122,15 @@ On the other side, the utility `ss` will give plenty of information (depending o
     of MSS/CWND.
 
  - `rcv_space` is twice the advertised receive window in bytes.
+
+ - `pacing_rate` is the rate which has been computed to avoid sending
+   bursts of packets when the other side won't be able to process all
+   of them. Currently, it is only used when using the
+   [fair queuing scheduler](https://lwn.net/Articles/565421/) or to
+   decide how much segments can be stuffed into a TSO packet. If there
+   is a second number, it means that the application has forced a
+   maximum pacing rate (with `SO_MAX_PACING_RATE`). The pacing rate is
+   computed in `tcp_update_pacing_rate()`.
 
  - `unacked`, `retrans`, `lost`, `sacked` and `reordering` are
    statistics for this socket. All those numbers should be low.
