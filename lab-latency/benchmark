@@ -1,0 +1,440 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""Run a benchmark with iperf3, collect data and graph results.
+
+Collected data currently include the output of ss for the appropriate
+socket.
+"""
+
+import os
+import sys
+import pty
+import logging
+import logging.handlers
+import argparse
+import asyncio
+import time
+import collections
+import re
+import csv
+import functools
+import numpy as np
+import matplotlib.pylab as mp
+
+logger = logging.getLogger("benchmark")
+
+
+class Statistics(object):
+    """Keep various statistics as a time serie."""
+
+    __properties = (
+        "local remote "
+        "recvq sendq "
+        "skmem_r skmem_rb skmem_t skmem_tb skmem_f skmem_w skmem_o skmem_bl "
+        "wscale rto rtt ato mss cwnd "
+        "send lastsnd lastrcv lastack "
+        "pacing_rate rcv_rtt rcv_space "
+        "unacked retrans lost sacked reordering "
+        "bandwidth"
+    ).split(" ")
+
+    def __init__(self, precision=1):
+        """Create a new object for collecting statistics.
+
+        The provided precision is in seconds.
+        """
+        self.__statistics = collections.defaultdict(dict)
+        self.__precision = precision
+
+    @property
+    def properties(self):
+        return self.__properties
+
+    def dump(self, target):
+        """Write statistics to a file"""
+        writer = csv.DictWriter(target, delimiter="|",
+                                fieldnames=["time",] + self.__properties)
+        writer.writeheader()
+        keys = sorted(self.__statistics.keys())
+        for k in keys:
+            row = {"time": k}
+            row.update(self.__statistics[k])
+            writer.writerow(row)
+
+    def set(self, name, value):
+        if name not in self.__properties:
+            raise AttributeError("Unknown attribute {}".format(name))
+        now = int(time.time() / self.__precision) * self.__precision
+        self.__statistics[now][name] = value
+
+
+def parse():
+    """Parse arguments"""
+    parser = argparse.ArgumentParser(
+        description=sys.modules[__name__].__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    g = parser.add_mutually_exclusive_group()
+    g.add_argument("--debug", "-d", action="store_true",
+                   default=False,
+                   help="enable debugging")
+    g.add_argument("--silent", "-s", action="store_true",
+                   default=False,
+                   help="don't log to console")
+
+    subparsers = parser.add_subparsers(title='subcommands', dest='command')
+
+    run = subparsers.add_parser('run', help='run benchmark')
+    run.add_argument("target", metavar="TARGET", type=str,
+                     help="Target host (running iperf3 on server mode)")
+    run.add_argument("--frequency", metavar="SECONDS", type=int,
+                     default=1,
+                     help="Frequency of data collection")
+    run.add_argument("--duration", metavar="SECONDS", type=int,
+                     default=120,
+                     help="Test length in seconds")
+    run.add_argument("--output", metavar="FILE", type=str,
+                     default="results.csv",
+                     help="Output file for results")
+    run.add_argument("--mode", metavar="MODE", type=str,
+                     choices=("send", "receive"),
+                     default="send",
+                     help="iperf3 mode (sending data or receiving data)")
+
+    graph = subparsers.add_parser('graph', help='produce graphs from results')
+    graph.add_argument("input", metavar="FILE", type=str,
+                       help="Result file")
+    graph.add_argument("--format", "-f", metavar="FMT", type=str,
+                       choices=("svg", "pdf", "png"),
+                       default="pdf",
+                       help="Output format")
+
+    options = parser.parse_args()
+    return options
+
+def setup_logging(debug, silent):
+    """Setup logger"""
+    logger = logging.getLogger()
+    logger.setLevel(debug and logging.DEBUG or logging.INFO)
+    if sys.stderr.isatty() and not silent:
+        ch = logging.StreamHandler()
+        ch.setFormatter(logging.Formatter(
+            "%(levelname)s[%(name)s] %(message)s"))
+        logger.addHandler(ch)
+
+@asyncio.coroutine
+def run_iperf(loop, options, stats):
+    """Run an iperf3 instance"""
+    connection_line = re.compile(r"^\[\s*\d+\] local \S+ port (?P<local>\d+) connected to \S+ port (?P<remote>\d+)$")
+    bandwidth_line = re.compile(r"^\[\s*\d+\]\s+[-0-9.]+\s+sec\s+\S+\s+\S+\s+(?P<bandwidth>\d+) Kbits/sec.*$")
+
+    # It's a hack, we request a PTY to get an unbuffered read
+    master, slave = pty.openpty()
+    master = os.fdopen(master, "w")
+    slave = os.fdopen(slave, "r")
+
+    args = ("-c", options.target,
+            "-i", str(options.frequency),
+            "-t", str(options.duration),
+            "-f", "k")
+    if options.mode == "receive":
+        args += ("-R",)
+    create = asyncio.create_subprocess_exec("/usr/bin/iperf3",
+                                            *args,
+                                            stdin=asyncio.subprocess.DEVNULL,
+                                            stdout=master,
+                                            stderr=asyncio.subprocess.DEVNULL,
+                                            loop=loop)
+    proc = yield from create
+    logger.info("iperf3 running...")
+
+    def header_reader():
+        # We may block on the following line, unfortunately, but we
+        # don't want to do too complex stuff.
+        data = slave.readline()
+        if data == "":
+            return
+        data = data.rstrip()
+        mo = connection_line.match(data)
+        if not mo:
+            return
+
+        # We got the local and remote port, we can start collecting
+        # statistics with ss
+        local = int(mo.group('local'))
+        remote = int(mo.group('remote'))
+        logger.info("Starting ss collector (local: {}, remote: {})".format(local, remote))
+        loop.create_task(run_ss(loop, options, stats,
+                                local, remote))
+        loop.remove_reader(slave.fileno())
+        loop.add_reader(slave.fileno(), bandwidth_reader)
+
+    def bandwidth_reader():
+        data = slave.readline()
+        if data == "":
+            return
+        data = data.rstrip()
+        if data.startswith("- - - - -"):
+            # That's the summary line
+            loop.remove_reader(slave.fileno())
+            return
+        mo = bandwidth_line.match(data)
+        if not mo:
+            return
+
+        bandwidth = int(mo.group('bandwidth')) * 1000 // 8
+        stats.set("bandwidth", bandwidth)
+        logger.debug("Saving statistics from iperf: {}".format({"bandwidth": bandwidth}))
+
+    loop.add_reader(slave.fileno(), header_reader)
+    yield from proc.wait()
+    logger.info("iperf3 stopped with return code {}".format(proc.returncode))
+    loop.remove_reader(slave)
+    if loop.is_running():
+        loop.stop()
+
+@asyncio.coroutine
+def run_ss(loop, options, stats, localport, remoteport):
+    """Run `ss' to collect statistics."""
+    first_line = re.compile(r"^(?P<state>[-A-Z0-9]+)\s+"
+                            r"(?P<recvq>\d+)\s+(?P<sendq>\d+)\s+"
+                            r"(?P<local>\S+)\s+(?P<remote>\S+)\s+"
+                            r"(?P<data>.*) \<-\>$")
+    while True:
+        create = asyncio.create_subprocess_exec("/bin/ss",
+                                                "-tn",
+                                                "--info",
+                                                "--extended",
+                                                "--memory",
+                                                "--process",
+                                                "--options",
+                                                "( sport == :{} and dport == :{} )".format(localport, remoteport),
+                                                stdin=asyncio.subprocess.DEVNULL,
+                                                stdout=asyncio.subprocess.PIPE,
+                                                stderr=asyncio.subprocess.DEVNULL,
+                                                loop=loop)
+        proc = yield from create
+
+        # Ignore the first line
+        data = yield from proc.stdout.readline()
+
+        # Decode each subsequent couple of lines
+        while True:
+            line1 = yield from proc.stdout.readline()
+            line1 = line1.decode('ascii').rstrip()
+            if line1 == "":
+                break
+
+            if not line1.startswith("ESTAB"):
+                continue
+            mo = first_line.match(line1)
+            if not mo:
+                continue
+            local = mo.group('local')
+            remote = mo.group('remote')
+            sendq = int(mo.group('sendq'))
+            recvq = int(mo.group('recvq'))
+
+            line2 = yield from proc.stdout.readline()
+            line2 = line2.decode('ascii').strip()
+            if line2 == "":
+                break
+
+            # The general format is `key:value' or just `key'. Try
+            # to normalize some special cases and convert to a
+            # dictionary.
+            data = "{} {}".format(mo.group('data'), line2)
+            data = re.sub(r"([a-z_]+) (\d)", r"\1:\2", data).split(" ")
+            results = {
+                "local": local,
+                "remote": remote,
+                "sendq": sendq,
+                "recvq": recvq
+            }
+            for d in data:
+                d = d.rsplit(":")
+                if len(d) == 1:
+                    results[d[0]] = True
+                elif d[0] == "skmem":
+                    # Special case:
+                    # (r0,rb372480,t0,tb87040,f0,w0,o0,bl0)
+                    for mo in re.finditer(r"(\w+?)(\d+)", d[1]):
+                        results["skmem_{}".format(mo.group(1))] = mo.group(2)
+                else:
+                    results[d[0]] = d[1]
+
+            saved = {}
+            for prop in results:
+                if prop in stats.properties:
+                    saved[prop] = results[prop]
+                    stats.set(prop, results[prop])
+            logger.debug("Saving statistics from ss: {}".format(saved))
+            break
+
+        yield from proc.wait()
+        if proc.returncode != 0:
+            logger.error("ss failed with return code {}".format(proc.returncode))
+
+        # Sleep a bit before next collection
+        yield from asyncio.sleep(options.frequency)
+
+
+def run_loop_exception(loop, context):
+    """Handle exceptions in a loop."""
+    # For some reason, log.exception doesn't work here
+    logger.error("Uncaught error: {}".format(context))
+    if loop.is_running():
+        loop.stop()
+
+
+def run_output(options, stats):
+    """Write results to the output file."""
+    logger.info("Writing statistics to {}...".format(options.output))
+    with open(options.output, "w") as target:
+        stats.dump(target)
+
+
+def run(options):
+    """Run a benchmark."""
+    stats = Statistics(options.frequency)
+    loop = asyncio.get_event_loop()
+    loop.set_exception_handler(run_loop_exception)
+    loop.create_task(run_iperf(loop, options, stats))
+    try:
+        logger.debug("Start main loop")
+        loop.run_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        logger.debug("Cancelling all tasks...")
+        pending = asyncio.Task.all_tasks()
+        for task in pending:
+            task.cancel()
+        loop.run_until_complete(asyncio.gather(*pending,
+                                               return_exceptions=True))
+        for task in pending:
+            try:
+                task.exception()
+            except asyncio.CancelledError:
+                pass
+        loop.close()
+    # Write output
+    run_output(options, stats)
+
+
+def graph_smooth(x, win=4, centered=True):
+    """Smooth some dataset over a given window."""
+    if not centered:
+        win = win*2
+    s = np.r_[x[win-1:0:-1], x, x[-1:-win:-1]]
+    if centered:
+        w = np.ones(win, 'd')
+    else:
+        w = np.concatenate([[0.]*(win//2), [1.]*(win//2)])
+    y = np.convolve(w/w.sum(), s, mode='valid')
+    return y[(win-1)//2:-(win-1)//2]
+
+
+def graph_formatter(unit, x, pos):
+    """Provide an appropriate formatter for SI."""
+    if x >= 1e6:
+        return "{:-1.0f}M{}".format(x/1e6, unit)
+    if x >= 1e3:
+        return "{:-1.0f}K{}".format(x/1e3, unit)
+    return "{:-1.0f}{}".format(x, unit)
+
+
+def graph(options):
+    """Build graph from results."""
+    logger.debug("Reading results from {}...".format(options.input))
+    with open(options.input) as source:
+        data = mp.csv2rec(source, delimiter="|",
+                          converterd={
+                              "rtt": lambda x: float(x.split("/")[0] or '-1.'),
+                              # Convert most fields to float to get "None" value
+                              "rcv_space": lambda x: float(x),
+                              "cwnd": lambda x: float(x),
+                              "mss": lambda x: float(x),
+                              "bandwidth": lambda x: float(x),
+                              "unacked": lambda x: float(x),
+                              "retrans": lambda x: float(x.split("/")[-1] or '-1.'),
+                              "lost": lambda x: float(x),
+                              "sacked": lambda x: float(x),
+                              "reordering": lambda x: float(x)
+                          })
+        time = data.time - min(data.time)
+    target = "{}.{}".format(os.path.splitext(options.input)[0],
+                            options.format)
+    # See: http://vincent.bernat.im/en/blog/2011-plot-benchmark-results-matplotlib.html
+    mp.rcParams['font.size'] = 11
+    mp.figure(num=None, figsize=(8.27, 11.69), dpi=300)
+    mp.suptitle(os.path.splitext(options.input)[0], fontsize=14)
+
+    # On the first one, we put rwin and cwnd on left axis,
+    # send/receive bandwidth on right axis
+    lns = []
+    ax1 = mp.subplot2grid((2, 1), (0, 0))
+    lns.extend(ax1.plot(time, data.rcv_space.astype(float) / 2,
+                        '-', color='IndianRed', label='Receive window'))
+    lns.extend(ax1.plot(time, data.cwnd.astype(float) * data.mss.astype(float),
+                        '-', color='RoyalBlue', label='Congestion window'))
+    ax1.set_xlim(right=max(time))
+    ax1.grid(True, which="both", linestyle="dotted")
+    ax1.set_ylabel("Window size (bytes)")
+    ax1.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
+    ax1.set_ylim(bottom=0)
+    ax2 = ax1.twinx()
+    lns.extend(ax2.plot(time,
+                        data.cwnd.astype(float) * data.mss.astype(float) * 1000. / data.rtt.astype(float),
+                        '-', color='DarkViolet', label='Max send bandwidth'))
+    lns.extend(ax2.plot(time,
+                        data.rcv_space.astype(float) * 1000. / 2. / data.rcv_rtt.astype(float),
+                        '-', color='DarkOrange', label='Max receive bandwidth'))
+    # For current bandwidth, we smooth it a bit to account for
+    # measurement imprecisions.
+    lns.extend(ax2.plot(time,
+                        graph_smooth(data.bandwidth.astype(float), 4, True),
+                        '-', color='ForestGreen', label='Current bandwidth'))
+    ax2.plot(time,
+             data.bandwidth.astype(float),
+             ':', color='ForestGreen')
+    ax2.set_xlim(right=max(time))
+    ax2.grid(True, which="both", linestyle="dotted", color="0.7")
+    ax2.set_ylabel("Bandwidth (bytes per sec)")
+    ax2.get_yticklabels()[0].set_visible(False)
+    ax2.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
+    ax2.set_ylim(bottom=0)
+
+    ax1.legend(lns, [l.get_label() for l in lns],
+               loc='best', fancybox=True, shadow=True,
+               prop=dict(size=9), ncol=1, framealpha=0.8)
+
+    # On the second graph, we plot unacked, retrans, lost, sacked and reordering counts.
+    ax3 = mp.subplot2grid((2, 1), (1, 0), sharex=ax1)
+    ax3.grid(True, which="both", linestyle="dotted")
+    ax3.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
+    ax3.set_ylim(bottom=0, auto=True)
+    counts = "unacked retrans lost sacked reordering".split(" ")
+    colors = mp.cm.Paired(np.linspace(0, 1, len(counts)))
+    for idx, what in enumerate(counts):
+        ax3.plot(time,
+                 data[what].astype(float),
+                 '-', color=colors[idx], label=what.capitalize())
+    for label in ax3.get_xticklabels():
+        label.set_visible(False)
+    ax3.legend(loc='best', fancybox=True, shadow=True,
+               prop=dict(size=9), ncol=2, framealpha=0.8)
+
+    mp.savefig(target)
+
+if __name__ == "__main__":
+    options = parse()
+    setup_logging(options.debug, options.silent)
+    try:
+        if options.command == "run":
+            run(options)
+        elif options.command == "graph":
+            graph(options)
+    except Exception as e:
+        logger.exception("Uncaught exception: %s", e)
