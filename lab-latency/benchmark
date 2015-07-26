@@ -374,7 +374,7 @@ def graph(options):
     # On the first one, we put rwin and cwnd on left axis,
     # send/receive bandwidth on right axis
     lns = []
-    ax1 = mp.subplot2grid((2, 1), (0, 0))
+    ax1 = mp.subplot2grid((3, 1), (0, 0), rowspan=2)
     lns.extend(ax1.plot(time, data.rcv_space.astype(float) / 2,
                         '-', color='IndianRed', label='Receive window'))
     lns.extend(ax1.plot(time, data.cwnd.astype(float) * data.mss.astype(float),
@@ -383,7 +383,7 @@ def graph(options):
     ax1.grid(True, which="both", linestyle="dotted")
     ax1.set_ylabel("Window size (bytes)")
     ax1.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
-    ax1.set_ylim(bottom=0)
+    ax1.set_ylim(bottom=0, auto=True)
     ax2 = ax1.twinx()
     lns.extend(ax2.plot(time,
                         data.cwnd.astype(float) * data.mss.astype(float) * 1000. / data.rtt.astype(float),
@@ -395,7 +395,7 @@ def graph(options):
     # measurement imprecisions.
     lns.extend(ax2.plot(time,
                         graph_smooth(data.bandwidth.astype(float), 4, True),
-                        '-', color='ForestGreen', label='Current bandwidth'))
+                        '-', color='ForestGreen', linewidth=2, label='Current bandwidth'))
     ax2.plot(time,
              data.bandwidth.astype(float),
              ':', color='ForestGreen')
@@ -404,26 +404,38 @@ def graph(options):
     ax2.set_ylabel("Bandwidth (bytes per sec)")
     ax2.get_yticklabels()[0].set_visible(False)
     ax2.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
-    ax2.set_ylim(bottom=0)
+    ax2.set_ylim(bottom=0, auto=True)
 
     ax1.legend(lns, [l.get_label() for l in lns],
                loc='best', fancybox=True, shadow=True,
                prop=dict(size=9), ncol=1, framealpha=0.8)
 
     # On the second graph, we plot unacked, retrans, lost, sacked and reordering counts.
-    ax3 = mp.subplot2grid((2, 1), (1, 0), sharex=ax1)
+    lns = []
+    ax3 = mp.subplot2grid((3, 1), (2, 0), sharex=ax1)
     ax3.grid(True, which="both", linestyle="dotted")
     ax3.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
     ax3.set_ylim(bottom=0, auto=True)
-    counts = "unacked retrans lost sacked reordering".split(" ")
-    colors = mp.cm.Paired(np.linspace(0, 1, len(counts)))
+    counts = "unacked lost sacked reordering".split(" ")
+    colors = mp.cm.Accent(np.linspace(0, 1, len(counts) + 1))
+    ax4 = ax3.twinx()
+    lns.extend(ax4.plot(time,
+                        data.retrans.astype(float),
+                        '-', color=colors[0], label="Retrans"))
     for idx, what in enumerate(counts):
-        ax3.plot(time,
-                 data[what].astype(float),
-                 '-', color=colors[idx], label=what.capitalize())
-    for label in ax3.get_xticklabels():
-        label.set_visible(False)
-    ax3.legend(loc='best', fancybox=True, shadow=True,
+        lns.extend(ax3.plot(time,
+                            data[what].astype(float),
+                            idx == 0 and '-' or '--', color=colors[idx+1],
+                            label=what.capitalize()))
+    ax4.grid(True, which="both", linestyle="dotted", color="0.7")
+    ax4.get_yticklabels()[0].set_visible(False)
+    ax4.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
+    ax4.set_ylim(bottom=0, auto=True)
+    for tl in ax4.get_yticklabels():
+        tl.set_color(colors[-1])
+
+    ax3.legend(lns, [l.get_label() for l in lns],
+               loc='best', fancybox=True, shadow=True,
                prop=dict(size=9), ncol=2, framealpha=0.8)
 
     mp.savefig(target)
