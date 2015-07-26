@@ -123,6 +123,10 @@ On the other side, the utility `ss` will give plenty of information (depending o
 
  - `rcv_space` is twice the advertised receive window in bytes.
 
+ - `lastsnd`, `lastrcv` and `lastack` are the time in milliseconds
+   since now something got sent, received or acked on the current
+   socket. When the value is 0, it is not displayed.
+
  - `pacing_rate` is the rate which has been computed to avoid sending
    bursts of packets when the other side won't be able to process all
    of them. Currently, it is only used when using the
