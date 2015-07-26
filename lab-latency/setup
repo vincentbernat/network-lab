@@ -379,10 +379,6 @@ start_iperf3() {
 
 start_sshd() {
     log_begin_msg "Running sshd"
-    [ -d /dev/pts ] || {
-        mkdir /dev/pts
-        mount -n -t devpts devpts /dev/pts -o rw,nosuid,noexec,gid=5,mode=0620
-    }
     /usr/sbin/sshd -f /root/.ssh/sshd_config
     log_ok_msg "sshd started"
 }
@@ -480,6 +476,10 @@ case $$,$STATE in
         $udev --daemon
         udevadm trigger --action=add
         udevadm settle
+        [ -d /dev/pts ] || {
+            mkdir /dev/pts
+            mount -n -t devpts devpts /dev/pts -o rw,nosuid,noexec,gid=5,mode=0620
+        }
         log_ok_msg "udev started"
 
         log_info_msg "Setup interfaces"
