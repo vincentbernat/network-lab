@@ -28,17 +28,6 @@ logger = logging.getLogger("benchmark")
 class Statistics(object):
     """Keep various statistics as a time serie."""
 
-    __properties = (
-        "local remote "
-        "recvq sendq "
-        "skmem_r skmem_rb skmem_t skmem_tb skmem_f skmem_w skmem_o skmem_bl "
-        "wscale rto rtt ato mss cwnd "
-        "send lastsnd lastrcv lastack "
-        "pacing_rate rcv_rtt rcv_space "
-        "unacked retrans lost sacked reordering "
-        "bandwidth"
-    ).split(" ")
-
     def __init__(self, precision=1):
         """Create a new object for collecting statistics.
 
@@ -46,6 +35,7 @@ class Statistics(object):
         """
         self.__statistics = collections.defaultdict(dict)
         self.__precision = precision
+        self.__properties = []
 
     @property
     def properties(self):
@@ -64,7 +54,7 @@ class Statistics(object):
 
     def set(self, name, value):
         if name not in self.__properties:
-            raise AttributeError("Unknown attribute {}".format(name))
+            self.__properties.append(name)
         now = int(time.time() / self.__precision) * self.__precision
         self.__statistics[now][name] = value
 
@@ -246,12 +236,11 @@ def run_ss(loop, options, stats, localport, remoteport):
             # dictionary.
             data = "{} {}".format(mo.group('data'), line2)
             data = re.sub(r"([a-z_]+) (\d)", r"\1:\2", data).split(" ")
-            results = {
-                "local": local,
-                "remote": remote,
-                "sendq": sendq,
-                "recvq": recvq
-            }
+            results = collections.OrderedDict()
+            results["local"] = local
+            results["remote"] = remote
+            results["sendq"] = sendq
+            results["recvq"] = recvq
             for d in data:
                 d = d.rsplit(":")
                 if len(d) == 1:
@@ -264,12 +253,9 @@ def run_ss(loop, options, stats, localport, remoteport):
                 else:
                     results[d[0]] = d[1]
 
-            saved = {}
             for prop in results:
-                if prop in stats.properties:
-                    saved[prop] = results[prop]
-                    stats.set(prop, results[prop])
-            logger.debug("Saving statistics from ss: {}".format(saved))
+                stats.set(prop, results[prop])
+            logger.debug("Saving statistics from ss: {}".format(results))
             break
 
         yield from proc.wait()
