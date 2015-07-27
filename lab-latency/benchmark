@@ -339,9 +339,9 @@ def graph_smooth(x, win=4, centered=True):
 def graph_formatter(unit, x, pos):
     """Provide an appropriate formatter for SI."""
     if x >= 1e6:
-        return "{:-1.0f}M{}".format(x/1e6, unit)
+        return "{:-1.1f}M{}".format(x/1e6, unit)
     if x >= 1e3:
-        return "{:-1.0f}K{}".format(x/1e3, unit)
+        return "{:-1.1f}K{}".format(x/1e3, unit)
     return "{:-1.0f}{}".format(x, unit)
 
 
@@ -361,7 +361,13 @@ def graph(options):
                               "retrans": lambda x: float(x.split("/")[-1] or '-1.'),
                               "lost": lambda x: float(x),
                               "sacked": lambda x: float(x),
-                              "reordering": lambda x: float(x)
+                              "reordering": lambda x: float(x),
+                              "skmem_r": lambda x: float(x),
+                              "skmem_rb": lambda x: float(x),
+                              "skmem_t": lambda x: float(x),
+                              "skmem_tb": lambda x: float(x),
+                              "skmem_f": lambda x: float(x),
+                              "skmem_w": lambda x: float(x),
                           })
         time = data.time - min(data.time)
     target = "{}.{}".format(os.path.splitext(options.input)[0],
@@ -374,14 +380,14 @@ def graph(options):
     # On the first one, we put rwin and cwnd on left axis,
     # send/receive bandwidth on right axis
     lns = []
-    ax1 = mp.subplot2grid((3, 1), (0, 0), rowspan=2)
+    ax1 = mp.subplot2grid((4, 1), (0, 0), rowspan=2)
     lns.extend(ax1.plot(time, data.rcv_space.astype(float) / 2,
                         '-', color='IndianRed', label='Receive window'))
     lns.extend(ax1.plot(time, data.cwnd.astype(float) * data.mss.astype(float),
                         '-', color='RoyalBlue', label='Congestion window'))
     ax1.set_xlim(right=max(time))
     ax1.grid(True, which="both", linestyle="dotted")
-    ax1.set_ylabel("Window size (bytes)")
+    ax1.set_ylabel("Window size (bytes)", fontsize=9)
     ax1.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
     ax1.set_ylim(bottom=0, auto=True)
     ax2 = ax1.twinx()
@@ -401,7 +407,7 @@ def graph(options):
              ':', color='ForestGreen')
     ax2.set_xlim(right=max(time))
     ax2.grid(True, which="both", linestyle="dotted", color="0.7")
-    ax2.set_ylabel("Bandwidth (bytes per sec)")
+    ax2.set_ylabel("Bandwidth (bytes per sec)", fontsize=9)
     ax2.get_yticklabels()[0].set_visible(False)
     ax2.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
     ax2.set_ylim(bottom=0, auto=True)
@@ -412,10 +418,9 @@ def graph(options):
 
     # On the second graph, we plot unacked, retrans, lost, sacked and reordering counts.
     lns = []
-    ax3 = mp.subplot2grid((3, 1), (2, 0), sharex=ax1)
+    ax3 = mp.subplot2grid((4, 1), (2, 0), sharex=ax1)
     ax3.grid(True, which="both", linestyle="dotted")
     ax3.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
-    ax3.set_ylim(bottom=0, auto=True)
     counts = "unacked lost sacked reordering".split(" ")
     colors = mp.cm.Accent(np.linspace(0, 1, len(counts) + 1))
     ax4 = ax3.twinx()
@@ -427,6 +432,7 @@ def graph(options):
                             data[what].astype(float),
                             idx == 0 and '-' or '--', color=colors[idx+1],
                             label=what.capitalize()))
+    ax3.set_ylim(bottom=0, auto=True)
     ax4.grid(True, which="both", linestyle="dotted", color="0.7")
     ax4.get_yticklabels()[0].set_visible(False)
     ax4.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
@@ -436,7 +442,33 @@ def graph(options):
 
     ax3.legend(lns, [l.get_label() for l in lns],
                loc='best', fancybox=True, shadow=True,
-               prop=dict(size=9), ncol=2, framealpha=0.8)
+               prop=dict(size=7), ncol=2, framealpha=0.8)
+
+    ax5 = mp.subplot2grid((4, 1), (3, 0), sharex=ax1)
+    ax5.grid(True, which="both", linestyle="dotted")
+    ax5.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
+    colors = mp.cm.Paired(np.linspace(0, 1, 6))
+    for what in [
+            ["skmem_r", "rmem-alloc", colors[0], '--'],
+            ["skmem_rb", "rcvbuf", colors[1], '-'],
+            ["skmem_t", "wmem-alloc", colors[2], '--'],
+            ["skmem_tb", "sndbuf", colors[3], '-'],
+            ["skmem_f", "fwd-alloc", colors[4], '-'],
+            ["skmem_w", "wmem-queued", colors[5], '-']]:
+        ax5.plot(time,
+                 data[what[0]].astype(float),
+                 what[3],
+                 color=what[2],
+                 label=what[1])
+    ax5.plot(time,
+             data["skmem_w"].astype(float) + data["skmem_f"].astype(float),
+             ":", color=colors[4],
+             label="f+w")
+
+    ax5.set_ylabel("Size (bytes)", fontsize=9)
+    ax5.set_ylim(bottom=0)
+    ax5.legend(loc='best', fancybox=True, shadow=True,
+               prop=dict(size=7), ncol=2, framealpha=0.8)
 
     mp.savefig(target)
 
