@@ -390,26 +390,31 @@ def graph(options):
     """Build graph from results."""
     logger.debug("Reading results from {}...".format(options.input))
     with open(options.input) as source:
+        tof = lambda x: float(x)
+        converterd = {
+            "rtt": lambda x: float(x.split("/")[0] or '-1.'),
+            # Convert most fields to float to get "None" value
+            "rcv_space": tof,
+            "cwnd": tof,
+            "mss": tof,
+            "bandwidth": tof,
+            "unacked": tof,
+            "retrans": lambda x: float(x.split("/")[-1] or '-1.'),
+            "lost": tof,
+            "sacked": tof,
+            "reordering": tof,
+            "skmem_r": tof,
+            "skmem_rb": tof,
+            "skmem_t": tof,
+            "skmem_tb": tof,
+            "skmem_f": tof,
+            "skmem_w": tof,
+        }
+        for k in list(converterd.keys()):
+            # Apply same transformation for remotes
+            converterd["remote_{}".format(k)] = converterd[k]
         data = mp.csv2rec(source, delimiter="|",
-                          converterd={
-                              "rtt": lambda x: float(x.split("/")[0] or '-1.'),
-                              # Convert most fields to float to get "None" value
-                              "rcv_space": lambda x: float(x),
-                              "cwnd": lambda x: float(x),
-                              "mss": lambda x: float(x),
-                              "bandwidth": lambda x: float(x),
-                              "unacked": lambda x: float(x),
-                              "retrans": lambda x: float(x.split("/")[-1] or '-1.'),
-                              "lost": lambda x: float(x),
-                              "sacked": lambda x: float(x),
-                              "reordering": lambda x: float(x),
-                              "skmem_r": lambda x: float(x),
-                              "skmem_rb": lambda x: float(x),
-                              "skmem_t": lambda x: float(x),
-                              "skmem_tb": lambda x: float(x),
-                              "skmem_f": lambda x: float(x),
-                              "skmem_w": lambda x: float(x),
-                          })
+                          converterd=converterd)
         time = data.time - min(data.time)
     target = "{}.{}".format(os.path.splitext(options.input)[0],
                             options.format)
@@ -422,7 +427,19 @@ def graph(options):
     # send/receive bandwidth on right axis
     lns = []
     ax1 = mp.subplot2grid((4, 1), (0, 0), rowspan=2)
-    lns.extend(ax1.plot(time, data.rcv_space.astype(float) / 2,
+    try:
+        rcv_space = data.remote_rcv_space.astype(float)
+        rcv_rtt = data.remote_rcv_rtt.astype(float)
+    except AttributeError:
+        rcv_space = data.rcv_space.astype(float)
+        try:
+            rcv_rtt = data.rcv_rtt.astype(float)
+        except AttributeError:
+            # Did not send anything...
+            rcv_rtt = None
+    else:
+        logger.debug("Using remote receive space for rcv_space")
+    lns.extend(ax1.plot(time, rcv_space / 2,
                         '-', color='IndianRed', label='Receive window'))
     lns.extend(ax1.plot(time, data.cwnd.astype(float) * data.mss.astype(float),
                         '-', color='RoyalBlue', label='Congestion window'))
@@ -435,9 +452,10 @@ def graph(options):
     lns.extend(ax2.plot(time,
                         data.cwnd.astype(float) * data.mss.astype(float) * 1000. / data.rtt.astype(float),
                         '-', color='DarkViolet', label='Max send bandwidth'))
-    lns.extend(ax2.plot(time,
-                        data.rcv_space.astype(float) * 1000. / 2. / data.rcv_rtt.astype(float),
-                        '-', color='DarkOrange', label='Max receive bandwidth'))
+    if rcv_rtt is not None:
+        lns.extend(ax2.plot(time,
+                            rcv_space * 1000. / 2. / rcv_rtt,
+                            '-', color='DarkOrange', label='Max receive bandwidth'))
     # For current bandwidth, we smooth it a bit to account for
     # measurement imprecisions.
     lns.extend(ax2.plot(time,
@@ -489,9 +507,17 @@ def graph(options):
     ax5.grid(True, which="both", linestyle="dotted")
     ax5.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
     colors = mp.cm.Paired(np.linspace(0, 1, 6))
+    try:
+        data.remote_skmem_r
+        data.remote_skmem_rb
+    except AttributeError:
+        mayber = lambda x: x
+    else:
+        logger.debug("Using remote skmem_r/rb")
+        mayber = lambda x: "remote_{}".format(x)
     for what in [
-            ["skmem_r", "rmem-alloc", colors[0], '--'],
-            ["skmem_rb", "rcvbuf", colors[1], '-'],
+            [mayber("skmem_r"), "rmem-alloc", colors[0], '--'],
+            [mayber("skmem_rb"), "rcvbuf", colors[1], '-'],
             ["skmem_t", "wmem-alloc", colors[2], '--'],
             ["skmem_tb", "sndbuf", colors[3], '-'],
             ["skmem_f", "fwd-alloc", colors[4], '-'],
