@@ -68,10 +68,10 @@ def parse():
     g = parser.add_mutually_exclusive_group()
     g.add_argument("--debug", "-d", action="store_true",
                    default=False,
-                   help="enable debugging")
+                   help="Enable debugging")
     g.add_argument("--silent", "-s", action="store_true",
                    default=False,
-                   help="don't log to console")
+                   help="Don't log to console")
 
     subparsers = parser.add_subparsers(title='subcommands', dest='command')
 
@@ -87,10 +87,9 @@ def parse():
     run.add_argument("--output", metavar="FILE", type=str,
                      default="results.csv",
                      help="Output file for results")
-    run.add_argument("--mode", metavar="MODE", type=str,
-                     choices=("send", "receive"),
-                     default="send",
-                     help="iperf3 mode (sending data or receiving data)")
+    run.add_argument("--remote-stats", action="store_true",
+                     default=False,
+                     help="Collect stats on remote hosts too")
 
     graph = subparsers.add_parser('graph', help='produce graphs from results')
     graph.add_argument("input", metavar="FILE", type=str,
@@ -128,8 +127,6 @@ def run_iperf(loop, options, stats):
             "-i", str(options.frequency),
             "-t", str(options.duration),
             "-f", "k")
-    if options.mode == "receive":
-        args += ("-R",)
     create = asyncio.create_subprocess_exec("iperf3",
                                             *args,
                                             stdin=asyncio.subprocess.DEVNULL,
@@ -155,8 +152,10 @@ def run_iperf(loop, options, stats):
         local = int(mo.group('local'))
         remote = int(mo.group('remote'))
         logger.info("Starting ss collector (local: {}, remote: {})".format(local, remote))
-        loop.create_task(run_ss(loop, options, stats,
+        loop.create_task(run_local_ss(loop, options, stats,
                                 local, remote))
+        loop.create_task(run_remote_ss(loop, options, stats,
+                                       local, remote))
         loop.remove_reader(slave.fileno())
         loop.add_reader(slave.fileno(), bandwidth_reader)
 
@@ -185,12 +184,39 @@ def run_iperf(loop, options, stats):
         loop.stop()
 
 @asyncio.coroutine
-def run_ss(loop, options, stats, localport, remoteport):
-    """Run `ss' to collect statistics."""
-    first_line = re.compile(r"^(?P<state>[-A-Z0-9]+)\s+"
-                            r"(?P<recvq>\d+)\s+(?P<sendq>\d+)\s+"
-                            r"(?P<local>\S+)\s+(?P<remote>\S+)\s+"
-                            r"(?P<data>.*) \<-\>$")
+def run_remote_ss(loop, options, stats, localport, remoteport):
+    """Run `ss' on remote host using SSH."""
+    if not options.remote_stats:
+        return
+    try:
+        import asyncssh
+    except ImportError:
+        logger.error("Unable to get remote stats without asyncssh")
+        return
+    with (yield from asyncssh.connect(options.target,
+                                      known_hosts=None,
+                                      username="root")) as conn:
+        while True:
+            stdin, stdout, stderr = yield from conn.open_session(
+                ("ss"
+                 " -tn"
+                 " --info"
+                 " --extended"
+                 " --memory"
+                 " --process"
+                 " --options"
+                 " '( sport == :{} and dport == :{} )'").format(remoteport,
+                                                                localport),
+                encoding=None)
+            yield from run_ss(loop, options, stats,
+                              remoteport, localport,
+                              stdout,
+                              "remote_")
+            yield from asyncio.sleep(options.frequency)
+
+@asyncio.coroutine
+def run_local_ss(loop, options, stats, localport, remoteport):
+    """Run `ss' locally to collect statistics."""
     while True:
         create = asyncio.create_subprocess_exec("ss",
                                                 "-tn",
@@ -205,65 +231,76 @@ def run_ss(loop, options, stats, localport, remoteport):
                                                 stderr=asyncio.subprocess.DEVNULL,
                                                 loop=loop)
         proc = yield from create
-
-        # Ignore the first line
-        data = yield from proc.stdout.readline()
-
-        # Decode each subsequent couple of lines
-        while True:
-            line1 = yield from proc.stdout.readline()
-            line1 = line1.decode('ascii').rstrip()
-            if line1 == "":
-                break
-
-            if not line1.startswith("ESTAB"):
-                continue
-            mo = first_line.match(line1)
-            if not mo:
-                continue
-            local = mo.group('local')
-            remote = mo.group('remote')
-            sendq = int(mo.group('sendq'))
-            recvq = int(mo.group('recvq'))
-
-            line2 = yield from proc.stdout.readline()
-            line2 = line2.decode('ascii').strip()
-            if line2 == "":
-                break
-
-            # The general format is `key:value' or just `key'. Try
-            # to normalize some special cases and convert to a
-            # dictionary.
-            data = "{} {}".format(mo.group('data'), line2)
-            data = re.sub(r"([a-z_]+) (\d)", r"\1:\2", data).split(" ")
-            results = collections.OrderedDict()
-            results["local"] = local
-            results["remote"] = remote
-            results["sendq"] = sendq
-            results["recvq"] = recvq
-            for d in data:
-                d = d.rsplit(":")
-                if len(d) == 1:
-                    results[d[0]] = True
-                elif d[0] == "skmem":
-                    # Special case:
-                    # (r0,rb372480,t0,tb87040,f0,w0,o0,bl0)
-                    for mo in re.finditer(r"(\w+?)(\d+)", d[1]):
-                        results["skmem_{}".format(mo.group(1))] = mo.group(2)
-                else:
-                    results[d[0]] = d[1]
-
-            for prop in results:
-                stats.set(prop, results[prop])
-            logger.debug("Saving statistics from ss: {}".format(results))
-            break
-
+        yield from run_ss(loop, options, stats,
+                          localport, remoteport,
+                          proc.stdout)
         yield from proc.wait()
         if proc.returncode != 0:
             logger.error("ss failed with return code {}".format(proc.returncode))
-
-        # Sleep a bit before next collection
         yield from asyncio.sleep(options.frequency)
+
+
+@asyncio.coroutine
+def run_ss(loop, options, stats, localport, remoteport, stdout, prefix=""):
+    """Run `ss' to collect statistics."""
+    first_line = re.compile(r"^(?P<state>[-A-Z0-9]+)\s+"
+                            r"(?P<recvq>\d+)\s+(?P<sendq>\d+)\s+"
+                            r"(?P<local>\S+)\s+(?P<remote>\S+)\s+"
+                            r"(?P<data>.*) \<-\>$")
+
+    # Ignore the first line
+    data = yield from stdout.readline()
+
+    # Decode each subsequent couple of lines
+    while True:
+        line1 = yield from stdout.readline()
+        line1 = line1.decode('ascii').rstrip()
+        if line1 == "":
+            break
+
+        if not line1.startswith("ESTAB"):
+            continue
+        mo = first_line.match(line1)
+        if not mo:
+            continue
+        local = mo.group('local')
+        remote = mo.group('remote')
+        sendq = int(mo.group('sendq'))
+        recvq = int(mo.group('recvq'))
+
+        line2 = yield from stdout.readline()
+        line2 = line2.decode('ascii').strip()
+        if line2 == "":
+            break
+
+        # The general format is `key:value' or just `key'. Try
+        # to normalize some special cases and convert to a
+        # dictionary.
+        data = "{} {}".format(mo.group('data'), line2)
+        data = re.sub(r"([a-z_]+) (\d)", r"\1:\2", data).split(" ")
+        results = collections.OrderedDict()
+        results["local"] = local
+        results["remote"] = remote
+        results["sendq"] = sendq
+        results["recvq"] = recvq
+        for d in data:
+            d = d.rsplit(":")
+            if len(d) == 1:
+                results[d[0]] = True
+            elif d[0] == "skmem":
+                # Special case:
+                # (r0,rb372480,t0,tb87040,f0,w0,o0,bl0)
+                for mo in re.finditer(r"(\w+?)(\d+)", d[1]):
+                    results["skmem_{}".format(mo.group(1))] = mo.group(2)
+            else:
+                results[d[0]] = d[1]
+
+        if prefix:
+            results = {"{}{}".format(prefix, k): results[k] for k in results}
+        for prop in results:
+            stats.set(prop, results[prop])
+        logger.debug("Saving statistics from ss: {}".format(results))
+        break
 
 
 def run_loop_exception(loop, context):
