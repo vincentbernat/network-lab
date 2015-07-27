@@ -215,7 +215,7 @@ def run_remote_ss(loop, options, stats, localport, remoteport, conn):
         yield from run_ss(loop, options, stats,
                           remoteport, localport,
                           stdout,
-                          "remote_")
+                          "remote")
         yield from asyncio.sleep(options.frequency)
 
 @asyncio.coroutine
@@ -299,11 +299,13 @@ def run_ss(loop, options, stats, localport, remoteport, stdout, prefix=""):
             else:
                 results[d[0]] = d[1]
 
-        if prefix:
-            results = {"{}{}".format(prefix, k): results[k] for k in results}
         for prop in results:
-            stats.set(prop, results[prop])
-        logger.debug("Saving statistics from ss: {}".format(results))
+            if prefix:
+                key = "{}_{}".format(prefix, prop)
+            else:
+                key = prop
+            stats.set(key, results[prop])
+        logger.debug("Saving statistics from {} ss: {}".format(prefix, results))
         break
 
 
