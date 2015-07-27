@@ -118,6 +118,19 @@ def run_iperf(loop, options, stats):
     connection_line = re.compile(r"^\[\s*\d+\] local \S+ port (?P<local>\d+) connected to \S+ port (?P<remote>\d+)$")
     bandwidth_line = re.compile(r"^\[\s*\d+\]\s+[-0-9.]+\s+sec\s+\S+\s+\S+\s+(?P<bandwidth>\d+) Kbits/sec.*$")
 
+    # Prepare remote SSH connection
+    if options.remote_stats:
+        try:
+            import asyncssh
+        except ImportError:
+            logger.error("Unable to get remote stats without asyncssh")
+            remote_conn = None
+        else:
+            logger.info("Establishing SSH connection to {}".format(options.target))
+            remote_conn = yield from asyncssh.connect(options.target,
+                                                      known_hosts=None,
+                                                      username="root")
+
     # It's a hack, we request a PTY to get an unbuffered read
     master, slave = pty.openpty()
     master = os.fdopen(master, "w")
@@ -154,8 +167,9 @@ def run_iperf(loop, options, stats):
         logger.info("Starting ss collector (local: {}, remote: {})".format(local, remote))
         loop.create_task(run_local_ss(loop, options, stats,
                                 local, remote))
-        loop.create_task(run_remote_ss(loop, options, stats,
-                                       local, remote))
+        if remote_conn:
+            loop.create_task(run_remote_ss(loop, options, stats,
+                                           local, remote, remote_conn))
         loop.remove_reader(slave.fileno())
         loop.add_reader(slave.fileno(), bandwidth_reader)
 
@@ -184,35 +198,25 @@ def run_iperf(loop, options, stats):
         loop.stop()
 
 @asyncio.coroutine
-def run_remote_ss(loop, options, stats, localport, remoteport):
+def run_remote_ss(loop, options, stats, localport, remoteport, conn):
     """Run `ss' on remote host using SSH."""
-    if not options.remote_stats:
-        return
-    try:
-        import asyncssh
-    except ImportError:
-        logger.error("Unable to get remote stats without asyncssh")
-        return
-    with (yield from asyncssh.connect(options.target,
-                                      known_hosts=None,
-                                      username="root")) as conn:
-        while True:
-            stdin, stdout, stderr = yield from conn.open_session(
-                ("ss"
-                 " -tn"
-                 " --info"
-                 " --extended"
-                 " --memory"
-                 " --process"
-                 " --options"
-                 " '( sport == :{} and dport == :{} )'").format(remoteport,
-                                                                localport),
-                encoding=None)
-            yield from run_ss(loop, options, stats,
-                              remoteport, localport,
-                              stdout,
-                              "remote_")
-            yield from asyncio.sleep(options.frequency)
+    while True:
+        stdin, stdout, stderr = yield from conn.open_session(
+            ("ss"
+             " -tn"
+             " --info"
+             " --extended"
+             " --memory"
+             " --process"
+             " --options"
+             " '( sport == :{} and dport == :{} )'").format(remoteport,
+                                                            localport),
+            encoding=None)
+        yield from run_ss(loop, options, stats,
+                          remoteport, localport,
+                          stdout,
+                          "remote_")
+        yield from asyncio.sleep(options.frequency)
 
 @asyncio.coroutine
 def run_local_ss(loop, options, stats, localport, remoteport):
