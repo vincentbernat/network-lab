@@ -621,9 +621,10 @@ EOF
                 start_iperf3
                 ;;
             internet)
-                start_sshd
                 ;;
         esac
+
+        start_sshd
 
         # Setup resolver
         rm -f /etc/resolv.conf
