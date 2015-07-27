@@ -36,15 +36,16 @@ class Statistics(object):
         self.__statistics = collections.defaultdict(dict)
         self.__precision = precision
         self.__properties = []
+        self.__properties_remote = []
 
     @property
     def properties(self):
-        return self.__properties
+        return self.__properties + self.__properties_remote
 
     def dump(self, target):
         """Write statistics to a file"""
         writer = csv.DictWriter(target, delimiter="|",
-                                fieldnames=["time",] + self.__properties)
+                                fieldnames=["time",] + self.properties)
         writer.writeheader()
         keys = sorted(self.__statistics.keys())
         for k in keys:
@@ -53,8 +54,12 @@ class Statistics(object):
             writer.writerow(row)
 
     def set(self, name, value):
-        if name not in self.__properties:
-            self.__properties.append(name)
+        if name.startswith("remote_"):
+            if name not in self.__properties_remote:
+                self.__properties_remote.append(name)
+        else:
+            if name not in self.__properties:
+                self.__properties.append(name)
         now = int(time.time() / self.__precision) * self.__precision
         self.__statistics[now][name] = value
 
