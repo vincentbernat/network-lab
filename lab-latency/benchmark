@@ -206,6 +206,7 @@ def run_iperf(loop, options, stats):
 def run_remote_ss(loop, options, stats, localport, remoteport, conn):
     """Run `ss' on remote host using SSH."""
     while True:
+        now = time.time()
         stdin, stdout, stderr = yield from conn.open_session(
             ("ss"
              " -tn"
@@ -221,12 +222,16 @@ def run_remote_ss(loop, options, stats, localport, remoteport, conn):
                           remoteport, localport,
                           stdout,
                           "remote")
-        yield from asyncio.sleep(options.frequency)
+        duration = now - time.time() + options.frequency
+        if duration > 0:
+            yield from asyncio.sleep(duration)
+
 
 @asyncio.coroutine
 def run_local_ss(loop, options, stats, localport, remoteport):
     """Run `ss' locally to collect statistics."""
     while True:
+        now = time.time()
         create = asyncio.create_subprocess_exec("ss",
                                                 "-tn",
                                                 "--info",
@@ -246,7 +251,9 @@ def run_local_ss(loop, options, stats, localport, remoteport):
         yield from proc.wait()
         if proc.returncode != 0:
             logger.error("ss failed with return code {}".format(proc.returncode))
-        yield from asyncio.sleep(options.frequency)
+        duration = now - time.time() + options.frequency
+        if duration > 0:
+            yield from asyncio.sleep(duration)
 
 
 @asyncio.coroutine
