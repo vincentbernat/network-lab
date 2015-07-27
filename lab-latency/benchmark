@@ -130,7 +130,7 @@ def run_iperf(loop, options, stats):
             "-f", "k")
     if options.mode == "receive":
         args += ("-R",)
-    create = asyncio.create_subprocess_exec("/usr/bin/iperf3",
+    create = asyncio.create_subprocess_exec("iperf3",
                                             *args,
                                             stdin=asyncio.subprocess.DEVNULL,
                                             stdout=master,
@@ -192,7 +192,7 @@ def run_ss(loop, options, stats, localport, remoteport):
                             r"(?P<local>\S+)\s+(?P<remote>\S+)\s+"
                             r"(?P<data>.*) \<-\>$")
     while True:
-        create = asyncio.create_subprocess_exec("/bin/ss",
+        create = asyncio.create_subprocess_exec("ss",
                                                 "-tn",
                                                 "--info",
                                                 "--extended",
