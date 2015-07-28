@@ -83,17 +83,27 @@ On the other side, the utility `ss` will give plenty of information (depending o
 
  - `sk` is the location of the socket in memory.
 
- - `skmem` describes the socket memory usage. `r` is the amount of
-   memory accounted for this socket for reception. When 0, it means,
-   that no bytes are actually waiting in the kernel for this
-   socket. This amount also accounts for extra data needed to handle
-   the socket (`struct sk_buff`). `rb` is the maximum memory the
-   socket may use for reception. `t` and `tb` are for the transmit
-   part. `f` is the amount of bytes the socket is allowed to use. `w`
-   is the amount of bytes that should be sent (either not sent or not
-   yet acknowledged). `o` is the amount of bytes for "optional
-   memory". Filters attached to a socket uses optional memory. `bl` is
-   the backlog size.
+ - `skmem` describes the socket memory usage. All are fields of the
+   `struct sock` structure:
+
+      - `r` is `sk_rmem_alloc`,
+      - `rb` is `sk_rcvbuf` (size of receive buffer in bytes),
+      - `t` is `sk_wmem_alloc` (transmit queue bytes committed),
+      - `tb` is `sk_sndbuf` (size of send buffer in bytes),
+      - `f` is `sk_forward_alloc` (space allocated forward),
+      - `w` is `sk_wmem_queued` (persistent queue size),
+      - `o` is `sk_omem_alloc` (optional memory, used for example for filters),
+      - `bl` is `sk_backlog.len` (memory for backlog).
+
+   0, it means, that no bytes are actually waiting in the kernel for
+   this socket. This amount also accounts for extra data needed to
+   handle the socket. `rb` is the maximum memory the socket may use
+   for reception (`sk_rcvbuf`). `t` and `tb` are for the transmit part
+   (`sk_wmem_alloc` and `. `f` is the amount of free bytes the socket
+   can has. `w` is the amount of bytes that should be sent (either not
+   sent or not yet acknowledged). `o` is the amount of bytes for
+   "optional memory". Filters attached to a socket uses optional
+   memory. `bl` is the backlog size.
 
  - `ts` means timestamps are enabled.
 
