@@ -409,6 +409,7 @@ def graph(options):
             "skmem_tb": tof,
             "skmem_f": tof,
             "skmem_w": tof,
+            "sendq": tof
         }
         for k in list(converterd.keys()):
             # Apply same transformation for remotes
@@ -419,14 +420,15 @@ def graph(options):
     target = "{}.{}".format(os.path.splitext(options.input)[0],
                             options.format)
     # See: http://vincent.bernat.im/en/blog/2011-plot-benchmark-results-matplotlib.html
-    mp.rcParams['font.size'] = 11
+    mp.rcParams['font.size'] = 9
     mp.figure(num=None, figsize=(8.27, 11.69), dpi=300)
     mp.suptitle(os.path.splitext(options.input)[0], fontsize=14)
 
     # On the first one, we put rwin and cwnd on left axis,
     # send/receive bandwidth on right axis
     lns = []
-    ax1 = mp.subplot2grid((4, 1), (0, 0), rowspan=2)
+    ax1 = mp.subplot2grid((3, 1), (0, 0))
+    ax1.set_xlim(right=max(time))
     try:
         rcv_space = data.remote_rcv_space.astype(float)
         rcv_rtt = data.remote_rcv_rtt.astype(float)
@@ -439,22 +441,25 @@ def graph(options):
             rcv_rtt = None
     else:
         logger.debug("Using remote receive space for rcv_space")
-    lns.extend(ax1.plot(time, rcv_space / 2,
+    lns.extend(ax1.plot(time, rcv_space,
                         '-', color='IndianRed', label='Receive window'))
     lns.extend(ax1.plot(time, data.cwnd.astype(float) * data.mss.astype(float),
                         '-', color='RoyalBlue', label='Congestion window'))
-    ax1.set_xlim(right=max(time))
+    lns.extend(ax1.plot(time,
+                        data["sendq"].astype(float), "-", linewidth=0.5,
+                        color='DarkSlateGray', label="Send-Q"))
     ax1.grid(True, which="both", linestyle="dotted")
     ax1.set_ylabel("Window size (bytes)", fontsize=9)
     ax1.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
     ax1.set_ylim(bottom=0, auto=True)
     ax2 = ax1.twinx()
+    ax2.set_xlim(right=max(time))
     lns.extend(ax2.plot(time,
                         data.cwnd.astype(float) * data.mss.astype(float) * 1000. / data.rtt.astype(float),
                         '-', color='DarkViolet', label='Max send bandwidth'))
     if rcv_rtt is not None:
         lns.extend(ax2.plot(time,
-                            rcv_space * 1000. / 2. / rcv_rtt,
+                            rcv_space * 1000. / rcv_rtt,
                             '-', color='DarkOrange', label='Max receive bandwidth'))
     # For current bandwidth, we smooth it a bit to account for
     # measurement imprecisions.
@@ -464,25 +469,26 @@ def graph(options):
     ax2.plot(time,
              data.bandwidth.astype(float),
              ':', color='ForestGreen')
-    ax2.set_xlim(right=max(time))
     ax2.grid(True, which="both", linestyle="dotted", color="0.7")
     ax2.set_ylabel("Bandwidth (bytes per sec)", fontsize=9)
     ax2.get_yticklabels()[0].set_visible(False)
     ax2.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
     ax2.set_ylim(bottom=0, auto=True)
 
-    ax1.legend(lns, [l.get_label() for l in lns],
+    ax2.legend(lns, [l.get_label() for l in lns],
                loc='best', fancybox=True, shadow=True,
-               prop=dict(size=9), ncol=1, framealpha=0.8)
+               prop=dict(size=7), ncol=1, framealpha=0.7)
 
     # On the second graph, we plot unacked, retrans, lost, sacked and reordering counts.
     lns = []
-    ax3 = mp.subplot2grid((4, 1), (2, 0), sharex=ax1)
+    ax3 = mp.subplot2grid((3, 1), (1, 0), sharex=ax1)
+    ax3.set_xlim(right=max(time))
     ax3.grid(True, which="both", linestyle="dotted")
     ax3.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
     counts = "unacked lost sacked reordering".split(" ")
     colors = mp.cm.Accent(np.linspace(0, 1, len(counts) + 1))
     ax4 = ax3.twinx()
+    ax4.set_xlim(right=max(time))
     lns.extend(ax4.plot(time,
                         data.retrans.astype(float),
                         '-', color=colors[0], label="Retrans"))
@@ -503,7 +509,8 @@ def graph(options):
                loc='best', fancybox=True, shadow=True,
                prop=dict(size=7), ncol=2, framealpha=0.8)
 
-    ax5 = mp.subplot2grid((4, 1), (3, 0), sharex=ax1)
+    ax5 = mp.subplot2grid((3, 1), (2, 0), sharex=ax1)
+    ax5.set_xlim(right=max(time))
     ax5.grid(True, which="both", linestyle="dotted")
     ax5.yaxis.set_major_formatter(mp.FuncFormatter(functools.partial(graph_formatter, "")))
     colors = mp.cm.Paired(np.linspace(0, 1, 6))
@@ -531,6 +538,9 @@ def graph(options):
              data["skmem_w"].astype(float) + data["skmem_f"].astype(float),
              ":", color=colors[4],
              label="f+w")
+    ax5.plot(time,
+             data["sendq"].astype(float), ":", linewidth=2,
+             color=colors[5], label="Send-Q")
 
     ax5.set_ylabel("Size (bytes)", fontsize=9)
     ax5.set_ylim(bottom=0)

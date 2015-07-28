@@ -60,8 +60,8 @@ On the other side, the utility `ss` will give plenty of information (depending o
    listen queue (as set by the `listen()` syscall). For other sockets,
    `Recv-Q` is the amount of bytes sitting in the kernel waiting for
    the application to read, while `Send-Q` is the amount of bytes
-   sitting in the kernel waiting to be send and acknowledged by the
-   remote party.
+   sitting in the kernel waiting to be acknowledged by the remote
+   party.
 
  - The timer shows what kind of timer is currently running for the
    given TCP socket and when it will trigger. The possible timers are
@@ -131,7 +131,7 @@ On the other side, the utility `ss` will give plenty of information (depending o
     acks. Above this threshold, the congestion window should increase
     of MSS/CWND.
 
- - `rcv_space` is twice the advertised receive window in bytes.
+ - `rcv_space` is twice (??) the advertised receive window in bytes.
 
  - `lastsnd`, `lastrcv` and `lastack` are the time in milliseconds
    since now something got sent, received or acked on the current
