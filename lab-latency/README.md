@@ -149,6 +149,17 @@ On the other side, the utility `ss` will give plenty of information (depending o
  - `unacked`, `retrans`, `lost`, `sacked` and `reordering` are
    statistics for this socket. All those numbers should be low.
 
+## Benchmark tool
+
+There is also a benchmark tool (written in Python 3): `benchmark`. It
+uses `iperf3`. Run it like this:
+
+     /lab/benchmark run --remote-stats NewYork
+
+The results are in a CSV file. You can graph them with:
+
+     /lab/benchmark graph results.csv
+
 ## Additional documentation
 
  - http://www.psc.edu/index.php/networking/641-tcp-tune
