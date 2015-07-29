@@ -170,7 +170,8 @@ it is not directly exported in TCP socket diagnostic because it is
 computed very late, just before sending the TCP segment (in
 `tcp_transmit_skb()`) in `tcp_select_window()`. It is expected to be
 half of the receive buffer most of the time (minus the data not acked
-by the application, of course).
+by the application, of course), except when the receive buffer needs
+to shrink (the TCP window is not allowed to shrink).
 
 ## Additional documentation
 
