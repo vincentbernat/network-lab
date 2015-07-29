@@ -526,15 +526,15 @@ def graph(options):
     colors = mp.cm.Paired(np.linspace(0, 1, 6))
     try:
         data.remote_skmem_r
-        data.remote_skmem_rb
+        data.remote_rcv_space
     except AttributeError:
         mayber = lambda x: x
     else:
-        logger.debug("Using remote skmem_r/rb")
+        logger.debug("Using remote rmem")
         mayber = lambda x: "remote_{}".format(x)
     for what in [
             [mayber("skmem_r"), "rmem-alloc", colors[0], '--'],
-            [mayber("skmem_rb"), "rcvbuf", colors[1], '-'],
+            [mayber("rcv_space"), "rcv-space", colors[1], '-'],
             ["skmem_t", "wmem-alloc", colors[2], '--'],
             ["skmem_tb", "sndbuf", colors[3], '-'],
             ["skmem_f", "fwd-alloc", colors[4], '-'],
