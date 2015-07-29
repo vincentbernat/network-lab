@@ -463,12 +463,22 @@ def graph(options):
                             '-', color='DarkOrange', label='Max receive bandwidth'))
     # For current bandwidth, we smooth it a bit to account for
     # measurement imprecisions.
+    bw = graph_smooth(data.bandwidth.astype(float), 4, True)
     lns.extend(ax2.plot(time,
-                        graph_smooth(data.bandwidth.astype(float), 4, True),
+                        bw,
                         '-', color='ForestGreen', linewidth=2, label='Current bandwidth'))
     ax2.plot(time,
              data.bandwidth.astype(float),
              ':', color='ForestGreen')
+    ax2.plot(time,
+             [np.nan] * (len(time) - len(time) // 2) +
+             [np.mean(data.bandwidth[~np.isnan(data.bandwidth.astype(float))][len(time) // 2:])] * (len(time) // 2),
+             '--', color='ForestGreen', linewidth=0.5)
+    bw = bw[len(time) // 2:]
+    bw = bw[~np.isnan(bw)]
+    ax2.add_patch(mp.Rectangle((time[len(time) // 2], min(bw)),
+                               time[len(time) // 2], max(bw) - min(bw),
+                               alpha=0.1, facecolor='ForestGreen'))
     ax2.grid(True, which="both", linestyle="dotted", color="0.7")
     ax2.set_ylabel("Bandwidth (bytes per sec)", fontsize=9)
     ax2.get_yticklabels()[0].set_visible(False)
