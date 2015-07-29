@@ -430,18 +430,18 @@ def graph(options):
     ax1 = mp.subplot2grid((3, 1), (0, 0))
     ax1.set_xlim(right=max(time))
     try:
-        rcv_space = data.remote_rcv_space.astype(float)
+        rcv_buffer = data.remote_skmem_rb.astype(float)
         rcv_rtt = data.remote_rcv_rtt.astype(float)
     except AttributeError:
-        rcv_space = data.rcv_space.astype(float)
+        rcv_buffer = data.skmem_rb.astype(float)
         try:
             rcv_rtt = data.rcv_rtt.astype(float)
         except AttributeError:
             # Did not send anything...
             rcv_rtt = None
     else:
-        logger.debug("Using remote receive space for rcv_space")
-    lns.extend(ax1.plot(time, rcv_space,
+        logger.debug("Using remote receive buffer for receive window")
+    lns.extend(ax1.plot(time, rcv_buffer / 2.,
                         '-', color='IndianRed', label='Receive window'))
     lns.extend(ax1.plot(time, data.cwnd.astype(float) * data.mss.astype(float),
                         '-', color='RoyalBlue', label='Congestion window'))
@@ -459,7 +459,7 @@ def graph(options):
                         '-', color='DarkViolet', label='Max send bandwidth'))
     if rcv_rtt is not None:
         lns.extend(ax2.plot(time,
-                            rcv_space * 1000. / rcv_rtt,
+                            rcv_buffer * 1000. / 2. / rcv_rtt,
                             '-', color='DarkOrange', label='Max receive bandwidth'))
     # For current bandwidth, we smooth it a bit to account for
     # measurement imprecisions.

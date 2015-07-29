@@ -109,7 +109,8 @@ On the other side, the utility `ss` will give plenty of information (depending o
 
  - `cubic` is the congestion algorithm used on this socket.
 
- - `wscale` is the window scale factor (congestion window, receiving window).
+ - `wscale` is the window scale factor for the receiving window (our
+   side, remote side)
 
  - `rto` is retransmission timeout in milliseconds. It sets an upper
     value before acknowledgments come back. This should be compared
@@ -131,7 +132,9 @@ On the other side, the utility `ss` will give plenty of information (depending o
     acks. Above this threshold, the congestion window should increase
     of MSS/CWND.
 
- - `rcv_space` is twice (??) the advertised receive window in bytes.
+ - `rcv_space` is the receiver queue space. It is computed from an
+   estimate of the remote congestion window. It should never be more
+   than `skmem_rb`.
 
  - `lastsnd`, `lastrcv` and `lastack` are the time in milliseconds
    since now something got sent, received or acked on the current
@@ -159,6 +162,15 @@ uses `iperf3`. Run it like this:
 The results are in a CSV file. You can graph them with:
 
      /lab/benchmark graph results.csv
+
+## Receive window size
+
+One difficulty is to estimate the receive window size. Unfortunately,
+it is not directly exported in TCP socket diagnostic because it is
+computed very late, just before sending the TCP segment (in
+`tcp_transmit_skb()`) in `tcp_select_window()`. It is expected to be
+half of the receive buffer most of the time (minus the data not acked
+by the application, of course).
 
 ## Additional documentation
 
