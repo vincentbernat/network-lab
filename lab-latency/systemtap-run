@@ -97,7 +97,6 @@ setup_remote_sysctl net.ipv4.tcp_rmem 4019584
 setup_qos delay 50ms 5ms 25% loss 0.0001%
 run "100ms, 1e-6, rmem=4019584, wmem=4019584"
 
-exit 0
 # Bench 2
 setup_local_sysctl net.ipv4.tcp_wmem 8039168
 setup_remote_sysctl net.ipv4.tcp_rmem 4019584
@@ -105,18 +104,24 @@ setup_qos delay 50ms 5ms 25% loss 0.0001%
 run "100ms, 1e-6, rmem=4019584, wmem=8039168"
 
 # Bench 3
+setup_local_sysctl net.ipv4.tcp_wmem 4019584
+setup_remote_sysctl net.ipv4.tcp_rmem 8039168
+setup_qos delay 50ms 5ms 25% loss 0.0001%
+run "100ms, 1e-6, rmem=8039168, wmem=4019584"
+
+# Bench 4
 setup_local_sysctl net.ipv4.tcp_wmem 16078336
 setup_remote_sysctl net.ipv4.tcp_rmem 4019584
 setup_qos delay 50ms 5ms 25% loss 0.0001%
 run "100ms, 1e-6, rmem=4019584, wmem=16078336"
 
-# Bench 4
+# Bench 5
 setup_local_sysctl net.ipv4.tcp_wmem 16078336
 setup_remote_sysctl net.ipv4.tcp_rmem 8039168
 setup_qos delay 50ms 5ms 25% loss 0.0001%
 run "100ms, 1e-6, rmem=8039168, wmem=16078336"
 
-# Bench 5
+# Bench 6
 setup_local_sysctl net.ipv4.tcp_wmem 4019584
 setup_remote_sysctl net.ipv4.tcp_rmem 4019584
 setup_qos delay 50ms 5ms 25% loss 0.00001%
