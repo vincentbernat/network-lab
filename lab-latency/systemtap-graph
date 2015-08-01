@@ -160,11 +160,11 @@ def graph(options):
     ax1.set_ylabel("Window size (bytes)", fontsize=9)
     ax2 = ax1.twinx()
     lns.extend(ax2.plot(local['ts'],
-                        local['snd_cwnd'] * local['snd_mss'] * 1000 / local['rtt'],
+                        local['snd_cwnd'] * local['snd_mss'] * 1000000 / local['rtt'],
                         '-', color='DarkViolet',
                         label='Max send bandwidth'))
     lns.extend(ax2.plot(remote_or_local['ts'],
-                        remote_or_local['skmem_rb'] * 1000 / 2 / remote_or_local['rcv_rtt'],
+                        remote_or_local['skmem_rb'] * 1000000 / 2 / remote_or_local['rcv_rtt'],
                         '-', color='DarkOrange',
                         label='Max receive bandwidth'))
     lns.extend(ax2.plot(local['ts'],

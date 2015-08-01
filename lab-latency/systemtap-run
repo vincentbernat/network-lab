@@ -79,7 +79,7 @@ run() {
     rm -f wait-iperf3
     log_info_msg "Execute benchmark..."
     sleep $TIME
-    setup_qos delay 5ms 1ms 25% loss 0.00001%
+    setup_qos delay 20ms 2ms 25% loss 0.00001%
     wait $local
     wait $remote
     # We should copy remote data but in our case, they are on the same 9P FS
