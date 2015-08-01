@@ -13,7 +13,7 @@ ROUTER=internet
 ROUTER_IFACES="eth0 eth1"
 STCB="$HOME/code/exoscale/systemtap-cookbook"
 PORT=5206                       # iperf3 port
-TIME=60                         # benchmark time at expected latency
+TIME=50                         # benchmark time at expected latency
 RTIME=10                        # benchmark time at reduced latency
 
 ESC="$(printf '\033')"
@@ -45,7 +45,7 @@ log_info_msg() {
 # Setup QoS on router
 setup_qos() {
     log_info_msg "Setting QoS parameters \`$@' on $ROUTER"
-    ssh $ROUTER sh -c "for iface in $ROUTER_IFACES; do tc qdisc replace dev $iface root netem $@; done"
+    echo "for iface in $ROUTER_IFACES; do tc qdisc replace dev \$iface root netem $@; done" | ssh $ROUTER sh -s
 }
 
 # Setup local sysctl.
@@ -70,10 +70,14 @@ run() {
     remote=$!
     log_info_msg "Wait for remote iperf3 server..."
     ssh $REMOTE "while ! ss -ln '( sport = :$PORT )' | grep -q LISTEN; do sleep 1; done"
-    log_info_msg "Execute benchmark..."
-    $STCB/tcp -s --stap-cmd "iperf3 -c $REMOTE -i 0 -t $(( $TIME + $RTIME )) --port $PORT" \
+    log_info_msg "Prepare benchmark..."
+    mkfifo wait-iperf3
+    $STCB/tcp -s --stap-cmd "echo ready > wait-iperf3 ; iperf3 -c $REMOTE -i 0 -t $(( $TIME + $RTIME )) --port $PORT" \
               -o "$description.local-data" sockstat --remote $PORT --bandwidth &
     local=$!
+    :< wait-iperf3
+    rm -f wait-iperf3
+    log_info_msg "Execute benchmark..."
     sleep $TIME
     setup_qos delay 5ms 1ms 25% loss 0.00001%
     wait $local
@@ -81,7 +85,7 @@ run() {
     # We should copy remote data but in our case, they are on the same 9P FS
     cp ~/tmp/"$description.remote-data" .
     log_ok_msg "Benchmark \`$description' finished!"
-    ./systemtap-graph --remote "$description.remote-data" "$description.local-data"
+    log_info_msg "To get a graph, run \`./systemtap-graph --remote \"$description.remote-data\" \"$description.local-data\"'."
 }
 
 setup_local_sysctl net.ipv4.tcp_rmem 4019584
@@ -93,6 +97,7 @@ setup_remote_sysctl net.ipv4.tcp_rmem 4019584
 setup_qos delay 50ms 5ms 25% loss 0.0001%
 run "100ms, 1e-6, rmem=4019584, wmem=4019584"
 
+exit 0
 # Bench 2
 setup_local_sysctl net.ipv4.tcp_wmem 8039168
 setup_remote_sysctl net.ipv4.tcp_rmem 4019584
