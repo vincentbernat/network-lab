@@ -173,6 +173,15 @@ half of the receive buffer most of the time (minus the data not acked
 by the application, of course), except when the receive buffer needs
 to shrink (the TCP window is not allowed to shrink).
 
+## Gathering data with systemtap
+
+In
+[systemtap-cookbook](https://github.com/vincentbernat/systemtap-cookbook/),
+you will find the `./tcp sockstat` command that can gather statistics
+a bit like `ss` but more of them and more efficiently. It can be run
+on both side and the outputs can be treated with the `systemtap-graph`
+utility.
+
 ## Additional documentation
 
  - http://www.psc.edu/index.php/networking/641-tcp-tune

@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""Graph data collectd with SystemTap.
+
+The data needs to be collected with ``tcp sockstat`` from `SystemTap
+cookbook <https://github.com/vincentbernat/systemtap-cookbook/>`. A
+remote data collection can also be provided.
+
+The easiest way to collect data is to run on the remote host::
+
+    ./tcp --stap-cmd "iperf3 -s -1 -i 0 --port 5205" -o server.data sockstat --local 5205 --bandwidth
+
+And on the local host::
+
+    ./tcp --stat-cmd "iperf3 -c NewYork -i 0 -t XX --port 5205" o client.data sockstat --remote 5205 --bandwidth
+"""
+
+import os
+import sys
+import logging
+import logging.handlers
+import argparse
+import functools
+import numpy as np
+import matplotlib.pylab as mp
+
+logger = logging.getLogger("systemtap")
+
+
+def parse():
+    """Parse arguments"""
+    parser = argparse.ArgumentParser(
+        description=sys.modules[__name__].__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    g = parser.add_mutually_exclusive_group()
+    g.add_argument("--debug", "-d", action="store_true",
+                   default=False,
+                   help="Enable debugging")
+    g.add_argument("--silent", "-s", action="store_true",
+                   default=False,
+                   help="Don't log to console")
+
+    parser.add_argument("input", metavar="FILE", type=str,
+                        help="Local data file")
+    parser.add_argument("--remote", metavar="FILE", type=str,
+                        help="Remote data file")
+    parser.add_argument("--format", "-f", metavar="FMT", type=str,
+                        choices=("svg", "pdf", "png"),
+                        default="pdf",
+                        help="Output format")
+
+    options = parser.parse_args()
+    return options
+
+
+def setup_logging(debug, silent):
+    """Setup logger"""
+    logger = logging.getLogger()
+    logger.setLevel(debug and logging.DEBUG or logging.INFO)
+    if sys.stderr.isatty() and not silent:
+        ch = logging.StreamHandler()
+        ch.setFormatter(logging.Formatter(
+            "%(levelname)s[%(name)s] %(message)s"))
+        logger.addHandler(ch)
+
+
+def graph_smooth(x, win=6, centered=True):
+    """Smooth some dataset over a given window."""
+    x = x.astype('float64')
+    if not centered:
+        win = win*2
+    s = np.r_[x[win-1:0:-1], x, x[-1:-win:-1]]
+    if centered:
+        w = np.ones(win, 'd')
+    else:
+        w = np.concatenate([[0.]*(win//2), [1.]*(win//2)])
+    y = np.convolve(w/w.sum(), s, mode='valid')
+    return y[(win-1)//2:-(win-1)//2]
+
+
+def graph_formatter(unit, divider, x, pos):
+    """Provide an appropriate formatter for SI."""
+    x = x / divider
+    if x >= 1e6:
+        return "{:-1.1f}M{}".format(x/1e6, unit)
+    if x >= 1e3:
+        return "{:-1.1f}K{}".format(x/1e3, unit)
+    return "{:-1.0f}{}".format(x, unit)
+
+
+def graph_import(source):
+    """Import values from a file."""
+    out = np.genfromtxt(source,
+                        comments="#", delimiter=",",
+                        names=True)
+    # We need to keep only the most frequent socket
+    unique, pos = np.unique(out['sk'].astype('uint64'), return_inverse=True)
+    counts = np.bincount(pos)
+    maxpos = counts.argmax()
+    sk = unique[maxpos]
+    # Remove all the other occurrences
+    return out[out['sk'].astype('uint64') == sk]
+
+def graph(options):
+    """Build graph from results."""
+    # Read input files
+    logger.debug("Reading results from {}...".format(options.input))
+    local = graph_import(options.input)
+    if options.remote:
+        remote = graph_import(options.remote)
+    else:
+        remote = None
+
+    # Normalize time
+    mints = min(local['ts'])
+    maxts = max(local['ts'])
+    if remote is not None:
+        mints = min(mints, min(remote['ts']))
+        maxts = max(maxts, max(remote['ts']))
+        remote['ts'] -= mints
+        remote_or_local = remote
+    else:
+        remote_or_local = local
+    local['ts'] -= mints
+    maxts -= mints
+
+    # Setup general parameters
+    mp.rcParams['font.size'] = 9
+    mp.figure(num=None, figsize=(8.27, 11.69), dpi=300)
+    mp.suptitle(os.path.splitext(options.input)[0], fontsize=14)
+
+    def axis(ax, secondary=False):
+        ax.set_xlim(left=0, right=maxts)
+        ax.set_ylim(bottom=0, auto=True)
+        ax.grid(True, which="both", linestyle="dotted",
+                color=secondary and "0.7" or "1")
+        ax.yaxis.set_major_formatter(mp.FuncFormatter(
+            functools.partial(graph_formatter, "", 1)))
+        ax.xaxis.set_major_formatter(mp.FuncFormatter(
+            functools.partial(graph_formatter, "s", 1000)))
+        ax.get_yticklabels()[0].set_visible(False)
+
+    # On the first one, we put rwin and cwnd on left axis,
+    # send/receive bandwidth on right axis
+    lns = []
+    ax1 = mp.subplot2grid((3, 1), (0, 0))
+    axis(ax1)
+    lns.extend(ax1.plot(remote_or_local['ts'],
+                        remote_or_local['skmem_rb'] / 2,
+                        '-', color='IndianRed',
+                        label='Receive window'))
+    lns.extend(ax1.plot(local['ts'], local['snd_cwnd'] * local['snd_mss'],
+                        '-', color='RoyalBlue',
+                        label='Congestion window'))
+    lns.extend(ax1.plot(local['ts'],
+                        graph_smooth(local["wq"]),
+                        "-", linewidth=0.5, color='DarkSlateGray',
+                        label="Send-Q"))
+    ax1.set_ylabel("Window size (bytes)", fontsize=9)
+    ax2 = ax1.twinx()
+    axis(ax2, True)
+    lns.extend(ax2.plot(local['ts'],
+                        local['snd_cwnd'] * local['snd_mss'] * 1000 / local['rtt'],
+                        '-', color='DarkViolet',
+                        label='Max send bandwidth'))
+    lns.extend(ax2.plot(remote_or_local['ts'],
+                        remote_or_local['skmem_rb'] * 1000 / 2 / remote_or_local['rcv_rtt'],
+                        '-', color='DarkOrange',
+                        label='Max receive bandwidth'))
+    lns.extend(ax2.plot(local['ts'],
+                        graph_smooth(local['snd_bw']),
+                        '-', color='ForestGreen', linewidth=2,
+                        label='Current bandwidth'))
+    ax2.set_ylabel("Bandwidth (bytes per sec)", fontsize=9)
+
+    ax2.legend(lns, [l.get_label() for l in lns],
+               loc='best',
+               fancybox=True, shadow=True,
+               prop=dict(size=7),
+               ncol=1, framealpha=0.7)
+
+    # On the second graph, we plot unacked, retrans, lost, sacked and reordering counts.
+    lns = []
+    ax3 = mp.subplot2grid((3, 1), (1, 0), sharex=ax1)
+    ax4 = ax3.twinx()
+    axis(ax3)
+    axis(ax4, True)
+    counts = "unacked lost sacked reordering".split(" ")
+    colors = mp.cm.Accent(np.linspace(0, 1, len(counts) + 1))
+    lns.extend(ax4.plot(local['ts'],
+                        local['total_retrans'],
+                        '-', color=colors[0],
+                        label="Retrans"))
+    for idx, what in enumerate(counts):
+        lns.extend(ax3.plot(local['ts'],
+                            graph_smooth(local[what]),
+                            idx == 0 and '-' or '--', color=colors[idx+1],
+                            label=what.capitalize()))
+    for tl in ax4.get_yticklabels():
+        tl.set_color(colors[0])
+
+    ax3.legend(lns, [l.get_label() for l in lns],
+               loc='best',
+               fancybox=True, shadow=True,
+               prop=dict(size=7),
+               ncol=2, framealpha=0.8)
+
+    ax5 = mp.subplot2grid((3, 1), (2, 0), sharex=ax1)
+    axis(ax5)
+    colors = mp.cm.Paired(np.linspace(0, 1, 6))
+    for what in [
+            [remote_or_local, "skmem_r", "rmem-alloc", colors[0], '--'],
+            [remote_or_local, "rcv_space", "rcv-space", colors[1], '-'],
+            [local, "skmem_t", "wmem-alloc", colors[2], '--'],
+            [local, "skmem_tb", "sndbuf", colors[3], '-'],
+            [local, "skmem_f", "fwd-alloc", colors[4], '-'],
+            [local, "skmem_w", "wmem-queued", colors[5], '-']]:
+        ax5.plot(what[0]['ts'],
+                 graph_smooth(what[0][what[1]]),
+                 what[4],
+                 color=what[3],
+                 label=what[2])
+    ax5.plot(local['ts'],
+             graph_smooth(local["skmem_w"] + local["skmem_f"]),
+             ":", color=colors[4],
+             label="f+w")
+    ax5.plot(local['ts'],
+             graph_smooth(local["wq"]),
+             ":", linewidth=2, color=colors[5],
+             label="Send-Q")
+
+    ax5.set_ylabel("Size (bytes)", fontsize=9)
+    ax5.legend(loc='best', fancybox=True, shadow=True,
+               prop=dict(size=7), ncol=2, framealpha=0.8)
+
+    # Save the result
+    target = "{}.{}".format(os.path.splitext(options.input)[0],
+                            options.format)
+    mp.savefig(target)
+    logger.info("Image saved to {}".format(target))
+
+if __name__ == "__main__":
+    options = parse()
+    setup_logging(options.debug, options.silent)
+    try:
+        graph(options)
+    except Exception as e:
+        logger.exception("Uncaught exception: %s", e)

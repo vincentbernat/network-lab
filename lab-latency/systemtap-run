@@ -1,0 +1,118 @@
+#!/bin/sh
+
+# Run a serie of benchmarks using SystemTap to collect data. On each
+# benchmark, we start a remote iperf3 server, a local iperf3 client
+# while both a local and remote systemtap are collecting data. One
+# minute before the end of the benchmark, latency is divided by 10 to
+# ensure that it was the limiting parameter in the benchmark.
+
+set -e
+
+REMOTE=NewYork
+ROUTER=internet
+ROUTER_IFACES="eth0 eth1"
+STCB="$HOME/code/exoscale/systemtap-cookbook"
+PORT=5206                       # iperf3 port
+TIME=60                         # benchmark time at expected latency
+RTIME=10                        # benchmark time at reduced latency
+
+ESC="$(printf '\033')"
+if [ -t 1 ] && [ -z "$noterm" ]; then
+    NORMAL="${ESC}[0m"
+    RED="${ESC}[31;1m"
+    GREEN="${ESC}[32;1m"
+    YELLOW="${ESC}[33;1m"
+    BLUE="${ESC}[34;1m"
+    BEGINNING="$(printf '\015\033')[K"
+else
+    BEGINNING="\n"
+fi
+
+log_ok_msg() {
+    echo "$GREEN[✔]$NORMAL $*."
+}
+log_warn_msg() {
+    echo "$YELLOW[⚡]$NORMAL $*!"
+}
+log_error_msg() {
+    echo "$RED[✘]$NORMAL $*!"
+    exit 1
+}
+log_info_msg() {
+    echo "$BLUE[∗]$NORMAL $*."
+}
+
+# Setup QoS on router
+setup_qos() {
+    log_info_msg "Setting QoS parameters \`$@' on $ROUTER"
+    ssh $ROUTER sh -c "for iface in $ROUTER_IFACES; do tc qdisc replace dev $iface root netem $@; done"
+}
+
+# Setup local sysctl.
+setup_local_sysctl() {
+    # If there are several values, we only alter the last one
+    newvalue=$(sysctl -n $1 | sed "s/[^ \t]*$/$2/")
+    log_info_msg "Setting local sysctl $1 to $newvalue"
+    sysctl -q -w "$1=$newvalue"
+}
+
+# Setup remote sysctl.
+setup_remote_sysctl() {
+    newvalue=$(ssh $REMOTE sysctl -n $1 | sed "s/[^ \t]*$/$2/")
+    log_info_msg "Setting remote sysctl $1 to $newvalue"
+    echo "$1=$newvalue" | ssh $REMOTE sysctl -q -w -p-
+}
+
+run() {
+    description="$1"
+    ssh $REMOTE "$STCB/tcp -s --stap-cmd 'iperf3 -s -1 -i 0 --port $PORT'"\
+        "-o 'tmp/$description.remote-data' sockstat --local $PORT" --bandwidth &
+    remote=$!
+    log_info_msg "Wait for remote iperf3 server..."
+    ssh $REMOTE "while ! ss -ln '( sport = :$PORT )' | grep -q LISTEN; do sleep 1; done"
+    log_info_msg "Execute benchmark..."
+    $STCB/tcp -s --stap-cmd "iperf3 -c $REMOTE -i 0 -t $(( $TIME + $RTIME )) --port $PORT" \
+              -o "$description.local-data" sockstat --remote $PORT --bandwidth &
+    local=$!
+    sleep $TIME
+    setup_qos delay 5ms 1ms 25% loss 0.00001%
+    wait $local
+    wait $remote
+    # We should copy remote data but in our case, they are on the same 9P FS
+    cp ~/tmp/"$description.remote-data" .
+    log_ok_msg "Benchmark \`$description' finished!"
+    ./systemtap-graph --remote "$description.remote-data" "$description.local-data"
+}
+
+setup_local_sysctl net.ipv4.tcp_rmem 4019584
+setup_remote_sysctl net.ipv4.tcp_wmem 4019584
+
+# Bench 1
+setup_local_sysctl net.ipv4.tcp_wmem 4019584
+setup_remote_sysctl net.ipv4.tcp_rmem 4019584
+setup_qos delay 50ms 5ms 25% loss 0.0001%
+run "100ms, 1e-6, rmem=4019584, wmem=4019584"
+
+# Bench 2
+setup_local_sysctl net.ipv4.tcp_wmem 8039168
+setup_remote_sysctl net.ipv4.tcp_rmem 4019584
+setup_qos delay 50ms 5ms 25% loss 0.0001%
+run "100ms, 1e-6, rmem=4019584, wmem=8039168"
+
+# Bench 3
+setup_local_sysctl net.ipv4.tcp_wmem 16078336
+setup_remote_sysctl net.ipv4.tcp_rmem 4019584
+setup_qos delay 50ms 5ms 25% loss 0.0001%
+run "100ms, 1e-6, rmem=4019584, wmem=16078336"
+
+# Bench 4
+setup_local_sysctl net.ipv4.tcp_wmem 16078336
+setup_remote_sysctl net.ipv4.tcp_rmem 8039168
+setup_qos delay 50ms 5ms 25% loss 0.0001%
+run "100ms, 1e-6, rmem=8039168, wmem=16078336"
+
+# Bench 5
+setup_local_sysctl net.ipv4.tcp_wmem 4019584
+setup_remote_sysctl net.ipv4.tcp_rmem 4019584
+setup_qos delay 50ms 5ms 25% loss 0.00001%
+run "100ms, 1e-7, rmem=4019584, wmem=4019584"
