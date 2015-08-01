@@ -146,7 +146,6 @@ def graph(options):
     # send/receive bandwidth on right axis
     lns = []
     ax1 = mp.subplot2grid((3, 1), (0, 0))
-    axis(ax1)
     lns.extend(ax1.plot(remote_or_local['ts'],
                         remote_or_local['skmem_rb'] / 2,
                         '-', color='IndianRed',
@@ -157,10 +156,9 @@ def graph(options):
     lns.extend(ax1.plot(local['ts'],
                         graph_smooth(local["wq"]),
                         "-", linewidth=0.5, color='DarkSlateGray',
-                        label="Send-Q"))
+                        label="In-flight bytes"))
     ax1.set_ylabel("Window size (bytes)", fontsize=9)
     ax2 = ax1.twinx()
-    axis(ax2, True)
     lns.extend(ax2.plot(local['ts'],
                         local['snd_cwnd'] * local['snd_mss'] * 1000 / local['rtt'],
                         '-', color='DarkViolet',
@@ -175,6 +173,8 @@ def graph(options):
                         label='Current bandwidth'))
     ax2.set_ylabel("Bandwidth (bytes per sec)", fontsize=9)
 
+    axis(ax1)
+    axis(ax2, True)
     ax2.legend(lns, [l.get_label() for l in lns],
                loc='best',
                fancybox=True, shadow=True,
@@ -185,8 +185,6 @@ def graph(options):
     lns = []
     ax3 = mp.subplot2grid((3, 1), (1, 0), sharex=ax1)
     ax4 = ax3.twinx()
-    axis(ax3)
-    axis(ax4, True)
     counts = "unacked lost sacked reordering".split(" ")
     colors = mp.cm.Accent(np.linspace(0, 1, len(counts) + 1))
     lns.extend(ax4.plot(local['ts'],
@@ -201,14 +199,15 @@ def graph(options):
     for tl in ax4.get_yticklabels():
         tl.set_color(colors[0])
 
-    ax3.legend(lns, [l.get_label() for l in lns],
+    axis(ax3)
+    axis(ax4, True)
+    ax4.legend(lns, [l.get_label() for l in lns],
                loc='best',
                fancybox=True, shadow=True,
                prop=dict(size=7),
                ncol=2, framealpha=0.8)
 
     ax5 = mp.subplot2grid((3, 1), (2, 0), sharex=ax1)
-    axis(ax5)
     colors = mp.cm.Paired(np.linspace(0, 1, 6))
     for what in [
             [remote_or_local, "skmem_r", "rmem-alloc", colors[0], '--'],
@@ -229,8 +228,9 @@ def graph(options):
     ax5.plot(local['ts'],
              graph_smooth(local["wq"]),
              ":", linewidth=2, color=colors[5],
-             label="Send-Q")
+             label="In-flight bytes")
 
+    axis(ax5)
     ax5.set_ylabel("Size (bytes)", fontsize=9)
     ax5.legend(loc='best', fancybox=True, shadow=True,
                prop=dict(size=7), ncol=2, framealpha=0.8)
