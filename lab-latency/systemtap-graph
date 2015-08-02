@@ -151,6 +151,10 @@ def graph(options):
                         remote_or_local['skmem_rb'] / 2,
                         '-', color='IndianRed',
                         label='Receive window'))
+    lns.extend(ax1.plot(remote_or_local['ts'],
+                        remote_or_local['advwin'],
+                        ':', color='IndianRed',
+                        label='Advertised window'))
     lns.extend(ax1.plot(local['ts'], local['snd_cwnd'] * local['snd_mss'],
                         '-', color='RoyalBlue',
                         label='Congestion window'))
