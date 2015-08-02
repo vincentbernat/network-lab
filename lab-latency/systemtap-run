@@ -14,7 +14,7 @@ ROUTER_IFACES="eth0 eth1"
 STCB="$HOME/code/exoscale/systemtap-cookbook"
 PORT=5206                       # iperf3 port
 TIME=50                         # benchmark time at expected latency
-RTIME=10                        # benchmark time at reduced latency
+RTIME=20                        # benchmark time at reduced latency
 
 ESC="$(printf '\033')"
 if [ -t 1 ] && [ -z "$noterm" ]; then
