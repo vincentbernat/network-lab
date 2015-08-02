@@ -130,6 +130,7 @@ def graph(options):
     mp.rcParams['font.size'] = 9
     mp.figure(num=None, figsize=(8.27, 11.69), dpi=300)
     mp.suptitle(os.path.splitext(options.input)[0], fontsize=14)
+    np.seterr(divide='ignore')
 
     def axis(ax, secondary=False):
         ax.set_xlim(left=0, right=maxts)
