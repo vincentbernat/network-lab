@@ -66,14 +66,14 @@ setup_remote_sysctl() {
 run() {
     description="$1"
     ssh $REMOTE "$STCB/tcp -s --stap-cmd 'iperf3 -s -1 -i 0 --port $PORT'"\
-        "-o 'tmp/$description.remote-data' sockstat --local $PORT" --bandwidth &
+        "-o 'tmp/$description.remote-data' sockstat --local $PORT" --bandwidth --extensive &
     remote=$!
     log_info_msg "Wait for remote iperf3 server..."
     ssh $REMOTE "while ! ss -ln '( sport = :$PORT )' | grep -q LISTEN; do sleep 1; done"
     log_info_msg "Prepare benchmark..."
     mkfifo wait-iperf3
     $STCB/tcp -s --stap-cmd "echo ready > wait-iperf3 ; iperf3 -c $REMOTE -i 0 -t $(( $TIME + $RTIME )) --port $PORT" \
-              -o "$description.local-data" sockstat --remote $PORT --bandwidth &
+              -o "$description.local-data" sockstat --remote $PORT --bandwidth --extensive &
     local=$!
     :< wait-iperf3
     rm -f wait-iperf3

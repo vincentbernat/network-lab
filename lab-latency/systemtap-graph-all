@@ -1,0 +1,5 @@
+#!/bin/sh
+
+for local in *.local-data; do
+    ./systemtap-graph --remote "${local%local-data}remote-data" "$local" "$@"
+done
