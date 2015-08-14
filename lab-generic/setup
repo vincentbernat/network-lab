@@ -539,6 +539,7 @@ EOF
             exit 1
         }
         PROGNAME="$(readlink -f "$0")"
+        PROGARGS="$@"
         ROOT="$(readlink -f "${ROOT:-/}")" # Root filesystem
         KERNEL="$(readlink -f "${1:-/boot/vmlinuz-$(uname -r)}")" # Kernel
         PATH="$PATH":/usr/local/sbin:/usr/sbin:/sbin
