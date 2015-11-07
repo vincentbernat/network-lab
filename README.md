@@ -12,8 +12,9 @@ using KVM.
 `lab-generic` should always contain the latest iteration of the lab
 and be used as a base for other labs.
 
-⚠ Currently, most labs won't work due to the inability to use an
-overlay over 9P starting from kernel 4.2.
+**⚠ Warning!** Currently, most labs won't work due to the inability to
+use an overlay over 9P starting from kernel 4.2. The `rtbh` lab is the
+current exception.
 
 License
 -------
