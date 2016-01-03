@@ -5,6 +5,14 @@ Almost the same as the lab with vSRX. However, autoconfiguration is
 not available, hence the use of expect script for initial
 configuration. The root password is `.Linux.`.
 
+Note that this was tested with a vMX image running JunOS 14.1R1. It
+seems that with more recent images, the vMX will try to connect to a
+remote PFE instead. In this case, you can instruct vMX to use the
+local PFE by editing `/boot/loader.conf` and adding the line
+`vm_local_rpio="1"`. See this
+[post by Matt Dinham](http://matt.dinham.net/juniper-vmx-getting-started-guide/)
+for more insight on this.
+
 Lab
 ---
 
