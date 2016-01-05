@@ -35,6 +35,13 @@ log_info_msg () {
     echo "$BOLD$BLUE[∗]$NORMAL $1."
 }
 
+nth () {
+    n=$1
+    shift
+    shift $n
+    echo $1
+}
+
 check_kernel() {
     log_begin_msg "Checking kernel version"
     [ -f "$KERNEL" ] || log_error_msg "Unable to find kernel $KERNEL"
@@ -85,20 +92,6 @@ DEVTMPFS=[ym]
 EOF
         grep -qx "CONFIG_$el" $CONFIG || log_error_msg "Kernel not configured with CONFIG_$el"
     done
-
-    if grep -Eqc "CONFIG_OVERLAYFS_FS=[ym]" $CONFIG; then
-        log_ok_msg "Kernel configuration checked. overlayfs present"
-        UNION="${UNION}${UNION+ }overlayfs"
-    elif grep -Eqc "CONFIG_OVERLAY_FS=[ym]" $CONFIG; then
-        log_ok_msg "Kernel configuration checked. overlayfs present"
-        UNION="${UNION}${UNION+ }overlay"
-    fi
-    if grep -qc "CONFIG_AUFS_FS=[ym]" $CONFIG; then
-        log_ok_msg "Kernel configuration checked. AUFS present"
-        UNION="${UNION}${UNION+ }aufs"
-    fi
-    [ -n "$UNION" ] || \
-        log_error_msg "Kernel configuration checked. Neither overlayfs nor AUFS present"
 
     log_begin_msg "Search for modules"
     for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" "/lib/modules/$VERSION"; do
@@ -330,9 +323,9 @@ cleanup() {
 start_nginx() {
     log_begin_msg "Running nginx"
     mkdir /var/log/nginx
-    mkdir /usr/share/nginx/www
-    echo $uts > /usr/share/nginx/www/index.html
-    nginx -c /lab/nginx.conf
+    mkdir -p /tmp/nginx/www
+    echo $uts > /tmp/nginx/www/index.html
+    nginx -c /mnt/lab/nginx.conf
     log_ok_msg "nginx started"
 }
 
@@ -356,27 +349,13 @@ case $$,$STATE in
         mkdir /tmp/target
         mkdir /tmp/target/ro
         mkdir /tmp/target/overlay
-        mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro
-        mkdir /tmp/target/rw
-        mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
-        mkdir /tmp/target/rw/workdir
-        mkdir /tmp/target/rw/upperdir
-        mount -n -t aufs aufs /tmp/target/overlay \
-              -o noxino,noatime,dirs=/tmp/target/rw/upperdir:/tmp/target/ro=ro \
-              2> /dev/null || \
-            mount -n -t overlayfs overlayfs /tmp/target/overlay \
-                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,noatime \
-                  2> /dev/null || \
-            mount -n -t overlay overlayfs /tmp/target/overlay \
-                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,workdir=/tmp/target/rw/workdir,noatime \
-                  2> /dev/null ||
-            log_error_msg "Unable to mount AUFS/overlayfs"
+        mount -n -t 9p    rootshare /tmp/target/overlay -o trans=virtio,version=9p2000.u,ro
         mount -n -t proc  proc /tmp/target/overlay/proc
         mount -n -t sysfs sys  /tmp/target/overlay/sys
         log_ok_msg "Root file system setup"
 
         log_begin_msg "Clean /tmp and /run"
-        for fs in /run /var/run /var/tmp /var/log /tmp; do
+        for fs in /run /var/run /var/tmp /var/log /tmp /mnt; do
             if [ -d /tmp/target/overlay$fs ] && [ ! -h /tmp/target/overlay$fs ]; then
                 mount -t tmpfs tmpfs /tmp/target/overlay$fs -o rw,nosuid,nodev
             fi
@@ -396,11 +375,11 @@ case $$,$STATE in
             log_error_msg "Unable to mount /lib/modules"
         log_ok_msg "/root and /lib/modules mounted"
 
-        log_begin_msg "Mount /lab"
-        mkdir /tmp/target/overlay/lab
-        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
-            log_error_msg "Unable to mount /lab"
-        log_ok_msg "/lab mounted"
+        log_begin_msg "Mount /mnt/lab"
+        mkdir /tmp/target/overlay/mnt/lab
+        mount -t 9p labshare /tmp/target/overlay/mnt/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
+            log_error_msg "Unable to mount /mnt/lab"
+        log_ok_msg "/mnt/lab mounted"
 
         log_begin_msg "Mount /tmp/lab"
         mkdir /tmp/target/overlay/tmp/lab
@@ -410,13 +389,12 @@ case $$,$STATE in
 
         log_info_msg "Change root"
         export STATE=CHROOTED
-        exec chroot /tmp/target/overlay /lab/setup
+        exec chroot /tmp/target/overlay /mnt/lab/setup
         ;;
 
     1,CHROOTED)
         log_begin_msg "Starting udev"
         udev_log=err
-        rm -f /etc/udev/rules.d/70-persistent-net.rules
         mount -n -o size=10M,mode=0755 -t devtmpfs devtmpfs /dev
         udevadm info --cleanup-db
         for udev in /lib/systemd/systemd-udevd /usr/lib/systemd/systemd-udevd $(command -v udevd 2> /dev/null); do
@@ -433,11 +411,7 @@ case $$,$STATE in
         for intf in /sys/class/net/*; do
             intf=$(basename $intf)
             ip a l dev $intf 2> /dev/null >/dev/null || continue
-            case $intf in
-                lo|eth*|dummy*)
-                    ip link set up dev $intf
-                    ;;
-            esac
+            ip link set up dev $intf
         done
 
         log_info_msg "Start syslog"
@@ -445,7 +419,7 @@ case $$,$STATE in
 
         log_info_msg "Setup terminal"
         export STATE=GETTY
-        exec setsid /sbin/agetty -L ttyS0 -a root -l /lab/setup -i 115200 $TERM
+        exec setsid /sbin/agetty -L ttyS0 -a root -l /mnt/lab/setup -i 115200 $TERM
         ;;
 
     1,GETTY)
@@ -490,21 +464,20 @@ case $$,$STATE in
         log_ok_msg "Terminal size is $(tput cols)x$(tput lines)"
 
         export STATE=SETUP
-        . /lab/setup
+        . /mnt/lab/setup
 
         log_begin_msg "Setup additional commands"
         mkdir /tmp/tools
-        export PATH=$PATH:/tmp/tools
-        rm -f /sbin/reboot /sbin/halt
-        cat <<EOF > /sbin/reboot
+        export PATH=/tmp/tools:$PATH
+        cat <<EOF > /tmp/tools/reboot
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
-        cat <<EOF > /sbin/halt
+        cat <<EOF > /tmp/tools/halt
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
-        chmod +x /sbin/reboot /sbin/halt
+        chmod +x /tmp/tools/*
         log_ok_msg "System can be halted with halt or reboot"
 
         while true; do
@@ -521,12 +494,16 @@ EOF
 
     *,SETUP)
         log_info_msg "Setup IP addresses"
+        ifaces=""
+        for iface in $(echo /sys/bus/virtio/drivers/virtio_net/*/net/*); do
+            ifaces="$ifaces ${iface##*/}"
+        done
         case $uts in
             R1)
-                ip addr add 10.234.78.65/27 dev eth0
+                ip addr add 10.234.78.65/27 dev $(nth 0 $ifaces)
                 ;;
             R2)
-                ip addr add 10.234.78.66/27 dev eth0
+                ip addr add 10.234.78.66/27 dev $(nth 0 $ifaces)
                 ;;
         esac
         start_nginx
