@@ -1,7 +1,7 @@
 #!/bin/sh
 
 LABNAME="vmx"
-DEPS="bird nginx"
+DEPS="bird nginx rsyslogd"
 
 set -e
 
@@ -38,8 +38,34 @@ log_info_msg () {
 check_kernel() {
     log_begin_msg "Checking kernel version"
     [ -f "$KERNEL" ] || log_error_msg "Unable to find kernel $KERNEL"
-    VERSION=$(file "$KERNEL" | sed -n 's/.*: Linux kernel x86 boot executable bzImage, version \([^ ]*\) .*/\1/p')
+    [ -r "$KERNEL" ] || log_error_msg "Kernel $KERNEL is not readable.\n    Try \`setfacl -m u:$USER:r $KERNEL'"
+
+    # A recent version of `file` is able to extract the
+    # information. Since it is not widely available, let use some hack
+    # method.
+    VERSION=$(cat <<EOF |
+cat
+gunzip  \\\037\\\213\\\010 xy
+unxz    \\\3757zXZ\\\000   abcde
+bunzip2 BZh                xy
+unlzma  \\\135\\\0\\\0\\\0 xxx
+EOF
+              while read cmd sig1 sig2; do
+                  case $sig1,$sig2 in
+                      ,) poss="0:_" ;;
+                      *) poss=$(tr "${sig1}\n${sig2}" "\n${sig2}=" < "$KERNEL" | grep -abo "^${sig2}" || true) ;;
+                  esac
+                  [ -n "$poss" ] || continue
+                  for pos in $poss; do
+                      pos=${pos%%:*}
+                      tail -c+$pos "$KERNEL" | $cmd 2> /dev/null | strings -20 | \
+                          grep ^Linux.version | head -1
+                  done
+              done | head -1)
+
     [ -n "$VERSION" ] || log_error_msg "Unable to determine version for $KERNEL"
+    VERSION="${VERSION#Linux version }"
+    VERSION="${VERSION%% *}"
     log_ok_msg "Found kernel $VERSION"
 
     log_begin_msg "Check kernel configuration"
@@ -59,20 +85,6 @@ DEVTMPFS=[ym]
 EOF
         grep -qx "CONFIG_$el" $CONFIG || log_error_msg "Kernel not configured with CONFIG_$el"
     done
-
-    if grep -Eqc "CONFIG_OVERLAYFS_FS=[ym]" $CONFIG; then
-        log_ok_msg "Kernel configuration checked. overlayfs present"
-        UNION="${UNION}${UNION+ }overlayfs"
-    elif grep -Eqc "CONFIG_OVERLAY_FS=[ym]" $CONFIG; then
-        log_ok_msg "Kernel configuration checked. overlayfs present"
-        UNION="${UNION}${UNION+ }overlay"
-    fi
-    if grep -qc "CONFIG_AUFS_FS=[ym]" $CONFIG; then
-        log_ok_msg "Kernel configuration checked. AUFS present"
-        UNION="${UNION}${UNION+ }aufs"
-    fi
-    [ -n "$UNION" ] || \
-        log_error_msg "Kernel configuration checked. Neither overlayfs nor AUFS present"
 
     log_begin_msg "Search for modules"
     for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" "/lib/modules/$VERSION"; do
@@ -131,7 +143,7 @@ EOF
     start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$1.pid" \
         --start --startas $(which vde_switch) -- \
         --sock "$TMP/switch-$1.sock" --mgmt "$TMP/switch-management-$1.sock" \
-        --rcfile "$TMP/switch-$1.conf"
+        --rcfile "$TMP/switch-$1.conf" --hub
     # Management socket can be used with:
     #    socat - UNIX-CONNECT:"$TMP/switch-management-$1.sock"
     log_ok_msg "Switch $1 started"
@@ -198,7 +210,7 @@ random_mac () {
     name=$1
     net=$2
     mac=$(echo $name-$net | sha1sum | \
-        awk '{print "52:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
+        awk '{print "50:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
     echo $mac
 }
 
@@ -228,6 +240,7 @@ start_vm () {
         -enable-kvm \
         -nodefconfig -nodefaults \
         -display none \
+        -m ${MEM:-128M} \
         \
         -chardev stdio,id=charserial0,signal=off \
         -device isa-serial,chardev=charserial0,id=serial0 \
@@ -389,14 +402,16 @@ cleanup() {
 start_bird() {
     log_begin_msg "Running bird"
     [ -d /run/bird ] || mkdir -p /run/bird
-    bird -c /lab/bird.$uts.conf
+    bird -c /mnt/lab/bird.$uts.conf
     log_ok_msg "bird started"
 }
 
 start_nginx() {
     log_begin_msg "Running nginx"
     mkdir /var/log/nginx
-    nginx -c /lab/nginx.conf
+    mkdir -p /tmp/nginx/www
+    echo $uts > /tmp/nginx/www/index.html
+    nginx -c /mnt/lab/nginx.conf
     log_ok_msg "nginx started"
 }
 
@@ -420,27 +435,13 @@ case $$,$STATE in
         mkdir /tmp/target
         mkdir /tmp/target/ro
         mkdir /tmp/target/overlay
-        mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro
-        mkdir /tmp/target/rw
-        mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
-        mkdir /tmp/target/rw/workdir
-        mkdir /tmp/target/rw/upperdir
-        mount -n -t aufs aufs /tmp/target/overlay \
-              -o noxino,noatime,dirs=/tmp/target/rw/upperdir:/tmp/target/ro=ro \
-              2> /dev/null || \
-            mount -n -t overlayfs overlayfs /tmp/target/overlay \
-                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,noatime \
-                  2> /dev/null || \
-            mount -n -t overlay overlayfs /tmp/target/overlay \
-                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,workdir=/tmp/target/rw/workdir,noatime \
-                  2> /dev/null ||
-            log_error_msg "Unable to mount AUFS/overlayfs"
+        mount -n -t 9p    rootshare /tmp/target/overlay -o trans=virtio,version=9p2000.u,ro
         mount -n -t proc  proc /tmp/target/overlay/proc
         mount -n -t sysfs sys  /tmp/target/overlay/sys
         log_ok_msg "Root file system setup"
 
         log_begin_msg "Clean /tmp and /run"
-        for fs in /run /var/run /var/tmp /var/log /tmp; do
+        for fs in /run /var/run /var/tmp /var/log /tmp /mnt; do
             if [ -d /tmp/target/overlay$fs ] && [ ! -h /tmp/target/overlay$fs ]; then
                 mount -t tmpfs tmpfs /tmp/target/overlay$fs -o rw,nosuid,nodev
             fi
@@ -450,17 +451,21 @@ case $$,$STATE in
         log_begin_msg "Mount /root"
         mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /root"
+        [ ! -d /tmp/target/overlay/root/.ssh ] || {
+            mount -t tmpfs tmpfs /tmp/target/overlay/root/.ssh -o rw,nosuid,nodev
+            chmod 0700 /tmp/target/overlay/root/.ssh
+        }
         log_ok_msg "/root mounted"
         log_begin_msg "Mount /lib/modules"
         mount -t 9p moduleshare /tmp/target/overlay/lib/modules -o trans=virtio,version=9p2000.L,access=0,ro || \
             log_error_msg "Unable to mount /lib/modules"
         log_ok_msg "/root and /lib/modules mounted"
 
-        log_begin_msg "Mount /lab"
-        mkdir /tmp/target/overlay/lab
-        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
-            log_error_msg "Unable to mount /lab"
-        log_ok_msg "/lab mounted"
+        log_begin_msg "Mount /mnt/lab"
+        mkdir /tmp/target/overlay/mnt/lab
+        mount -t 9p labshare /tmp/target/overlay/mnt/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
+            log_error_msg "Unable to mount /mnt/lab"
+        log_ok_msg "/mnt/lab mounted"
 
         log_begin_msg "Mount /tmp/lab"
         mkdir /tmp/target/overlay/tmp/lab
@@ -470,30 +475,29 @@ case $$,$STATE in
 
         log_info_msg "Change root"
         export STATE=CHROOTED
-        exec chroot /tmp/target/overlay /lab/setup
+        exec chroot /tmp/target/overlay /mnt/lab/setup
         ;;
 
     1,CHROOTED)
         log_begin_msg "Starting udev"
         udev_log=err
-        rm -f /etc/udev/rules.d/70-persistent-net.rules
         mount -n -o size=10M,mode=0755 -t devtmpfs devtmpfs /dev
         udevadm info --cleanup-db
-        udevd --daemon
+        for udev in /lib/systemd/systemd-udevd /usr/lib/systemd/systemd-udevd $(command -v udevd 2> /dev/null); do
+            [ ! -x $udev ] || break
+        done
+        $udev --daemon
         udevadm trigger --action=add
         udevadm settle
         log_ok_msg "udev started"
 
         log_info_msg "Setup interfaces"
         modprobe dummy 2>/dev/null || true
+        sleep 0.5               # Some interfaces may take some time to appear
         for intf in /sys/class/net/*; do
             intf=$(basename $intf)
             ip a l dev $intf 2> /dev/null >/dev/null || continue
-            case $intf in
-                lo|eth*|dummy*)
-                    ip link set up dev $intf
-                    ;;
-            esac
+            ip link set up dev $intf
         done
 
         log_info_msg "Start syslog"
@@ -501,7 +505,7 @@ case $$,$STATE in
 
         log_info_msg "Setup terminal"
         export STATE=GETTY
-        exec setsid /sbin/agetty -L ttyS0 -a root -l /lab/setup -i 115200 $TERM
+        exec setsid /sbin/agetty -L ttyS0 -a root -l /mnt/lab/setup -i 115200 $TERM
         ;;
 
     1,GETTY)
@@ -546,21 +550,20 @@ case $$,$STATE in
         log_ok_msg "Terminal size is $(tput cols)x$(tput lines)"
 
         export STATE=SETUP
-        . /lab/setup
+        . /mnt/lab/setup
 
         log_begin_msg "Setup additional commands"
         mkdir /tmp/tools
-        export PATH=$PATH:/tmp/tools
-        rm -f /sbin/reboot /sbin/halt
-        cat <<EOF > /sbin/reboot
+        export PATH=/tmp/tools:$PATH
+        cat <<EOF > /tmp/tools/reboot
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
-        cat <<EOF > /sbin/halt
+        cat <<EOF > /tmp/tools/halt
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
-        chmod +x /sbin/reboot /sbin/halt
+        chmod +x /tmp/tools/*
         log_ok_msg "System can be halted with halt or reboot"
 
         while true; do
@@ -577,18 +580,20 @@ EOF
 
     *,SETUP)
         log_info_msg "Setup IP addresses"
+        [ ! -d /sys/class/net/eth0 ] || \
+            ip link set name ens2 dev eth0
         case $uts in
             prov)
-                ip addr add 10.16.32.1/24 dev eth0
+                ip addr add 10.16.32.1/24 dev ens2
                 start_nginx
                 ;;
             R1)
-                ip addr add 192.0.2.1/24 dev eth0
+                ip addr add 192.0.2.1/24 dev ens2
                 ip addr add 198.51.100.101/32 dev dummy0
                 start_bird
                 ;;
             R2)
-                ip addr add 192.0.2.2/24 dev eth0
+                ip addr add 192.0.2.2/24 dev ens2
                 ip addr add 198.51.100.102/32 dev dummy0
                 start_bird
                 ;;
@@ -602,8 +607,10 @@ EOF
             exit 1
         }
         PROGNAME="$(readlink -f "$0")"
+        PROGARGS="$@"
         ROOT="$(readlink -f "${ROOT:-/}")" # Root filesystem
         KERNEL="$(readlink -f "${1:-/boot/vmlinuz-$(uname -r)}")" # Kernel
+        PATH="$PATH":/usr/local/sbin:/usr/sbin:/sbin
         [ $# -lt 1 ] || shift
 
         check_kernel
