@@ -28,3 +28,9 @@ The AS are:
 Edge routers are configured to force transit to `65546` through `T1`
 and transit to `65547` through `T2` (despite the fact that the path is
 longer). This is done by setting up MED.
+
+Note that the result of this lab heavily relies on the fact that on
+Juniper, the default route preference for BGP is 170, external or
+internal. On Cisco, the administrative distance is 20 for eBGP and 200
+for iBGP.
+
