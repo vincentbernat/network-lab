@@ -1,8 +1,8 @@
 Route reflectors with JunOS
 ===========================
 
-This lab uses Firefly Perimeter (virtualized Juniper SRX). See
-`lab-firefly` for more information about that aspect.
+This lab uses vMX (virtualized Juniper MX). See `lab-vmx` for more
+information about that aspect.
 
 We experiment on two different AS. AS65536 is using route reflectors
 while AS65537 doesn't.

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 LABNAME="routereflector"
-DEPS="bird nginx dnsmasq rsyslogd"
+DEPS="bird nginx rsyslogd"
 
 set -e
 
@@ -150,7 +150,7 @@ EOF
     start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$1.pid" \
         --start --startas $(which vde_switch) -- \
         --sock "$TMP/switch-$1.sock" --mgmt "$TMP/switch-management-$1.sock" \
-        --rcfile "$TMP/switch-$1.conf"
+        --rcfile "$TMP/switch-$1.conf" --hub
     # Management socket can be used with:
     #    socat - UNIX-CONNECT:"$TMP/switch-management-$1.sock"
     log_ok_msg "Switch $1 started"
@@ -215,9 +215,9 @@ setup_initrd () {
 
 random_mac () {
     name=$1
+    net=$2
     mac=$(echo $name-$net | sha1sum | \
-        awk '{print "52:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
-    echo $mac $name >> $TMP/dnsmasq.leases
+        awk '{print "50:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
     echo $mac
 }
 
@@ -229,7 +229,7 @@ start_vm () {
     saveifs="$IFS"
     IFS=,
     for net in $NET; do
-        mac=$(random_mac $name)
+        mac=$(random_mac $name $net)
         netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
@@ -284,7 +284,8 @@ EOF
     tmux select-window -t ":^"
 }
 
-start_srx () {
+seq=10
+start_vmx () {
     name=$1
     shift
 
@@ -294,15 +295,15 @@ start_srx () {
     for net in $NET; do
         mac=$(random_mac $name)
         netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
-        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+        [ x"$net" = x"0" ] || netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
     IFS="$saveifs"
+    seq=$(($seq+1))
 
-    log_info_msg "Start SRX $name"
-    qemu-img create -q -f qcow2 -b $PWD/../images/junos-vsrx.img $TMP/junos-$name.img
+    log_info_msg "Start vMX $name"
+    qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx.img $TMP/junos-$name.img
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
-        echo
         start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
         --start --startas $(which qemu-system-x86_64) -- \
         -enable-kvm \
@@ -332,10 +333,41 @@ start_srx () {
         $@
         sleep 1
 EOF
+    cat <<EOF > "$TMP/vm-$name-real.exec"
+#!$(which expect) -f
+
+cd $TMP
+spawn $TMP/vm-$name.exec
+set timeout 120
+expect {
+  "login: " { send "root\r" }
+  timeout { interact }
+}
+
+set timeout 10
+expect "root@%"
+send "cli\r"
+expect "root> "
+send "edit\r"
+expect "root# "
+send "set system root-authentication encrypted-password \"$1$avyI22e2$Qs8P0WjiG0WgUWRGMXX16/\"\r"
+expect "root# "
+send "set interfaces em0 unit 0 family inet address 10.16.32.$seq/24\r"
+expect "root# "
+send "commit\r"
+expect "root# "
+send "load replace http://10.16.32.1/lab/$name.conf\r"
+expect "root# "
+send "commit\r"
+expect "root# "
+send "exit\r"
+interact
+EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -n $name "$TMP/vm-$name.exec"
+    chmod +x "$TMP/vm-$name-real.exec"
+    tmux new-window -n $name "$TMP/vm-$name-real.exec"
     tmux select-window -t ":^"
 }
 
@@ -390,26 +422,6 @@ start_bird() {
     bird -c /mnt/lab/bird.$uts.conf
     log_ok_msg "bird started"
 }
-
-start_dnsmasq() {
-    log_begin_msg "Running dnsmasq"
-    mkdir /var/run/dnsmasq
-    j=10
-    dnsmasq \
-        --conf-file=/dev/null \
-        --no-hosts \
-        --user=root \
-        --dhcp-range 10.16.32.10,10.16.32.100,1h \
-        $(cat /tmp/lab/dnsmasq.leases | while read mac name; do
-            printf -- "--dhcp-host=$mac,10.16.32.$j,$name "
-            j=$(($j + 1))
-          done) \
-        --no-ping \
-        --enable-tftp \
-        --tftp-root /mnt/lab
-    log_ok_msg "dnsmasq started"
-}
-
 
 # FSM
 export STATE=${STATE:-BEGIN}
@@ -585,9 +597,8 @@ EOF
     *,SETUP)
         log_info_msg "Setup IP addresses"
         case $uts in
-            dhcp)
+            prov)
                 ip addr add 10.16.32.1/24 dev eth0
-                start_dnsmasq
                 start_nginx
                 ;;
             T1)
@@ -639,15 +650,21 @@ EOF
         setup_switch 9          # DHCP
         sleep 0.5
 
-        NET=9         start_vm  dhcp
+        NET=9         start_vm  prov
         NET=1         start_vm  T1
         NET=2         start_vm  T2
-        NET=9,1,3,5   start_srx E1
-        NET=9,2,4,6   start_srx E2
-        NET=9,3,6,7   start_srx C1
-        NET=9,4,5,7   start_srx C2
-        NET=9,1,8     start_srx EC1
-        NET=9,2,8     start_srx EC2
+        # First interface is em0.
+        # Second interface is for internal use.
+
+        # Third interface is ge-0/0/0 (we skip it just because our
+        # config files start at ge-0/0/1 but there is nothing wrong
+        # with it)
+        NET=9,0,0,1,3,5   start_vmx E1
+        NET=9,0,0,2,4,6   start_vmx E2
+        NET=9,0,0,3,6,7   start_vmx C1
+        NET=9,0,0,4,5,7   start_vmx C2
+        NET=9,0,0,1,8     start_vmx EC1
+        NET=9,0,0,2,8     start_vmx EC2
 
         display_help
         ;;
