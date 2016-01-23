@@ -1,17 +1,17 @@
 #!/bin/sh
 
 LABNAME="routereflector"
-DEPS="bird nginx dnsmasq"
+DEPS="bird nginx dnsmasq rsyslogd"
 
 set -e
 
-# Can't use tput, not available in busybox. Can't use escape, not available either...
-NORMAL="[0m"
-RED="[31;1m"
-GREEN="[32;1m"
-YELLOW="[33;1m"
-BLUE="[34;1m"
-BEGINNING="[K"
+ESC="$(printf '\033')"
+NORMAL="${ESC}[0m"
+RED="${ESC}[31;1m"
+GREEN="${ESC}[32;1m"
+YELLOW="${ESC}[33;1m"
+BLUE="${ESC}[34;1m"
+BEGINNING="$(printf '\015\033')[K"
 
 log_begin_msg () {
     printf "${BEGINNING}"
@@ -35,11 +35,44 @@ log_info_msg () {
     echo "$BOLD$BLUE[∗]$NORMAL $1."
 }
 
+nth () {
+    n=$1
+    shift
+    shift $n
+    echo $1
+}
+
 check_kernel() {
     log_begin_msg "Checking kernel version"
     [ -f "$KERNEL" ] || log_error_msg "Unable to find kernel $KERNEL"
-    VERSION=$(file "$KERNEL" | sed -n 's/.*: Linux kernel x86 boot executable bzImage, version \([^ ]*\) .*/\1/p')
+    [ -r "$KERNEL" ] || log_error_msg "Kernel $KERNEL is not readable.\n    Try \`setfacl -m u:$USER:r $KERNEL'"
+
+    # A recent version of `file` is able to extract the
+    # information. Since it is not widely available, let use some hack
+    # method.
+    VERSION=$(cat <<EOF |
+cat
+gunzip  \\\037\\\213\\\010 xy
+unxz    \\\3757zXZ\\\000   abcde
+bunzip2 BZh                xy
+unlzma  \\\135\\\0\\\0\\\0 xxx
+EOF
+              while read cmd sig1 sig2; do
+                  case $sig1,$sig2 in
+                      ,) poss="0:_" ;;
+                      *) poss=$(tr "${sig1}\n${sig2}" "\n${sig2}=" < "$KERNEL" | grep -abo "^${sig2}" || true) ;;
+                  esac
+                  [ -n "$poss" ] || continue
+                  for pos in $poss; do
+                      pos=${pos%%:*}
+                      tail -c+$pos "$KERNEL" | $cmd 2> /dev/null | strings -20 | \
+                          grep ^Linux.version | head -1
+                  done
+              done | head -1)
+
     [ -n "$VERSION" ] || log_error_msg "Unable to determine version for $KERNEL"
+    VERSION="${VERSION#Linux version }"
+    VERSION="${VERSION%% *}"
     log_ok_msg "Found kernel $VERSION"
 
     log_begin_msg "Check kernel configuration"
@@ -55,16 +88,10 @@ SERIAL_8250=y
 SERIAL_8250_CONSOLE=y
 TMPFS=y
 BLK_DEV_INITRD=y
+DEVTMPFS=[ym]
 EOF
         grep -qx "CONFIG_$el" $CONFIG || log_error_msg "Kernel not configured with CONFIG_$el"
     done
-    if grep -qc "CONFIG_AUFS_FS=[ym]" $CONFIG; then
-        log_ok_msg "Kernel configuration checked. AUFS present"
-        aufs=yes
-    else
-        log_warn_msg "Kernel configuration checked. AUFS *not* present"
-        aufs=no
-    fi
 
     log_begin_msg "Search for modules"
     for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" "/lib/modules/$VERSION"; do
@@ -134,25 +161,28 @@ setup_initrd () {
     DESTDIR=$TMP/initrd
     mkdir -p $DESTDIR
 
-    # Copy busybox
-    install -D $(which busybox) ${DESTDIR}/bin/busybox
-    for applet in $(${DESTDIR}/bin/busybox --list); do
-        ln -s busybox ${DESTDIR}/bin/${applet}
-    done
-
-    # Add libs
-    for x in $(ldd $(which busybox) 2> /dev/null | sed -e '
+    # Copy busybox and eventually insmod
+    bins="busybox"
+    busybox --list | grep -qFx insmod || bins="$bins insmod"
+    for bin in $bins; do
+        install -D "$(which $bin)" ${DESTDIR}/bin/$bin
+        for x in $(ldd "$(which $bin)" 2> /dev/null | sed -e '
                /\//!d;
                /linux-gate/d;
                /=>/ {s/.*=>[[:blank:]]*\([^[:blank:]]*\).*/\1/};
                s/[[:blank:]]*\([^[:blank:]]*\) (.*)/\1/' 2>/dev/null); do
-        install -D "$x" "${DESTDIR}/$x"
+            [ -f "${DESTDIR}/$x" ] || install -D "$x" "${DESTDIR}/$x"
+        done
+    done
+
+    # Configure busybox
+    for applet in $(${DESTDIR}/bin/busybox --list); do
+        ln -s busybox ${DESTDIR}/bin/${applet}
     done
 
     # Add modules
     [ -z "$MODULES" ] || {
-        modules="9pnet_virtio 9p virtio_pci"
-        [ x"$aufs" != x"yes" ] || modules="$modules aufs"
+        modules="9pnet_virtio 9p virtio_pci $UNION"
         for mod in $modules; do
             modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
                 --ignore-install --quiet --show-depends $mod > /dev/null || {
@@ -172,7 +202,7 @@ setup_initrd () {
     }
 
     # Copy this program
-    cp $PROGNAME ${DESTDIR}/init
+    cp "$PROGNAME" ${DESTDIR}/init
 
     # Create /tmp
     mkdir ${DESTDIR}/tmp
@@ -215,8 +245,9 @@ start_vm () {
         exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
         --start --startas $(which qemu-system-x86_64) -- \
         -enable-kvm \
-        -nodefconfig -no-user-config -nodefaults \
+        -nodefconfig -nodefaults \
         -display none \
+        -m ${MEM:-128M} \
         \
         -chardev stdio,id=charserial0,signal=off \
         -device isa-serial,chardev=charserial0,id=serial0 \
@@ -226,7 +257,7 @@ start_vm () {
         -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
         -mon chardev=con0,mode=readline,default \
         \
-        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT},readonly \
+        -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT} \
         -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=rootshare \
         -fsdev local,security_model=none,id=fsdev-home,path=${HOME} \
         -device virtio-9p-pci,id=fs-home,fsdev=fsdev-home,mount_tag=homeshare \
@@ -234,14 +265,14 @@ start_vm () {
         -device virtio-9p-pci,id=fs-lab,fsdev=fsdev-lab,mount_tag=labshare \
         -fsdev local,security_model=none,id=fsdev-tmp,path=${TMP} \
         -device virtio-9p-pci,id=fs-tmp,fsdev=fsdev-tmp,mount_tag=tmpshare \
-        -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/.. \
+        -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/..,readonly \
         -device virtio-9p-pci,id=fs-modules,fsdev=fsdev-modules,mount_tag=moduleshare \
         \
         -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
         -kernel $KERNEL \
         -no-reboot \
         -initrd $TMP/initrd.gz \
-        -append "uts=$name console=ttyS0 panic=1 TERM=$TERM aufs=$aufs quiet" \
+        -append "uts=$name console=ttyS0 panic=1 TERM=$TERM quiet" \
         $netargs \
         $@
 EOF
@@ -346,17 +377,17 @@ cleanup() {
 start_nginx() {
     log_begin_msg "Running nginx"
     mkdir /var/log/nginx
-    mkdir /usr/share/nginx/www
-    ln -s /lab /usr/share/nginx/www/lab
-    echo $uts > /usr/share/nginx/www/index.html
-    nginx -c /lab/nginx.conf
+    mkdir -p /tmp/nginx/www
+    ln -s /mnt/lab /tmp/nginx/www/lab
+    echo $uts > /tmp/nginx/www/index.html
+    nginx -c /mnt/lab/nginx.conf
     log_ok_msg "nginx started"
 }
 
 start_bird() {
     log_begin_msg "Running bird"
     [ -d /run/bird ] || mkdir -p /run/bird
-    bird -c /lab/bird.$uts.conf
+    bird -c /mnt/lab/bird.$uts.conf
     log_ok_msg "bird started"
 }
 
@@ -375,7 +406,7 @@ start_dnsmasq() {
           done) \
         --no-ping \
         --enable-tftp \
-        --tftp-root /lab
+        --tftp-root /mnt/lab
     log_ok_msg "dnsmasq started"
 }
 
@@ -400,20 +431,13 @@ case $$,$STATE in
         mkdir /tmp/target
         mkdir /tmp/target/ro
         mkdir /tmp/target/overlay
-        mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro
-        if [ x"$aufs" = x"yes" ]; then
-            mkdir /tmp/target/rw
-            mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
-            mount -n -t aufs  aufs      /tmp/target/overlay -o noxino,noatime,dirs=/tmp/target/rw:/tmp/target/ro=ro
-        else
-            mount -n --bind /tmp/target/ro /tmp/target/overlay
-        fi
+        mount -n -t 9p    rootshare /tmp/target/overlay -o trans=virtio,version=9p2000.u,ro
         mount -n -t proc  proc /tmp/target/overlay/proc
         mount -n -t sysfs sys  /tmp/target/overlay/sys
         log_ok_msg "Root file system setup"
 
         log_begin_msg "Clean /tmp and /run"
-        for fs in /run /var/run /var/tmp /var/log /tmp; do
+        for fs in /run /var/run /var/tmp /var/log /tmp /mnt; do
             if [ -d /tmp/target/overlay$fs ] && [ ! -h /tmp/target/overlay$fs ]; then
                 mount -t tmpfs tmpfs /tmp/target/overlay$fs -o rw,nosuid,nodev
             fi
@@ -421,45 +445,63 @@ case $$,$STATE in
         log_ok_msg "/tmp, /run and others are clean"
 
         log_begin_msg "Mount /root"
-        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=0,rw || \
+        mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /root"
+        [ ! -d /tmp/target/overlay/root/.ssh ] || {
+            mount -t tmpfs tmpfs /tmp/target/overlay/root/.ssh -o rw,nosuid,nodev
+            chmod 0700 /tmp/target/overlay/root/.ssh
+        }
         log_ok_msg "/root mounted"
         log_begin_msg "Mount /lib/modules"
         mount -t 9p moduleshare /tmp/target/overlay/lib/modules -o trans=virtio,version=9p2000.L,access=0,ro || \
             log_error_msg "Unable to mount /lib/modules"
         log_ok_msg "/root and /lib/modules mounted"
 
-        log_begin_msg "Mount /lab"
-        mkdir /tmp/target/overlay/lab
-        mount -t 9p labshare /tmp/target/overlay/lab -o trans=virtio,version=9p2000.L,access=0,rw || \
-            log_error_msg "Unable to mount /lab"
-        log_ok_msg "/lab mounted"
+        log_begin_msg "Mount /mnt/lab"
+        mkdir /tmp/target/overlay/mnt/lab
+        mount -t 9p labshare /tmp/target/overlay/mnt/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
+            log_error_msg "Unable to mount /mnt/lab"
+        log_ok_msg "/mnt/lab mounted"
 
         log_begin_msg "Mount /tmp/lab"
         mkdir /tmp/target/overlay/tmp/lab
-        mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=0,rw || \
+        mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
             log_error_msg "Unable to mount /tmp/lab"
         log_ok_msg "/tmp/lab mounted"
 
         log_info_msg "Change root"
         export STATE=CHROOTED
-        exec chroot /tmp/target/overlay /lab/setup
+        exec chroot /tmp/target/overlay /mnt/lab/setup
         ;;
 
     1,CHROOTED)
-        log_info_msg "Start udev"
-        /etc/init.d/udev start
+        log_begin_msg "Starting udev"
+        udev_log=err
+        mount -n -o size=10M,mode=0755 -t devtmpfs devtmpfs /dev
+        udevadm info --cleanup-db
+        for udev in /lib/systemd/systemd-udevd /usr/lib/systemd/systemd-udevd $(command -v udevd 2> /dev/null); do
+            [ ! -x $udev ] || break
+        done
+        $udev --daemon
+        udevadm trigger --action=add
+        udevadm settle
+        log_ok_msg "udev started"
 
         log_info_msg "Setup interfaces"
         modprobe dummy 2>/dev/null || true
+        sleep 0.5               # Some interfaces may take some time to appear
+        i=0
         for intf in /sys/class/net/*; do
-            intf=$(basename $intf)
+            intf=${intf##*/}
             ip a l dev $intf 2> /dev/null >/dev/null || continue
             case $intf in
-                lo|eth*|dummy*)
-                    ip link set up dev $intf
+                ens*)
+                    ip link set name eth$i dev $intf
+                    intf=eth$i
+                    i=$(( i + 1 ))
                     ;;
             esac
+            ip link set up dev $intf
         done
 
         log_info_msg "Start syslog"
@@ -467,7 +509,7 @@ case $$,$STATE in
 
         log_info_msg "Setup terminal"
         export STATE=GETTY
-        exec setsid /sbin/getty -L ttyS0 -a root -l /lab/setup -i 115200 $TERM
+        exec setsid /sbin/agetty -L ttyS0 -a root -l /mnt/lab/setup -i 115200 $TERM
         ;;
 
     1,GETTY)
@@ -482,7 +524,7 @@ case $$,$STATE in
         height=
         p=0
         while true; do
-            char="$(timeout --foreground 1s dd bs=1 count=1 status=none || true)"
+            char="$(timeout --foreground 1s dd bs=1 count=1 2> /dev/null || true)"
             case "$p,$char" in
                 "0,;")
                     # End of CSI
@@ -512,21 +554,20 @@ case $$,$STATE in
         log_ok_msg "Terminal size is $(tput cols)x$(tput lines)"
 
         export STATE=SETUP
-        . /lab/setup
+        . /mnt/lab/setup
 
         log_begin_msg "Setup additional commands"
         mkdir /tmp/tools
-        export PATH=$PATH:/tmp/tools
-        rm -f /sbin/reboot /sbin/halt
-        cat <<EOF > /sbin/reboot
+        export PATH=/tmp/tools:$PATH
+        cat <<EOF > /tmp/tools/reboot
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
-        cat <<EOF > /sbin/halt
+        cat <<EOF > /tmp/tools/halt
 #!/bin/sh
 echo b > /proc/sysrq-trigger
 EOF
-        chmod +x /sbin/reboot /sbin/halt
+        chmod +x /tmp/tools/*
         log_ok_msg "System can be halted with halt or reboot"
 
         while true; do
@@ -573,8 +614,10 @@ EOF
             exit 1
         }
         PROGNAME="$(readlink -f "$0")"
+        PROGARGS="$@"
         ROOT="$(readlink -f "${ROOT:-/}")" # Root filesystem
         KERNEL="$(readlink -f "${1:-/boot/vmlinuz-$(uname -r)}")" # Kernel
+        PATH="$PATH":/usr/local/sbin:/usr/sbin:/sbin
         [ $# -lt 1 ] || shift
 
         renice 10 -p $$ 2> /dev/null
