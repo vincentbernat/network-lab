@@ -35,13 +35,6 @@ log_info_msg () {
     echo "$BOLD$BLUE[∗]$NORMAL $1."
 }
 
-nth () {
-    n=$1
-    shift
-    shift $n
-    echo $1
-}
-
 check_kernel() {
     log_begin_msg "Checking kernel version"
     [ -f "$KERNEL" ] || log_error_msg "Unable to find kernel $KERNEL"
@@ -408,9 +401,17 @@ case $$,$STATE in
         log_info_msg "Setup interfaces"
         modprobe dummy 2>/dev/null || true
         sleep 0.5               # Some interfaces may take some time to appear
+        i=0
         for intf in /sys/class/net/*; do
-            intf=$(basename $intf)
+            intf=${intf##*/}
             ip a l dev $intf 2> /dev/null >/dev/null || continue
+            case $intf in
+                ens*)
+                    ip link set name eth$i dev $intf
+                    intf=eth$i
+                    i=$(( i + 1 ))
+                    ;;
+            esac
             ip link set up dev $intf
         done
 
@@ -494,16 +495,12 @@ EOF
 
     *,SETUP)
         log_info_msg "Setup IP addresses"
-        ifaces=""
-        for iface in $(echo /sys/bus/virtio/drivers/virtio_net/*/net/*); do
-            ifaces="$ifaces ${iface##*/}"
-        done
         case $uts in
             R1)
-                ip addr add 10.234.78.65/27 dev $(nth 0 $ifaces)
+                ip addr add 10.234.78.65/27 dev eth0
                 ;;
             R2)
-                ip addr add 10.234.78.66/27 dev $(nth 0 $ifaces)
+                ip addr add 10.234.78.66/27 dev eth0
                 ;;
         esac
         start_nginx
