@@ -106,6 +106,7 @@ check_dependencies() {
         qemu-system-x86_64 \
         tmux vde_switch \
         start-stop-daemon \
+        expect \
         $DEPS; do
         which $exec 2> /dev/null > /dev/null || log_error_msg "$exec is not installed"
     done
