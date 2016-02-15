@@ -13,7 +13,7 @@ The easiest way to collect data is to run on the remote host::
 
 And on the local host::
 
-    ./tcp --stat-cmd "iperf3 -c NewYork -i 0 -t XX --port 5205" o client.data sockstat --remote 5205 --bandwidth
+    ./tcp --stat-cmd "iperf3 -c NewYork -i 0 -t XX --port 5205" -o client.data sockstat --remote 5205 --bandwidth
 """
 
 import os
