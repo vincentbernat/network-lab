@@ -16,3 +16,6 @@ So, you need the following symlinks for this lab to work:
 Due to the memory needed for a full view, this lab is not really using
 a full view. Have a look at `./setup` and search for `start_gobgp` to
 see what part of the full view is used.
+
+There is also a tentative to not install all routes in FIB in
+vMX1. You can look at the FIB with `show route forwarding-table`.
