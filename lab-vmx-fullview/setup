@@ -601,9 +601,12 @@ EOF
                 ip addr add 10.16.32.1/24 dev eth0
                 start_nginx
                 ;;
-            upstream)
+            U1)
                 ip addr add 192.0.2.0/31 dev eth0
-                ip addr add 192.0.2.2/31 dev eth1
+                start_gobgp
+                ;;
+            U2)
+                ip addr add 192.0.2.2/31 dev eth0
                 start_gobgp
                 ;;
         esac
@@ -634,8 +637,9 @@ EOF
         setup_switch 9
         sleep 0.5
 
-        NET=9            start_vm  prov
-        MEM=256M NET=1,2 start_vm upstream
+        NET=9          start_vm  prov
+        MEM=256M NET=1 start_vm U1
+        MEM=256M NET=2 start_vm U2
         # Two first interfaces are mapped to the RE, other interfaces are mapped to ge-0/0/x.
         NET=9,0,1,3 start_vmx vMX1
         NET=9,0,2,3 start_vmx vMX2
