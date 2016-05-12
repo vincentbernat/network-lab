@@ -28,11 +28,6 @@ Symlink them in `images/` as `Aboot-veos.iso` and `vEOS.img`. You can
 set them read-only for safety. We use COW to avoid any modification of
 the original image.
 
-It seems there is a bug in `Aboot-veos-serial-2.0.8.iso` which makes
-it not serial-ready at all. A small shell script,
-`images/fix-arista-veos-iso-serial.sh` will fix the ISO. It needs
-`guestfish` (available in `libguestfs-tools` package).
-
 Also, the image is shipped with an empty `startup-config`. This
 prevent ZTP to work. This can be fixed with the shell script
 `images/fix-arista-veos-image.sh`. It also needs guestfish.

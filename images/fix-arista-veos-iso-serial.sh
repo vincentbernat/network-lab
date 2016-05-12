@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# This script is not needed anymore for Aboot-veos-serial-2.1.0.iso
 
 set -e
 
