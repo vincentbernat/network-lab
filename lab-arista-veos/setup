@@ -309,7 +309,7 @@ EOF
         -display none \
         \
         -machine pc-i440fx-1.5 \
-        -m 1024M \
+        -m 1536M \
         \
         -usb \
         \
