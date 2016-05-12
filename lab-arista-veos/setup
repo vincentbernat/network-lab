@@ -288,7 +288,7 @@ start_veos () {
     IFS=,
     for net in $NET; do
         mac=$(random_mac $name $net)
-        netargs="$netargs -net nic,model=e1000,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
     IFS="$saveifs"
