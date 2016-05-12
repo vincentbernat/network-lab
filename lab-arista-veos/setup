@@ -308,7 +308,7 @@ EOF
         -nodefconfig -no-user-config -nodefaults \
         -display none \
         \
-        -machine pc \
+        -machine pc-i440fx-1.5 \
         -m 1024M \
         \
         -usb \
