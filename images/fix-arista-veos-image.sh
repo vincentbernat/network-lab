@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# This script will just remove /startup-config, enabling ZTP to work
+# as expected. If you don't want to use ZTP, don't use this script.
 
 set -e
 

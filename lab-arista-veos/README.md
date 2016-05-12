@@ -28,10 +28,6 @@ Symlink them in `images/` as `Aboot-veos.iso` and `vEOS.img`. You can
 set them read-only for safety. We use COW to avoid any modification of
 the original image.
 
-Also, the image is shipped with an empty `startup-config`. This
-prevent ZTP to work. This can be fixed with the shell script
-`images/fix-arista-veos-image.sh`. It also needs guestfish.
-
 [Arista website]: https://www.arista.com/en/support/software-download
 
 Commands
