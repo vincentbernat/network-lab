@@ -13,9 +13,8 @@ using KVM.
 and be used as a base for other labs.
 
 **⚠ Warning!** Currently, most labs won't work due to the inability to
-use an overlay over 9P starting from kernel 4.2. The `rtbh` and
-`generic` lab are the current exception. The changes are quite
-invasive and therefore other labs have not been updated.
+use an overlay over 9P starting from kernel 4.2. Labs updated in 2016+
+should work with such a kernel. This includes `lab-generic`.
 
 License
 -------
