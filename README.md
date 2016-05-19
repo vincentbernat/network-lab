@@ -12,6 +12,15 @@ using KVM.
 `lab-generic` should always contain the latest iteration of the lab
 and be used as a base for other labs.
 
+Previously, labs were self-contained. This was done to avoid any
+breakage when introducing "new features". However, this didn't work as
+expected and labs become broken because of external changes (kernel
+changes, systemd changes, etc.). Therefore, new labs are now sourcing
+some common files (in `common/`). This means that older labs may broke
+due to more recent changes. In this case, get the latest commit for a
+lab (`git log --oneline -1 lab-generic` for example) and get a
+checkout for it (`git checkout 22f22864632a`).
+
 **⚠ Warning!** Currently, most labs won't work due to the inability to
 use an overlay over 9P starting from kernel 4.2. Labs updated in 2016+
 should work with such a kernel. This includes `lab-generic`.
@@ -36,7 +45,8 @@ All the labs are distributed under the ISC license:
 Other tools
 -----------
 
-There exist many other tools to run network labs:
+There exist many other tools to run network labs that may not be as
+hacky as this one:
 
  - [CORE](http://www.nrl.navy.mil/itd/ncs/products/core). It uses
    Linux network namespaces and provides a GUI tool. This is a very
