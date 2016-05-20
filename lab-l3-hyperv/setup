@@ -1,0 +1,136 @@
+#!/bin/sh
+
+LABNAME="generic"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm HV1 networks 1,8,9
+spawn vm VM1 network 1
+spawn vm VM2 network 1
+
+spawn vm HV2 networks 2,8,9
+spawn vm VM3 network 2
+
+spawn vm HV3 networks 3,8,9
+spawn vm VM4 network 3
+
+spawn vm internet networks 8,9
+
+spawn vm RR1 network 8
+spawn vm RR2 network 9
+
+run
+
+case $uts in
+    HV*)
+        # We add some VLAN
+        ip link add name eth1.private link eth1 type vlan id 20
+        ip link add name eth2.private link eth2 type vlan id 20
+        ip link add name eth1.public link eth1 type vlan id 90
+        ip link add name eth2.public link eth2 type vlan id 90
+        ip link set up dev eth1.private
+        ip link set up dev eth2.private
+        ip link set up dev eth1.public
+        ip link set up dev eth2.public
+
+        # Fake router IP for VM
+        ip addr add 203.0.113.254/32 dev eth0
+
+        # IP used for ECMP routing
+        ip addr add 198.51.100.10${uts#HV}/25 dev eth1.public
+        ip addr add 198.51.100.20${uts#HV}/25 dev eth2.public
+        ip addr add 172.22.15.10${uts#HV}/25 dev eth1.private
+        ip addr add 172.22.15.20${uts#HV}/25 dev eth2.private
+
+        # Own IP for private purpose
+        ip addr add 172.22.2.${uts#HV}/32 dev eth0
+        ip route add 172.22.2.${uts#HV}/32 dev eth0 table 20
+
+        # Some firewall rules as a second level of defense. We could
+        # go stateless if we needed to.
+        iptables -A FORWARD -i eth0 -o eth1.public -j ACCEPT
+        iptables -A FORWARD -i eth0 -o eth2.public -j ACCEPT
+        iptables -A FORWARD -i eth1.public -o eth0 -j ACCEPT
+        iptables -A FORWARD -i eth2.public -o eth0 -j ACCEPT
+        iptables -A FORWARD -j LOG
+        iptables -A FORWARD -j DROP
+
+        # We do ARP proxying
+        sysctl -qw net.ipv4.conf.eth0.proxy_arp=1
+        sysctl -qw net.ipv4.conf.eth1/public.proxy_arp=1
+        sysctl -qw net.ipv4.conf.eth2/public.proxy_arp=1
+
+        # Use a public routing table and a private one
+        ip rule add iif eth0         lookup 90   priority 20
+        ip rule add iif eth0         unreachable priority 21
+        ip rule add iif eth1.public  lookup 90   priority 22
+        ip rule add iif eth1.public  unreachable priority 23
+        ip rule add iif eth2.public  lookup 90   priority 24
+        ip rule add iif eth2.public  unreachable priority 25
+        ip rule add iif eth1.private lookup 20   priority 26
+        ip rule add iif eth1.private unreachable priority 27
+        ip rule add iif eth2.private lookup 20   priority 28
+        ip rule add iif eth2.private unreachable priority 29
+        # For local lookups, use main table first, then private, then public.
+        ip rule add iif lo lookup main priority 50
+        ip rule add iif lo lookup 20   priority 51
+        ip rule add iif lo lookup 90   priority 52
+
+        # Add routes to VM. Of course, it should be done by some kind
+        # of automatic registration process.
+        case ${uts#HV} in
+            1)
+                ip route add 203.0.113.1/32 dev eth0 table 90
+                ip route add 203.0.113.2/32 dev eth0 table 90
+                ;;
+            2) ip route add 203.0.113.3/32 dev eth0 table 90 ;;
+            3) ip route add 203.0.113.4/32 dev eth0 table 90 ;;
+        esac
+
+        # We are a router
+        sysctl -qw net.ipv4.ip_forward=1
+        service bird
+        ;;
+    RR*)
+        ip link add name eth0.public link eth0 type vlan id 90
+        ip link add name eth0.private link eth0 type vlan id 20
+        ip link set up dev eth0.public
+        ip link set up dev eth0.private
+
+        ip addr add 198.51.100.${uts#RR}26/25 dev eth0.public
+        ip addr add 172.22.15.${uts#RR}26/25 dev eth0.private
+
+        service bird
+        ;;
+    VM*)
+        # Each VM believes it is on a L2 network
+        ip addr add 203.0.113.${uts#VM}/24 dev eth0
+        ip route add default via 203.0.113.254 dev eth0
+        ;;
+
+    internet)
+        ip link add name eth0.public link eth0 type vlan id 90
+        ip link add name eth1.public link eth1 type vlan id 90
+        ip link set up dev eth0.public
+        ip link set up dev eth1.public
+
+        # For ECMP routing
+        ip addr add 198.51.100.1/25 dev eth0.public
+        ip addr add 198.51.100.254/25 dev eth1.public
+
+        # Use the public table for everything. Fallback to main is
+        # automatic.
+        ip rule add iif lo lookup main priority 50
+        ip rule add iif lo lookup 90   priority 52
+
+        # We are a router
+        sysctl -qw net.ipv4.ip_forward=1
+        service bird
+
+        # "Internet"
+        ip addr add 8.8.8.8/32 dev dummy0
+        ;;
+esac
+
+service nginx

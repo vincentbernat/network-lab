@@ -151,6 +151,7 @@ spawn () {
         case $1 in
             network|networks)
                 NET="$NET $2"
+                NET="$(echo $NET | tr , ' ')"
                 shift 2
                 ;;
             *)
@@ -375,6 +376,13 @@ service () {
             echo $uts > /tmp/nginx/www/index.html
             nginx -c /mnt/common/nginx.conf
             log_ok_msg "nginx started"
+            ;;
+        bird)
+            log_begin_msg "Running bird"
+            [ -d /run/bird ] || mkdir -p /run/bird
+            [ ! -f /mnt/lab/bird.$uts.conf ]  || bird  -c /mnt/lab/bird.$uts.conf
+            [ ! -f /mnt/lab/bird6.$uts.conf ] || bird6 -c /mnt/lab/bird6.$uts.conf
+            log_ok_msg "bird started"
             ;;
     esac
 }
