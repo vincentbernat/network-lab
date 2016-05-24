@@ -172,8 +172,6 @@ spawn () {
             start_vm
             ;;
     esac
-
-    tmux select-window -t ":^"
 }
 
 check_kernel() {
@@ -357,7 +355,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -n $name "$TMP/vm-$name.exec"
+    tmux new-window -d -n $name "$TMP/vm-$name.exec"
 }
 
 ########################################################################
