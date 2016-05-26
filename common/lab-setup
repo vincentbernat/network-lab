@@ -391,6 +391,11 @@ service () {
             [ ! -f /mnt/lab/bird6.$uts.conf ] || execute bird6 -c /mnt/lab/bird6.$uts.conf
             log_ok_msg "bird started"
             ;;
+        gobgp)
+            log_begin_msg "Running gobgp"
+            execute gobgpd -f /mnt/lab/gobgp.$uts.conf -t yaml -p -s unix --disable-stdlog &
+            log_ok_msg "gobgp started"
+            ;;
     esac
 }
 

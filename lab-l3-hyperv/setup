@@ -101,7 +101,10 @@ case $uts in
         ip addr add 198.51.100.${uts#RR}26/25 dev eth0.public
         ip addr add 172.22.15.${uts#RR}26/25 dev eth0.private
 
-        service bird
+        case $uts in
+            RR1) service bird ;;
+            RR2) service gobgp ;;
+        esac
         ;;
     VM*)
         # Each VM believes it is on a L2 network
