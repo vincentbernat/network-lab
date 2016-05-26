@@ -60,6 +60,7 @@ case $uts in
         sysctl -qw net.ipv4.conf.eth0.proxy_arp=1
         sysctl -qw net.ipv4.conf.eth1/public.proxy_arp=1
         sysctl -qw net.ipv4.conf.eth2/public.proxy_arp=1
+        sysctl -qw net.ipv4.neigh.eth0.proxy_delay=0
 
         # Use a public routing table and a private one
         ip rule add iif eth0         lookup 90   priority 20
