@@ -1,6 +1,6 @@
 #!/bin/sh
 
-LABNAME="generic"
+LABNAME="l3-hyperv"
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
