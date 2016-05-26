@@ -1,0 +1,89 @@
+#!/bin/sh
+
+LABNAME="6rd"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm CE network 1           # client
+spawn vm R1 networks 1,2        # first-hop
+spawn vm R2 networks 2,3        # second-hop
+spawn vm R3 networks 3,4        # third-hop
+spawn vm R4 networks 4,6,7      # border dual stack router
+spawn vm BR1 networks 6         # first 6rd gateway
+spawn vm BR2 networks 6         # second 6rd gateway
+spawn vm internet network 7     # "internet"
+
+run
+
+# <-------- IPv4 --------><-- IPv4/IPv6 -->
+# CE -- R1 -- R2 -- R3 -- R4 -- internet
+#                         |
+#                         |-- BR1
+#                         \-- BR2
+
+case $uts in
+    CE)
+        ip addr add 198.51.100.234/24 dev eth0
+        ip route add default via 198.51.100.1 dev eth0
+        ;;
+    R1)
+        ip addr add 198.51.100.1/24 dev eth0
+        ip addr add 203.0.113.1/30 dev eth1
+        sysctl -qw net.ipv4.ip_forward=1
+        service bird            # OSPF
+        ;;
+    R2)
+        ip addr add 203.0.113.2/30 dev eth0
+        ip addr add 203.0.113.5/30 dev eth1
+        sysctl -qw net.ipv4.ip_forward=1
+        service bird            # OSPF
+        ;;
+    R3)
+        ip addr add 203.0.113.6/30 dev eth0
+        ip addr add 203.0.113.9/30 dev eth1
+        sysctl -qw net.ipv4.ip_forward=1
+        service bird            # OSPF
+        ;;
+    R4)
+        ip addr add 203.0.113.10/30 dev eth0
+        ip addr add 203.0.113.17/29 dev eth1
+        ip addr add 203.0.113.33/30 dev eth2
+        ip -6 addr add 2001:db8:6::4/120 dev eth1
+        ip -6 addr add 2001:db8:7::4/120 dev eth2
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        service bird          # OSPF + eBGP (internet) + iBGP (6rd HA)
+        ;;
+    BR1)
+        ip addr add 203.0.113.18/29 dev eth0
+        ip -6 addr add 2001:db8:6::11/120 dev eth0
+        ip route add default via 203.0.113.17
+        ip -6 route add default via 2001:db8:6::4
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        ip addr add 203.0.113.254/32 dev dummy0
+        service bird            # iBGP
+        ;;
+    BR2)
+        ip addr add 203.0.113.19/29 dev eth0
+        ip -6 addr add 2001:db8:6::12/120 dev eth0
+        ip route add default via 203.0.113.17
+        ip -6 route add default via 2001:db8:6::4
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        ip addr add 203.0.113.254/32 dev dummy0
+        service bird            # iBGP
+        ;;
+    internet)
+        ip addr add 203.0.113.34/30 dev eth0
+        ip -6 addr add 2001:db8:7::7/120 dev eth0
+        ip addr add 8.8.8.8/32 dev dummy0
+        ip -6 addr add 2001:4860:4860::8888/128 dev dummy0
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        service bird            # eBGP
+        ;;
+esac
+
+service nginx
