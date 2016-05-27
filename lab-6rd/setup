@@ -108,6 +108,10 @@ case $uts in
                 ip link set up dev 6rd
                 ip -6 addr add $ipv6_prefix/32 dev 6rd
 
+                # TODO: Secure the setup.  Currently, anybody can use
+                # this 6rd gateway.  Be sure to restrict its use with
+                # some iptables rules.
+
                 sysctl -qw net.ipv4.ip_forward=1
                 sysctl -qw net.ipv6.conf.all.forwarding=1
                 ip addr add $sixrd_br/32 dev dummy0
