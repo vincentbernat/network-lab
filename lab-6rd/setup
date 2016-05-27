@@ -95,10 +95,10 @@ case $uts in
                 ip link set up dev 6rd
                 ip -6 addr add $ipv6/128 dev 6rd
                 ip -6 route add default via ::$sixrd_br dev 6rd
-                # Could be useful
-                # ip6tables -t mangle -a POSTROUTING -o 6rd \
-                #           -p tcp --tcp-flags SYN,RST SYN \
-                #           -j TCPMSS --clamp-mss-to-pmtu
+
+                ip6tables -t mangle -A POSTROUTING -o 6rd \
+                          -p tcp --tcp-flags SYN,RST SYN \
+                          -j TCPMSS --clamp-mss-to-pmtu
         ;;
         BR*)
                 ipv6_prefix=$(printf "%s:%02x%02x:%02x%02x" ${sixrd_prefix%::*} $(echo $sixrd_br | tr . ' '))::
