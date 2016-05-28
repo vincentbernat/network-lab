@@ -365,7 +365,7 @@ EOF
 execute () {
     command="$1"
     shift
-    for command in /mnt/lab/"$command" "$command"; do
+    for command in /mnt/common/bin/"$command" "$command"; do
         [ ! -x "$command" ] || break
     done
     "$command" "$@"
