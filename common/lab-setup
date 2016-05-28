@@ -402,6 +402,12 @@ service () {
             execute radvd -l /var/log/radvd.log -u radvd -C /mnt/lab/"$cfg"
             log_ok_msg "radvd started ($cfg)"
             ;;
+        ndppd)
+            cfg="${1:-ndppd.$uts.conf}"
+            log_begin_msg "Running ndppd ($cfg)"
+            execute ndppd -d -c /mnt/lab/"$cfg"
+            log_ok_msg "ndppd started ($cfg)"
+            ;;
     esac
 }
 
