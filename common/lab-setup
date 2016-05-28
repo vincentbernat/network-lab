@@ -106,12 +106,12 @@ EOF
     log_ok_msg "Switch $nb started"
 }
 
-random_mac () {
-    name=$1
-    net=$2
-    mac=$(echo $name-$net | sha1sum | \
-        awk '{print "50:54:" substr($1,0,2) ":" substr($1, 2, 2) ":" substr($1, 4, 2) ":" substr($1, 6, 2)}')
-    echo $mac
+mac_address () {
+    mac_counter=$(cat $TMP/mac-counter 2> /dev/null || echo 1)
+    printf "50:54:33:00:%02X:%02X" \
+           $((mac_counter / 256)) \
+           $((mac_counter % 256))
+    echo $((mac_counter + 1)) > $TMP/mac-counter
 }
 
 cleanup () {
@@ -304,7 +304,7 @@ start_vm () {
     name=$NAME
     netargs=""
     for net in $NET; do
-        mac=$(random_mac $name $net)
+        mac=$(mac_address)
         netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
