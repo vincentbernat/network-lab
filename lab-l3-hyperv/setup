@@ -108,16 +108,16 @@ case $uts in
             1)
                     ip route add 203.0.113.1/32 dev eth0 table 90
                     ip route add 203.0.113.2/32 dev eth0 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:3ff:fe00:4/128 dev eth0 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:3ff:fe00:5/128 dev eth0 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:4/128 dev eth0 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:5/128 dev eth0 table 90
                     ;;
             2)
                     ip route add 203.0.113.3/32 dev eth0 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:3ff:fe00:9/128 dev eth0 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:9/128 dev eth0 table 90
                     ;;
             3)
                     ip route add 203.0.113.4/32 dev eth0 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:3ff:fe00:d/128 dev eth0 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:d/128 dev eth0 table 90
                     ;;
         esac
 
