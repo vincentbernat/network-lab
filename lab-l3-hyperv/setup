@@ -36,12 +36,17 @@ case $uts in
 
         # Fake router IP for VM
         ip addr add 203.0.113.254/32 dev eth0
+        # For IPv6, this is not needed, but in case someone wants to
+        # configure IPv6 manually, we provide a fixed router address.
+        ip -6 addr add 2001:db8:cb00:7100::fe/128 dev eth0
 
         # IP used for ECMP routing
         ip addr add 198.51.100.10${uts#HV}/25 dev eth1.public
         ip addr add 198.51.100.20${uts#HV}/25 dev eth2.public
         ip addr add 172.22.15.10${uts#HV}/25 dev eth1.private
         ip addr add 172.22.15.20${uts#HV}/25 dev eth2.private
+        ip -6 addr add 2001:db8:c633:6400::${uts#HV}/120 dev eth1.public
+        ip -6 addr add 2001:db8:c633:6401::${uts#HV}/120 dev eth2.public
 
         # Own IP for private purpose
         ip addr add 172.22.2.${uts#HV}/32 dev eth0
@@ -49,18 +54,26 @@ case $uts in
 
         # Some firewall rules as a second level of defense. We could
         # go stateless if we needed to.
-        iptables -A FORWARD -i eth0 -o eth1.public -j ACCEPT
-        iptables -A FORWARD -i eth0 -o eth2.public -j ACCEPT
-        iptables -A FORWARD -i eth1.public -o eth0 -j ACCEPT
-        iptables -A FORWARD -i eth2.public -o eth0 -j ACCEPT
-        iptables -A FORWARD -j LOG
-        iptables -A FORWARD -j DROP
+        for iptables in iptables ip6tables; do
+                $iptables -A FORWARD -i eth0 -o eth1.public -j ACCEPT
+                $iptables -A FORWARD -i eth0 -o eth2.public -j ACCEPT
+                $iptables -A FORWARD -i eth1.public -o eth0 -j ACCEPT
+                $iptables -A FORWARD -i eth2.public -o eth0 -j ACCEPT
+                $iptables -A FORWARD -j LOG
+                $iptables -A FORWARD -j DROP
+        done
 
         # We do ARP proxying
         sysctl -qw net.ipv4.conf.eth0.proxy_arp=1
         sysctl -qw net.ipv4.conf.eth1/public.proxy_arp=1
         sysctl -qw net.ipv4.conf.eth2/public.proxy_arp=1
         sysctl -qw net.ipv4.neigh.eth0.proxy_delay=0
+
+        # Same for IPv6
+        sysctl -qw net.ipv6.conf.eth0.proxy_ndp=1
+        sysctl -qw net.ipv6.conf.eth1/public.proxy_ndp=1
+        sysctl -qw net.ipv6.conf.eth2/public.proxy_ndp=1
+        sysctl -qw net.ipv6.neigh.eth0.proxy_delay=0
 
         # Use a public routing table and a private one
         ip rule add iif eth0         lookup 90   priority 20
@@ -78,20 +91,42 @@ case $uts in
         ip rule add iif lo lookup 20   priority 51
         ip rule add iif lo lookup 90   priority 52
 
+        # Same for IPv6, less important since we don't have private
+        # stuff, but link local addresses may still be used.
+        ip -6 rule add iif eth0         lookup 90   priority 20
+        ip -6 rule add iif eth0         unreachable priority 21
+        ip -6 rule add iif eth1.public  lookup 90   priority 22
+        ip -6 rule add iif eth1.public  unreachable priority 23
+        ip -6 rule add iif eth2.public  lookup 90   priority 24
+        ip -6 rule add iif eth2.public  unreachable priority 25
+        ip -6 rule add iif lo lookup main priority 50
+        ip -6 rule add iif lo lookup 90   priority 52
+
         # Add routes to VM. Of course, it should be done by some kind
         # of automatic registration process.
         case ${uts#HV} in
             1)
-                ip route add 203.0.113.1/32 dev eth0 table 90
-                ip route add 203.0.113.2/32 dev eth0 table 90
-                ;;
-            2) ip route add 203.0.113.3/32 dev eth0 table 90 ;;
-            3) ip route add 203.0.113.4/32 dev eth0 table 90 ;;
+                    ip route add 203.0.113.1/32 dev eth0 table 90
+                    ip route add 203.0.113.2/32 dev eth0 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:3ff:fe00:4/128 dev eth0 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:3ff:fe00:5/128 dev eth0 table 90
+                    ;;
+            2)
+                    ip route add 203.0.113.3/32 dev eth0 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:3ff:fe00:9/128 dev eth0 table 90
+                    ;;
+            3)
+                    ip route add 203.0.113.4/32 dev eth0 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:3ff:fe00:d/128 dev eth0 table 90
+                    ;;
         esac
 
         # We are a router
         sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+
         service bird
+        service radvd radvd.HV.conf
         ;;
     RR*)
         ip link add name eth0.public link eth0 type vlan id 90
@@ -101,16 +136,16 @@ case $uts in
 
         ip addr add 198.51.100.${uts#RR}26/25 dev eth0.public
         ip addr add 172.22.15.${uts#RR}26/25 dev eth0.private
+        ip -6 addr add 2001:db8:c633:640$((${uts#RR} - 1))::26/120 dev eth0.public
 
-        case $uts in
-            RR1) service bird ;;
-            RR2) service gobgp ;;
-        esac
+        service bird
         ;;
     VM*)
         # Each VM believes it is on a L2 network
         ip addr add 203.0.113.${uts#VM}/24 dev eth0
         ip route add default via 203.0.113.254 dev eth0
+
+        # For IPv6, they will get RA
         ;;
 
     internet)
@@ -122,18 +157,24 @@ case $uts in
         # For ECMP routing
         ip addr add 198.51.100.1/25 dev eth0.public
         ip addr add 198.51.100.254/25 dev eth1.public
+        ip -6 addr add 2001:db8:c633:6400::ff/120 dev eth0.public
+        ip -6 addr add 2001:db8:c633:6401::ff/120 dev eth1.public
 
         # Use the public table for everything. Fallback to main is
         # automatic.
         ip rule add iif lo lookup main priority 50
         ip rule add iif lo lookup 90   priority 52
+        ip -6 rule add iif lo lookup main priority 50
+        ip -6 rule add iif lo lookup 90   priority 52
 
         # We are a router
         sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
         service bird
 
         # "Internet"
         ip addr add 8.8.8.8/32 dev dummy0
+        ip -6 addr add 2001:4860:4860::8888/128 dev dummy0
         ;;
 esac
 

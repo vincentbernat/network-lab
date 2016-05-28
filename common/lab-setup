@@ -396,6 +396,12 @@ service () {
             execute gobgpd -f /mnt/lab/gobgp.$uts.conf -t yaml -p -s unix --disable-stdlog &
             log_ok_msg "gobgp started"
             ;;
+        radvd)
+            cfg="${1:-radvd.$uts.conf}"
+            log_begin_msg "Running radvd ($cfg)"
+            execute radvd -l /var/log/radvd.log -u radvd -C /mnt/lab/"$cfg"
+            log_ok_msg "radvd started ($cfg)"
+            ;;
     esac
 }
 
@@ -504,6 +510,7 @@ case $$,$STATE in
             # Instead of waiting for DAD to finish, just disable it
             sysctl -qw net/ipv6/conf/$intf/accept_dad=0
         done
+        sysctl -qw net/ipv6/conf/default/accept_dad=0
 
         log_info_msg "Start syslog"
         rsyslogd
