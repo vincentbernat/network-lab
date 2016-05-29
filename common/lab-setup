@@ -381,6 +381,9 @@ service () {
             mkdir /var/log/nginx
             mkdir -p /tmp/nginx/www
             echo $uts > /tmp/nginx/www/index.html
+            for size in 100M 1G 10G 100G; do
+                dd if=/dev/zero of=/tmp/nginx/www/$size bs=1 count=1 seek=$size 2> /dev/null
+            done
             execute nginx -c /mnt/common/nginx.conf
             log_ok_msg "nginx started"
             ;;
