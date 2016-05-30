@@ -84,10 +84,10 @@ case $uts in
         ip rule add iif eth1.private unreachable priority 27
         ip rule add iif eth2.private lookup 20   priority 28
         ip rule add iif eth2.private unreachable priority 29
-        # For local lookups, use main table first, then private, then public.
-        ip rule add iif lo lookup main priority 50
+        # For local lookups, use private, then public, then fallback to main
         ip rule add iif lo lookup 20   priority 51
         ip rule add iif lo lookup 90   priority 52
+        ip rule add iif lo lookup main priority 53
 
         # Same for IPv6, less important since we don't have private
         # stuff, but link local addresses may still be used.
@@ -97,8 +97,8 @@ case $uts in
         ip -6 rule add iif eth1.public  unreachable priority 23
         ip -6 rule add iif eth2.public  lookup 90   priority 24
         ip -6 rule add iif eth2.public  unreachable priority 25
-        ip -6 rule add iif lo lookup main priority 50
         ip -6 rule add iif lo lookup 90   priority 52
+        ip -6 rule add iif lo lookup main priority 53
 
         # Add routes to VM. Of course, it should be done by some kind
         # of automatic registration process.
@@ -161,10 +161,10 @@ case $uts in
 
         # Use the public table for everything. Fallback to main is
         # automatic.
-        ip rule add iif lo lookup main priority 50
         ip rule add iif lo lookup 90   priority 52
-        ip -6 rule add iif lo lookup main priority 50
+        ip rule add iif lo lookup main priority 53
         ip -6 rule add iif lo lookup 90   priority 52
+        ip -6 rule add iif lo lookup main priority 53
 
         # We are a router
         sysctl -qw net.ipv4.ip_forward=1
