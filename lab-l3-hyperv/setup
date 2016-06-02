@@ -53,7 +53,10 @@ case $uts in
         ip route add 172.22.2.${uts#HV}/32 dev eth0 table 20
 
         # Some firewall rules as a second level of defense. We could
-        # go stateless if we needed to.
+        # go stateless if we needed to. Another line of defense would
+        # be to use containers to get distinct domain of
+        # routing. However, it would mean for the orchestrator to also
+        # be able to work with containers.
         for iptables in iptables ip6tables; do
                 $iptables -A FORWARD -i eth0 -o eth1.public -j ACCEPT
                 $iptables -A FORWARD -i eth0 -o eth2.public -j ACCEPT
