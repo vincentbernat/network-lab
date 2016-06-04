@@ -10,8 +10,8 @@ let the hypervisors answer to ARP requests for VM on other hypervisors
 
 This lab is also compatible with IPv6 but there are two drawbacks:
 
- - BIRD doesn't support correctly IPv6 ECMP routes. Sometimes, two
-   routes are installed, sometimes only one.
+ - BIRD doesn't support correctly IPv6 ECMP routes. Therefore, only
+   one route gets installed.
 
  - NDP proxying in Linux requires the declaration of all IP that
    should be proxied. To avoid that, a userland proxy (ndppd) is
