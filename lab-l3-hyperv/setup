@@ -81,6 +81,20 @@ case $uts in
         ip46tables -t raw -A RPFILTER -j DROP
         ip46tables -t raw -A PREROUTING -i eth0 -j RPFILTER
 
+        # Don't accept redirects and don't generate them (we don't
+        # control how much time it takes for them to expire). As a
+        # router, we should not accept redirects, but better safe than
+        # sorry.
+        # accept_redirects is "AND" when forwarding is enabled
+        sysctl -qw net.ipv4.conf.all.accept_redirects=0
+        sysctl -qw net.ipv6.conf.all.accept_redirects=0
+        # send_redirects is "OR"
+        sysctl -qw net.ipv4.conf.all.send_redirects=0
+        sysctl -qw net.ipv4.conf.default.send_redirects=0
+        sysctl -qw net.ipv4.conf.eth0.send_redirects=0
+        sysctl -qw net.ipv4.conf.eth1/public.send_redirects=0
+        sysctl -qw net.ipv4.conf.eth2/public.send_redirects=0
+        # Unfortunately, not possible to disable that for IPv6.
 
         # We do ARP proxying
         sysctl -qw net.ipv4.conf.eth0.proxy_arp=1
