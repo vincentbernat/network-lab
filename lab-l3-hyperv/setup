@@ -57,14 +57,30 @@ case $uts in
         # be to use containers to get distinct domain of
         # routing. However, it would mean for the orchestrator to also
         # be able to work with containers.
-        for iptables in iptables ip6tables; do
-                $iptables -A FORWARD -i eth0 -o eth1.public -j ACCEPT
-                $iptables -A FORWARD -i eth0 -o eth2.public -j ACCEPT
-                $iptables -A FORWARD -i eth1.public -o eth0 -j ACCEPT
-                $iptables -A FORWARD -i eth2.public -o eth0 -j ACCEPT
-                $iptables -A FORWARD -j LOG
-                $iptables -A FORWARD -j DROP
+        ip46tables() {
+                iptables "$@" && ip6tables "$@"
+        }
+        for iface in eth1.public eth2.public; do
+                ip46tables -A FORWARD -i eth0 -o $iface -j ACCEPT
+                ip46tables -A FORWARD -i $iface -o eth0 -j ACCEPT
+                ip46tables -A FORWARD -i $iface -o eth1.public -j ACCEPT
+                ip46tables -A FORWARD -i $iface -o eth2.public -j ACCEPT
         done
+        ip46tables -A FORWARD -i eth0 -o eth0 -j ACCEPT
+        ip46tables -A FORWARD -m limit --limit 5/s --limit-burst 5 \
+                   -j LOG --log-prefix "NF: routing evasion: " --log-level warning
+        ip46tables -A FORWARD -j DROP
+
+        # RP filtering. We use Netfilter for that (3.3+).
+        ip46tables -t raw -N RPFILTER
+        ip46tables -t raw -A RPFILTER -m rpfilter -j RETURN
+        iptables   -t raw -A RPFILTER -d 255.255.255.255 -p udp --sport bootpc --dport bootps -j RETURN
+        ip6tables  -t raw -A RPFILTER -m rpfilter --accept-local -m addrtype --dst-type MULTICAST -j DROP
+        ip46tables -t raw -A RPFILTER -m limit --limit 5/s --limit-burst 5 \
+                   -j LOG --log-prefix "NF: rpfilter: " --log-level warning
+        ip46tables -t raw -A RPFILTER -j DROP
+        ip46tables -t raw -A PREROUTING -i eth0 -j RPFILTER
+
 
         # We do ARP proxying
         sysctl -qw net.ipv4.conf.eth0.proxy_arp=1
