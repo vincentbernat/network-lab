@@ -95,6 +95,7 @@ case $uts in
         sysctl -qw net.ipv4.conf.eth1/public.send_redirects=0
         sysctl -qw net.ipv4.conf.eth2/public.send_redirects=0
         # Unfortunately, not possible to disable that for IPv6.
+        ip6tables -A OUTPUT -o eth0 -p ipv6-icmp --icmpv6-type redirect -j DROP
 
         # We do ARP proxying
         sysctl -qw net.ipv4.conf.eth0.proxy_arp=1
