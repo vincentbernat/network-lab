@@ -72,9 +72,9 @@ case $uts in
         sysctl -qw net.ipv4.conf.eth2/public.proxy_arp=1
         sysctl -qw net.ipv4.neigh.eth0.proxy_delay=0
 
-        # For IPv6, we use ndppd. This is not really safe. It would
-        # need to be modified to only answers for stuff he has routes
-        # for.
+        # For IPv6, we use ndppd. Being stateless, it's safe
+        # enough. It may answer requests we don't have routes for, but
+        # that's not our problem.
 
         # Use a public routing table and a private one
         ip rule add iif eth0         lookup 90   priority 20
