@@ -122,6 +122,7 @@ case $uts in
         ip rule add iif lo lookup main priority 51
         ip rule add iif lo lookup 20   priority 52
         ip rule add iif lo lookup 90   priority 53 # Last: has a default
+        ip rule add unreachable        priority 100
 
         # Same for IPv6, less important since we don't have private
         # stuff, but link local addresses may still be used.
@@ -133,6 +134,7 @@ case $uts in
         ip -6 rule add iif eth2.public  unreachable priority 25
         ip -6 rule add iif lo lookup main priority 51
         ip -6 rule add iif lo lookup 90   priority 53 # Last: has a default
+        ip -6 rule add unreachable        priority 100
 
         # Add routes to VM. Of course, it should be done by some kind
         # of automatic registration process.
