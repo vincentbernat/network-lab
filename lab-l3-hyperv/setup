@@ -81,6 +81,18 @@ case $uts in
         ip46tables -t raw -A RPFILTER -j DROP
         ip46tables -t raw -A PREROUTING -i eth0 -j RPFILTER
 
+        # VM could access BGP/BFD. There is TTL security, but better safe than sorry.
+        ip46tables -N BGP-BFD
+        ip46tables -A INPUT -p tcp --dport bgp -j BGP-BFD
+        ip46tables -A INPUT -p tcp --dport 3784 -j BGP-BFD
+        ip46tables -A INPUT -p tcp --dport 4784 -j BGP-BFD
+        iptables -A BGP-BFD -s 198.51.100.0/24 -m ttl --ttl-eq 255 -j ACCEPT
+        iptables -A BGP-BFD -s 172.22.15.0/24 -m ttl --ttl-eq 255 -j ACCEPT
+        ip6tables -A BGP-BFD -s 2001:db8:c633:6400::/63 -m hl --hl-eq 255 -j ACCEPT
+        ip46tables -A BGP-BFD -m limit --limit 5/s --limit-burst 5 \
+                   -j LOG --log-prefix "NF: BGP/BFD: " --log-level warning
+        ip46tables -A BGP-BFD -j DROP
+
         # Don't accept redirects and don't generate them (we don't
         # control how much time it takes for them to expire). As a
         # router, we should not accept redirects, but better safe than
