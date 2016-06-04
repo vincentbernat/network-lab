@@ -20,6 +20,8 @@ spawn vm internet networks 8,9
 spawn vm RR1 network 8
 spawn vm RR2 network 9
 
+spawn vm dhcp network 8,9
+
 run
 
 case $uts in
@@ -48,9 +50,9 @@ case $uts in
         ip -6 addr add 2001:db8:c633:6400::${uts#HV}/120 dev eth1.public
         ip -6 addr add 2001:db8:c633:6401::${uts#HV}/120 dev eth2.public
 
-        # Own IP for private purpose
-        ip addr add 172.22.2.${uts#HV}/32 dev eth0
-        ip route add 172.22.2.${uts#HV}/32 dev eth0 table 20
+        # Own IP for private purpose (notably DHCP relay)
+        ip addr add 172.22.2.${uts#HV}/32 dev dummy0
+        ip route add 172.22.2.${uts#HV}/32 dev dummy0 table 20
 
         # Some firewall rules as a second level of defense. We could
         # go stateless if we needed to. Another line of defense would
@@ -130,7 +132,7 @@ case $uts in
         ip rule add iif eth1.private unreachable priority 27
         ip rule add iif eth2.private lookup 20   priority 28
         ip rule add iif eth2.private unreachable priority 29
-        # For local lookups, use private, then public, then fallback to main
+        # For local lookups
         ip rule add iif lo lookup main priority 51
         ip rule add iif lo lookup 20   priority 52
         ip rule add iif lo lookup 90   priority 53 # Last: has a default
@@ -174,6 +176,7 @@ case $uts in
         service bird
         service radvd radvd.HV.conf
         service ndppd ndppd.HV.conf
+        service dhcrelay -4 --no-pid -q -i eth0 192.168.17.2 -a -U dummy0
         ;;
     RR*)
         ip link add name eth0.public link eth0 type vlan id 90
@@ -188,9 +191,8 @@ case $uts in
         service bird
         ;;
     VM*)
-        # Each VM believes it is on a L2 network
-        ip addr add 203.0.113.${uts#VM}/24 dev eth0
-        ip route add default via 203.0.113.254 dev eth0
+        # Classic DHCP request for IPv4
+        dhclient -v -4 -1 eth0
 
         # For IPv6, they will get RA
         ;;
@@ -207,8 +209,7 @@ case $uts in
         ip -6 addr add 2001:db8:c633:6400::ff/120 dev eth0.public
         ip -6 addr add 2001:db8:c633:6401::ff/120 dev eth1.public
 
-        # Use the public table for everything. Fallback to main is
-        # automatic.
+        # Routing
         ip rule add iif lo lookup main priority 51
         ip rule add iif lo lookup 90   priority 53 # Last: has a default
         ip -6 rule add iif lo lookup main priority 51
@@ -222,6 +223,43 @@ case $uts in
         # "Internet"
         ip addr add 8.8.8.8/32 dev dummy0
         ip -6 addr add 2001:4860:4860::8888/128 dev dummy0
+        ;;
+
+    dhcp)
+        # Only public DHCP is provided. Such a server could be
+        # anycasted easily: just spawn a second one like this one,
+        # advertising the same loopback address.
+        ip link add name eth0.private link eth0 type vlan id 20
+        ip link add name eth1.private link eth1 type vlan id 20
+        ip link set up dev eth0.private
+        ip link set up dev eth1.private
+
+        # For ECMP routing
+        ip addr add 172.22.15.2/25 dev eth0.private
+        ip addr add 172.22.15.253/25 dev eth1.private
+
+        # DHCP service
+        ip addr add 192.168.17.2/32 dev dummy0
+        ip route add 192.168.17.2/32 dev dummy0 table 20 # For advertising
+
+        # Routing
+        ip rule add iif lo lookup main priority 51
+        ip rule add iif lo lookup 20   priority 52
+        ip -6 rule add iif lo lookup main priority 51
+        ip -6 rule add iif lo lookup 20   priority 52
+
+        service bird
+        service dnsmasq \
+                --no-ping \
+                --no-resolv \
+                --port 0 \
+                --dhcp-ignore=tag:!known \
+                --dhcp-range=tag:known,203.0.113.0,static,255.255.255.0,1h \
+                --dhcp-host=50:54:33:00:00:04,203.0.113.1,VM1 \
+                --dhcp-host=50:54:33:00:00:05,203.0.113.2,VM2 \
+                --dhcp-host=50:54:33:00:00:09,203.0.113.3,VM3 \
+                --dhcp-host=50:54:33:00:00:0d,203.0.113.4,VM4 \
+                --dhcp-option=option:router,203.0.113.254
         ;;
 esac
 

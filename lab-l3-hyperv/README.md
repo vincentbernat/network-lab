@@ -22,3 +22,9 @@ Also, the IPv4 version is using one BIRD and one GoBGP as route
 reflectors. GoBGP is not the most flexible tool for the job as it only
 supports one RIB (except in route server mode). For IPv6, only BIRD is
 used.
+
+VM get their IP trough DHCP. This makes use of a DHCP relay. However,
+the setup is incredibly fragile due. Destination subnet has to be
+known by the agent through the relay. Since we only have one subnet
+for the VM, this works fine but as soon as you put multiple subnets,
+this won't work as easily.

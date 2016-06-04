@@ -411,6 +411,22 @@ service () {
             execute ndppd -d -c /mnt/lab/"$cfg"
             log_ok_msg "ndppd started ($cfg)"
             ;;
+        dnsmasq)
+            log_begin_msg "Running dnsmasq"
+            mkdir /var/run/dnsmasq
+            execute dnsmasq \
+                --conf-file=/dev/null \
+                --no-hosts \
+                --user=root \
+                --dhcp-leasefile=/tmp/dnsmasq.leases \
+                "$@"
+            log_ok_msg "dnsmasq started"
+            ;;
+        *)
+            log_begin_msg "Running $kind"
+            execute "$kind" "$@"
+            log_ok_msg "$kind started"
+            ;;
     esac
 }
 
