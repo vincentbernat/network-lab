@@ -255,7 +255,7 @@ case $uts in
                 --no-resolv \
                 --port 0 \
                 --dhcp-ignore=tag:!known \
-                --dhcp-range=tag:known,203.0.113.0,static,255.255.255.0,1h \
+                --dhcp-range=tag:known,203.0.113.0,static,255.255.255.0,infinite \
                 --dhcp-host=50:54:33:00:00:04,203.0.113.1,VM1 \
                 --dhcp-host=50:54:33:00:00:05,203.0.113.2,VM2 \
                 --dhcp-host=50:54:33:00:00:09,203.0.113.3,VM3 \
