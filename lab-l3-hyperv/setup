@@ -192,7 +192,8 @@ case $uts in
         ;;
     VM*)
         # Classic DHCP request for IPv4
-        dhclient -v -4 -1 eth0
+        [ ! -d /etc/dhcp ] || mount -n -t tmpfs tmpfs /etc/dhcp -o rw 
+        service dhclient -v -4 -1 eth0 -lf /tmp/dhcp.leases -cf /dev/null
 
         # For IPv6, they will get RA
         ;;
