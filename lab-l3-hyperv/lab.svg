@@ -26,9 +26,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.70710678"
-     inkscape:cx="826.82773"
-     inkscape:cy="542.49317"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="1265.1988"
+     inkscape:cy="629.02538"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -17661,6 +17661,18 @@
      inkscape:groupmode="layer"
      inkscape:label="L3 Topology">
     <path
+       sodipodi:nodetypes="ccc"
+       style="fill:none;stroke:#000000;stroke-width:3.99999976;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="m 441.43438,-251.69426 0,-174.10064 c -53.94002,-1.20327 -117.54312,-0.62204 -174.72267,-0.62204"
+       id="path7645"
+       inkscape:connector-curvature="0" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path8105"
+       d="m 441.43438,-614.55744 0,174.10064 c -53.94002,1.20327 -117.54312,0.62204 -174.72267,0.62204"
+       style="fill:none;stroke:#000000;stroke-width:3.99999976;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       sodipodi:nodetypes="ccc" />
+    <path
        inkscape:connector-curvature="0"
        id="path8115"
        d="m 440.65997,-525.724 123.17117,0"
@@ -17669,11 +17681,6 @@
        style="fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        d="m 441.36708,-325.90078 123.17117,0"
        id="path8117"
-       inkscape:connector-curvature="0" />
-    <path
-       style="fill:none;stroke:#000000;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
-       d="m 266.71171,-419.83476 175.49707,0"
-       id="path8107"
        inkscape:connector-curvature="0" />
     <path
        inkscape:connector-curvature="0"
@@ -18327,11 +18334,6 @@
          x="266.89154"
          id="tspan8103"
          sodipodi:role="line">HV1</tspan></text>
-    <path
-       inkscape:connector-curvature="0"
-       id="path8105"
-       d="m 441.43438,-594.55743 0,349.44534"
-       style="fill:none;stroke:#000000;stroke-width:3.99999976;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
     <use
        height="100%"
        width="100%"
@@ -18612,7 +18614,7 @@
          sodipodi:role="line"
          id="tspan8275"
          x="1088.8256"
-         y="-261.77332"></tspan></text>
+         y="-261.77332" /></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;font-size:30px;line-height:114.99999762%;font-family:Sans;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -18675,6 +18677,29 @@
          sodipodi:linespacing="125%"><tspan
            sodipodi:role="line"
            id="tspan8297"
+           x="195.92105"
+           y="-648.52545">3</tspan></text>
+    </g>
+    <g
+       id="g7647"
+       transform="matrix(1.8705854,0,0,1.8705854,75.989711,981.9763)"
+       style="display:inline">
+      <circle
+         r="18.25"
+         cy="275.25"
+         cx="535.25"
+         transform="matrix(0.83561644,0,0,0.83561644,-251.33288,-885.68219)"
+         id="circle7649"
+         style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:#ec5f15;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:2;marker:none;enable-background:accumulate" />
+      <text
+         xml:space="preserve"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:'Droid Sans';-inkscape-font-specification:Sans;text-align:center;letter-spacing:0px;word-spacing:0px;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none"
+         x="195.92105"
+         y="-648.52545"
+         id="text7651"
+         sodipodi:linespacing="125%"><tspan
+           sodipodi:role="line"
+           id="tspan7653"
            x="195.92105"
            y="-648.52545">2</tspan></text>
     </g>
