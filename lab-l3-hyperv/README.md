@@ -18,13 +18,8 @@ This lab is also compatible with IPv6 but there are two drawbacks:
    used. Another option would be to program those IP using some daemon
    listening to netlink messages for added/removed routes.
 
-Also, the IPv4 version is using one BIRD and one GoBGP as route
-reflectors. GoBGP is not the most flexible tool for the job as it only
-supports one RIB (except in route server mode). For IPv6, only BIRD is
-used.
+There are various iterations of this lab:
 
-VM get their IP trough DHCP. This makes use of a DHCP relay. However,
-the setup is incredibly fragile due. Destination subnet has to be
-known by the agent through the relay. Since we only have one subnet
-for the VM, this works fine but as soon as you put multiple subnets,
-this won't work as easily.
+ - 5dfab33b776b will use multiple routing tables and "ip rules" to
+   select the right ones.
+ - adcd356527fb is using a DHCP relay instead of a local DHCP server
