@@ -138,17 +138,12 @@ case $uts in
         ip rule add iif lo lookup 90   priority 53 # Last: has a default
         ip rule add unreachable        priority 100
 
-        # Same for IPv6, less important since we don't have private
-        # stuff, but link local addresses may still be used.
-        ip -6 rule add iif eth2         lookup 90   priority 20
-        ip -6 rule add iif eth2         unreachable priority 21
-        ip -6 rule add iif eth0.public  lookup 90   priority 22
-        ip -6 rule add iif eth0.public  unreachable priority 23
-        ip -6 rule add iif eth1.public  lookup 90   priority 24
-        ip -6 rule add iif eth1.public  unreachable priority 25
-        ip -6 rule add iif lo lookup main priority 51
-        ip -6 rule add iif lo lookup 90   priority 53 # Last: has a default
-        ip -6 rule add unreachable        priority 100
+        # For IPv6, we don't have private stuff. So, simpler
+        # rules. Also, route lookup is a bit different in IPv6. Routes
+        # to next-hop need to be looked up as well.
+        ip -6 rule add lookup main priority 51
+        ip -6 rule add lookup 90   priority 53 # Last: has a default
+        ip -6 rule add unreachable priority 100
 
         # Add routes to VM. Of course, it should be done by some kind
         # of automatic registration process.
@@ -213,8 +208,8 @@ case $uts in
         # Routing
         ip rule add iif lo lookup main priority 51
         ip rule add iif lo lookup 90   priority 53 # Last: has a default
-        ip -6 rule add iif lo lookup main priority 51
-        ip -6 rule add iif lo lookup 90   priority 53 # Last: has a default
+        ip -6 rule add lookup main priority 51
+        ip -6 rule add lookup 90   priority 53 # Last: has a default
 
         # We are a router
         sysctl -qw net.ipv4.ip_forward=1
@@ -246,8 +241,6 @@ case $uts in
         # Routing
         ip rule add iif lo lookup main priority 51
         ip rule add iif lo lookup 20   priority 52
-        ip -6 rule add iif lo lookup main priority 51
-        ip -6 rule add iif lo lookup 20   priority 52
 
         service bird
         service dnsmasq \
