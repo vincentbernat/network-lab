@@ -20,8 +20,6 @@ spawn vm internet networks 8,9
 spawn vm RR1 network 8
 spawn vm RR2 network 9
 
-spawn vm dhcp network 8,9
-
 run
 
 case $uts in
@@ -57,7 +55,7 @@ case $uts in
         ip -6 addr add 2001:db8:c633:6400::${uts#HV}/120 dev eth0.public
         ip -6 addr add 2001:db8:c633:6401::${uts#HV}/120 dev eth1.public
 
-        # Own IP for private purpose (notably DHCP relay)
+        # Own IP for private purpose (not really used)
         ip addr add 172.22.2.${uts#HV}/32 dev dummy0
         ip route add 172.22.2.${uts#HV}/32 dev dummy0 table 20
 
@@ -196,9 +194,17 @@ case $uts in
         service radvd ../../tmp/radvd.conf
         service ndppd ../../tmp/ndppd.conf
 
-        service dhcrelay -4 --no-pid -q \
-                $(for vmiface in $vmifaces; do printf -- "-i $vmiface "; done) \
-                192.168.17.2 -a -U dummy0
+        service dnsmasq \
+                --no-ping \
+                --no-resolv \
+                --port 0 \
+                --dhcp-authoritative \
+                --dhcp-range=tag:known,203.0.113.0,static,255.255.255.0,infinite \
+                --dhcp-host=50:54:33:00:00:05,203.0.113.1,VM1 \
+                --dhcp-host=50:54:33:00:00:06,203.0.113.2,VM2 \
+                --dhcp-host=50:54:33:00:00:0a,203.0.113.3,VM3 \
+                --dhcp-host=50:54:33:00:00:0e,203.0.113.4,VM4 \
+                --dhcp-option=option:router,203.0.113.254
         ;;
     RR*)
         ip link add name eth0.public link eth0 type vlan id 90
@@ -246,41 +252,6 @@ case $uts in
         # "Internet"
         ip addr add 8.8.8.8/32 dev dummy0
         ip -6 addr add 2001:4860:4860::8888/128 dev dummy0
-        ;;
-
-    dhcp)
-        # Only public DHCP is provided. Such a server could be
-        # anycasted easily: just spawn a second one like this one,
-        # advertising the same loopback address.
-        ip link add name eth0.private link eth0 type vlan id 20
-        ip link add name eth1.private link eth1 type vlan id 20
-        ip link set up dev eth0.private
-        ip link set up dev eth1.private
-
-        # For ECMP routing
-        ip addr add 172.22.15.2/25 dev eth0.private
-        ip addr add 172.22.15.253/25 dev eth1.private
-
-        # DHCP service
-        ip addr add 192.168.17.2/32 dev dummy0
-        ip route add 192.168.17.2/32 dev dummy0 table 20 # For advertising
-
-        # Routing
-        ip rule add iif lo lookup main priority 51
-        ip rule add iif lo lookup 20   priority 52
-
-        service bird
-        service dnsmasq \
-                --no-ping \
-                --no-resolv \
-                --port 0 \
-                --dhcp-ignore=tag:!known \
-                --dhcp-range=tag:known,203.0.113.0,static,255.255.255.0,infinite \
-                --dhcp-host=50:54:33:00:00:05,203.0.113.1,VM1 \
-                --dhcp-host=50:54:33:00:00:06,203.0.113.2,VM2 \
-                --dhcp-host=50:54:33:00:00:0a,203.0.113.3,VM3 \
-                --dhcp-host=50:54:33:00:00:0e,203.0.113.4,VM4 \
-                --dhcp-option=option:router,203.0.113.254
         ;;
 esac
 
