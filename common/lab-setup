@@ -368,7 +368,11 @@ execute () {
     for command in /mnt/common/bin/"$command" "$command"; do
         [ ! -x "$command" ] || break
     done
-    "$command" "$@"
+    if [ -n "$netns" ]; then
+        ip netns exec $netns "$command" "$@"
+    else
+        "$command" "$@"
+    fi
 }
 
 service () {
@@ -388,11 +392,13 @@ service () {
             log_ok_msg "nginx started"
             ;;
         bird)
-            log_begin_msg "Running bird"
+            log_begin_msg "Running bird${netns+, netns=}$netns"
             [ -d /run/bird ] || mkdir -p /run/bird
-            [ ! -f /mnt/lab/bird.$uts.conf ]  || execute bird  -c /mnt/lab/bird.$uts.conf
-            [ ! -f /mnt/lab/bird6.$uts.conf ] || execute bird6 -c /mnt/lab/bird6.$uts.conf
-            log_ok_msg "bird started"
+            [ ! -f /mnt/lab/bird.$uts.$netns.conf ]  || execute bird -s /var/run/bird.$netns.ctl -c /mnt/lab/bird.$uts.$netns.conf
+            [ ! -f /mnt/lab/bird6.$uts.$netns.conf ] || execute bird6 -s /var/run/bird6.$netns.ctl -c /mnt/lab/bird6.$uts.$netns.conf
+            [ ! -f /mnt/lab/bird.$uts.conf ]  || [ -n "$netns" ] || execute bird  -c /mnt/lab/bird.$uts.conf
+            [ ! -f /mnt/lab/bird6.$uts.conf ] || [ -n "$netns" ] || execute bird6 -c /mnt/lab/bird6.$uts.conf
+            log_ok_msg "bird started${netns+, netns=}$netns"
             ;;
         gobgp)
             log_begin_msg "Running gobgp"
@@ -586,9 +592,6 @@ case $$,$STATE in
         stty echo
         log_ok_msg "Terminal size is $(tput cols)x$(tput lines)"
 
-        export STATE=SETUP
-        . /mnt/lab/setup
-
         log_begin_msg "Setup additional commands"
         mkdir /tmp/tools
         export PATH=/tmp/tools:$PATH
@@ -602,6 +605,9 @@ echo b > /proc/sysrq-trigger
 EOF
         chmod +x /tmp/tools/*
         log_ok_msg "System can be halted with halt or reboot"
+
+        export STATE=SETUP
+        . /mnt/lab/setup
 
         while true; do
             log_info_msg "Spawning a shell"

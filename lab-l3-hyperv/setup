@@ -23,7 +23,12 @@ spawn vm RR2 network 9
 run
 
 case $uts in
-        HV*)
+    HV*)
+
+        # Namespaces
+        ip netns add public
+        public="ip netns exec public"
+
         # We add some VLAN
         ip link add name eth0.private link eth0 type vlan id 20
         ip link add name eth1.private link eth1 type vlan id 20
@@ -31,170 +36,137 @@ case $uts in
         ip link add name eth1.public link eth1 type vlan id 90
         ip link set up dev eth0.private
         ip link set up dev eth1.private
-        ip link set up dev eth0.public
-        ip link set up dev eth1.public
 
+        ip link set netns public dev eth0.public
+        ip link set netns public dev eth1.public
+        $public ip link set up dev eth0.public
+        $public ip link set up dev eth1.public
         vmifaces=""
         for iface in eth2 eth3 eth4 eth5; do
-                [ ! -d /sys/class/net/$iface ] || vmifaces="$vmifaces $iface"
+                [ -d /sys/class/net/$iface ] || continue
+                vmifaces="$vmifaces $iface"
+                ip link set netns public dev $iface
+                $public ip link set up dev $iface
         done
 
         # Fake router IP for VM
         for vmiface in $vmifaces; do
-                ip addr add 203.0.113.254/32 dev $vmiface
+                $public ip addr add 203.0.113.254/32 dev $vmiface
                 # For IPv6, this is not needed, but in case someone wants to
                 # configure IPv6 manually, we provide a fixed router address.
-                ip -6 addr add 2001:db8:cb00:7100::fe/128 dev $vmiface
+                $public ip -6 addr add 2001:db8:cb00:7100::fe/128 dev $vmiface
         done
 
         # IP used for ECMP routing
-        ip addr add 198.51.100.10${uts#HV}/25 dev eth0.public
-        ip addr add 198.51.100.20${uts#HV}/25 dev eth1.public
+        $public ip addr add 198.51.100.10${uts#HV}/25 dev eth0.public
+        $public ip addr add 198.51.100.20${uts#HV}/25 dev eth1.public
         ip addr add 172.22.15.10${uts#HV}/25 dev eth0.private
         ip addr add 172.22.15.20${uts#HV}/25 dev eth1.private
-        ip -6 addr add 2001:db8:c633:6400::${uts#HV}/120 dev eth0.public
-        ip -6 addr add 2001:db8:c633:6401::${uts#HV}/120 dev eth1.public
+        $public ip -6 addr add 2001:db8:c633:6400::${uts#HV}/120 dev eth0.public
+        $public ip -6 addr add 2001:db8:c633:6401::${uts#HV}/120 dev eth1.public
 
         # Own IP for private purpose (not really used)
         ip addr add 172.22.2.${uts#HV}/32 dev dummy0
-        ip route add 172.22.2.${uts#HV}/32 dev dummy0 table 20
+        ip route add 172.22.2.${uts#HV}/32 dev dummy0
 
         # Some firewall rules as a second level of defense. We could
         # go stateless if we needed to. Another line of defense would
         # be to use containers to get distinct domain of
         # routing. However, it would mean for the orchestrator to also
         # be able to work with containers.
-        ip46tables() {
-                iptables "$@" && ip6tables "$@"
-        }
-        for vmiface in $vmifaces; do
-                for iface in eth0.public eth1.public; do
-                        ip46tables -A FORWARD -i $vmiface -o $iface -j ACCEPT
-                        ip46tables -A FORWARD -i $iface -o $vmiface -j ACCEPT
-                        ip46tables -A FORWARD -i $iface -o eth0.public -j ACCEPT
-                        ip46tables -A FORWARD -i $iface -o eth1.public -j ACCEPT
-                done
-                for iface in $vmifaces; do
-                        ip46tables -A FORWARD -i $vmiface -o $iface -j ACCEPT
-                done
-        done
-        ip46tables -A FORWARD -m limit --limit 5/s --limit-burst 5 \
-                   -j LOG --log-prefix "NF: routing evasion: " --log-level warning
-        ip46tables -A FORWARD -j DROP
+        cat <<EOF'' > /tmp/tools/ip46tables
+#!/bin/sh
+iptables "$@" && ip6tables "$@"
+EOF
+        chmod +x /tmp/tools/ip46tables
 
         # RP filtering. We use Netfilter for that (3.3+).
-        ip46tables -t raw -N RPFILTER
-        ip46tables -t raw -A RPFILTER -m rpfilter -j RETURN
-        iptables   -t raw -A RPFILTER -d 255.255.255.255 -p udp --sport bootpc --dport bootps -j RETURN
-        ip6tables  -t raw -A RPFILTER -m rpfilter --accept-local -m addrtype --dst-type MULTICAST -j DROP
-        ip46tables -t raw -A RPFILTER -m limit --limit 5/s --limit-burst 5 \
+        $public ip46tables -t raw -N RPFILTER
+        $public ip46tables -t raw -A RPFILTER -m rpfilter -j RETURN
+        $public iptables   -t raw -A RPFILTER -d 255.255.255.255 -p udp --sport bootpc --dport bootps -j RETURN
+        $public ip6tables  -t raw -A RPFILTER -m rpfilter --accept-local -m addrtype --dst-type MULTICAST -j DROP
+        $public ip46tables -t raw -A RPFILTER -m limit --limit 5/s --limit-burst 5 \
                    -j LOG --log-prefix "NF: rpfilter: " --log-level warning
-        ip46tables -t raw -A RPFILTER -j DROP
+        $public ip46tables -t raw -A RPFILTER -j DROP
         for vmiface in $vmifaces; do
-                ip46tables -t raw -A PREROUTING -i $vmiface -j RPFILTER
+                $public ip46tables -t raw -A PREROUTING -i $vmiface -j RPFILTER
         done
 
         # VM could access BGP/BFD. There is TTL security, but better safe than sorry.
-        ip46tables -N BGP-BFD
-        ip46tables -A INPUT -p tcp --dport bgp -j BGP-BFD
-        ip46tables -A INPUT -p tcp --dport 3784 -j BGP-BFD
-        ip46tables -A INPUT -p tcp --dport 4784 -j BGP-BFD
-        iptables -A BGP-BFD -s 198.51.100.0/24 -m ttl --ttl-eq 255 -j ACCEPT
-        iptables -A BGP-BFD -s 172.22.15.0/24 -m ttl --ttl-eq 255 -j ACCEPT
-        ip6tables -A BGP-BFD -s 2001:db8:c633:6400::/63 -m hl --hl-eq 255 -j ACCEPT
-        ip46tables -A BGP-BFD -m limit --limit 5/s --limit-burst 5 \
+        $public ip46tables -N BGP-BFD
+        $public ip46tables -A INPUT -p tcp --dport bgp -j BGP-BFD
+        $public ip46tables -A INPUT -p tcp --dport 3784 -j BGP-BFD
+        $public ip46tables -A INPUT -p tcp --dport 4784 -j BGP-BFD
+        $public iptables -A BGP-BFD -s 198.51.100.0/24 -m ttl --ttl-eq 255 -j ACCEPT
+        $public ip6tables -A BGP-BFD -s 2001:db8:c633:6400::/63 -m hl --hl-eq 255 -j ACCEPT
+        $public ip46tables -A BGP-BFD -m limit --limit 5/s --limit-burst 5 \
                    -j LOG --log-prefix "NF: BGP/BFD: " --log-level warning
-        ip46tables -A BGP-BFD -j DROP
+        $public ip46tables -A BGP-BFD -j DROP
 
         # Don't accept redirects and don't generate them (we don't
         # control how much time it takes for them to expire). As a
         # router, we should not accept redirects, but better safe than
         # sorry.
         # accept_redirects is "AND" when forwarding is enabled
-        sysctl -qw net.ipv4.conf.all.accept_redirects=0
-        sysctl -qw net.ipv6.conf.all.accept_redirects=0
+        $public sysctl -qw net.ipv4.conf.all.accept_redirects=0
+        $public sysctl -qw net.ipv6.conf.all.accept_redirects=0
         # send_redirects is "OR"
-        sysctl -qw net.ipv4.conf.all.send_redirects=0
-        sysctl -qw net.ipv4.conf.default.send_redirects=0
-        sysctl -qw net.ipv4.conf.eth0/public.send_redirects=0
-        sysctl -qw net.ipv4.conf.eth1/public.send_redirects=0
+        $public sysctl -qw net.ipv4.conf.all.send_redirects=0
+        $public sysctl -qw net.ipv4.conf.default.send_redirects=0
+        $public sysctl -qw net.ipv4.conf.eth0/public.send_redirects=0
+        $public sysctl -qw net.ipv4.conf.eth1/public.send_redirects=0
         for vmiface in $vmifaces; do
-                sysctl -qw net.ipv4.conf.$vmiface.send_redirects=0
+                $public sysctl -qw net.ipv4.conf.$vmiface.send_redirects=0
                 # Unfortunately, not possible to disable that for IPv6.
-                ip6tables -A OUTPUT -o $vmiface -p ipv6-icmp --icmpv6-type redirect -j DROP
+                $public ip6tables -A OUTPUT -o $vmiface -p ipv6-icmp --icmpv6-type redirect -j DROP
         done
 
         # We do ARP proxying
-        sysctl -qw net.ipv4.conf.eth0/public.proxy_arp=1
-        sysctl -qw net.ipv4.conf.eth1/public.proxy_arp=1
+        $public sysctl -qw net.ipv4.conf.eth0/public.proxy_arp=1
+        $public sysctl -qw net.ipv4.conf.eth1/public.proxy_arp=1
         for vmiface in $vmifaces; do
-                sysctl -qw net.ipv4.conf.$vmiface.proxy_arp=1
-                sysctl -qw net.ipv4.neigh.$vmiface.proxy_delay=0
+                $public sysctl -qw net.ipv4.conf.$vmiface.proxy_arp=1
+                $public sysctl -qw net.ipv4.neigh.$vmiface.proxy_delay=0
         done
 
         # For IPv6, we use ndppd. Being stateless, it's safe
         # enough. It may answer requests we don't have routes for, but
         # that's not our problem.
 
-        # Use a public routing table and a private one
-        for vmiface in $vmifaces; do
-                ip rule add iif $vmiface     lookup 90   priority 20
-                ip rule add iif $vmiface     unreachable priority 21
-        done
-        ip rule add iif eth0.public  lookup 90   priority 22
-        ip rule add iif eth0.public  unreachable priority 23
-        ip rule add iif eth1.public  lookup 90   priority 24
-        ip rule add iif eth1.public  unreachable priority 25
-        ip rule add iif eth0.private lookup 20   priority 26
-        ip rule add iif eth0.private unreachable priority 27
-        ip rule add iif eth1.private lookup 20   priority 28
-        ip rule add iif eth1.private unreachable priority 29
-        # For local lookups
-        ip rule add iif lo lookup main priority 51
-        ip rule add iif lo lookup 20   priority 52
-        ip rule add iif lo lookup 90   priority 53 # Last: has a default
-        ip rule add unreachable        priority 100
-
-        # For IPv6, we don't have private stuff. So, simpler
-        # rules. Also, route lookup is a bit different in IPv6. Routes
-        # to next-hop need to be looked up as well.
-        ip -6 rule add lookup main priority 51
-        ip -6 rule add lookup 90   priority 53 # Last: has a default
-        ip -6 rule add unreachable priority 100
-
         # Add routes to VM. Of course, it should be done by some kind
         # of automatic registration process.
         case ${uts#HV} in
             1)
-                    ip route add 203.0.113.1/32 dev eth2 table 90
-                    ip route add 203.0.113.2/32 dev eth3 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:5/128 dev eth2 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:6/128 dev eth3 table 90
+                    $public ip route add 203.0.113.1/32 dev eth2
+                    $public ip route add 203.0.113.2/32 dev eth3
+                    $public ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:5/128 dev eth2
+                    $public ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:6/128 dev eth3
                     ;;
             2)
-                    ip route add 203.0.113.3/32 dev eth2 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:a/128 dev eth2 table 90
+                    $public ip route add 203.0.113.3/32 dev eth2
+                    $public ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:a/128 dev eth2
                     ;;
             3)
-                    ip route add 203.0.113.4/32 dev eth2 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:e/128 dev eth2 table 90
+                    $public ip route add 203.0.113.4/32 dev eth2
+                    $public ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:e/128 dev eth2
                     ;;
         esac
 
         # We are a router
-        sysctl -qw net.ipv4.ip_forward=1
-        sysctl -qw net.ipv6.conf.all.forwarding=1
+        $public sysctl -qw net.ipv4.ip_forward=1
+        $public sysctl -qw net.ipv6.conf.all.forwarding=1
 
         service bird
+        netns=public service bird
 
         for vmiface in $vmifaces; do
                 sed s/IFACE/$vmiface/ ndppd.HV.conf >> /tmp/ndppd.conf
                 sed s/IFACE/$vmiface/ radvd.HV.conf >> /tmp/radvd.conf
         done
-        service radvd ../../tmp/radvd.conf
-        service ndppd ../../tmp/ndppd.conf
+        netns=public service radvd ../../tmp/radvd.conf
+        netns=public service ndppd ../../tmp/ndppd.conf
 
-        service dnsmasq \
+        netns=public service dnsmasq \
                 --no-ping \
                 --no-resolv \
                 --port 0 \
@@ -237,12 +209,6 @@ case $uts in
         ip addr add 198.51.100.254/25 dev eth1.public
         ip -6 addr add 2001:db8:c633:6400::ff/120 dev eth0.public
         ip -6 addr add 2001:db8:c633:6401::ff/120 dev eth1.public
-
-        # Routing
-        ip rule add iif lo lookup main priority 51
-        ip rule add iif lo lookup 90   priority 53 # Last: has a default
-        ip -6 rule add lookup main priority 51
-        ip -6 rule add lookup 90   priority 53 # Last: has a default
 
         # We are a router
         sysctl -qw net.ipv4.ip_forward=1
