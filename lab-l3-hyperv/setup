@@ -5,14 +5,14 @@ LABNAME="l3-hyperv"
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
-spawn vm HV1 networks 1,8,9
+spawn vm HV1 networks 8,9,1
 spawn vm VM1 network 1
 spawn vm VM2 network 1
 
-spawn vm HV2 networks 2,8,9
+spawn vm HV2 networks 8,9,2
 spawn vm VM3 network 2
 
-spawn vm HV3 networks 3,8,9
+spawn vm HV3 networks 8,9,3
 spawn vm VM4 network 3
 
 spawn vm internet networks 8,9
@@ -27,28 +27,28 @@ run
 case $uts in
     HV*)
         # We add some VLAN
+        ip link add name eth0.private link eth0 type vlan id 20
         ip link add name eth1.private link eth1 type vlan id 20
-        ip link add name eth2.private link eth2 type vlan id 20
+        ip link add name eth0.public link eth0 type vlan id 90
         ip link add name eth1.public link eth1 type vlan id 90
-        ip link add name eth2.public link eth2 type vlan id 90
+        ip link set up dev eth0.private
         ip link set up dev eth1.private
-        ip link set up dev eth2.private
+        ip link set up dev eth0.public
         ip link set up dev eth1.public
-        ip link set up dev eth2.public
 
         # Fake router IP for VM
-        ip addr add 203.0.113.254/32 dev eth0
+        ip addr add 203.0.113.254/32 dev eth2
         # For IPv6, this is not needed, but in case someone wants to
         # configure IPv6 manually, we provide a fixed router address.
-        ip -6 addr add 2001:db8:cb00:7100::fe/128 dev eth0
+        ip -6 addr add 2001:db8:cb00:7100::fe/128 dev eth2
 
         # IP used for ECMP routing
-        ip addr add 198.51.100.10${uts#HV}/25 dev eth1.public
-        ip addr add 198.51.100.20${uts#HV}/25 dev eth2.public
-        ip addr add 172.22.15.10${uts#HV}/25 dev eth1.private
-        ip addr add 172.22.15.20${uts#HV}/25 dev eth2.private
-        ip -6 addr add 2001:db8:c633:6400::${uts#HV}/120 dev eth1.public
-        ip -6 addr add 2001:db8:c633:6401::${uts#HV}/120 dev eth2.public
+        ip addr add 198.51.100.10${uts#HV}/25 dev eth0.public
+        ip addr add 198.51.100.20${uts#HV}/25 dev eth1.public
+        ip addr add 172.22.15.10${uts#HV}/25 dev eth0.private
+        ip addr add 172.22.15.20${uts#HV}/25 dev eth1.private
+        ip -6 addr add 2001:db8:c633:6400::${uts#HV}/120 dev eth0.public
+        ip -6 addr add 2001:db8:c633:6401::${uts#HV}/120 dev eth1.public
 
         # Own IP for private purpose (notably DHCP relay)
         ip addr add 172.22.2.${uts#HV}/32 dev dummy0
@@ -62,13 +62,13 @@ case $uts in
         ip46tables() {
                 iptables "$@" && ip6tables "$@"
         }
-        for iface in eth1.public eth2.public; do
-                ip46tables -A FORWARD -i eth0 -o $iface -j ACCEPT
-                ip46tables -A FORWARD -i $iface -o eth0 -j ACCEPT
+        for iface in eth0.public eth1.public; do
+                ip46tables -A FORWARD -i eth2 -o $iface -j ACCEPT
+                ip46tables -A FORWARD -i $iface -o eth2 -j ACCEPT
+                ip46tables -A FORWARD -i $iface -o eth0.public -j ACCEPT
                 ip46tables -A FORWARD -i $iface -o eth1.public -j ACCEPT
-                ip46tables -A FORWARD -i $iface -o eth2.public -j ACCEPT
         done
-        ip46tables -A FORWARD -i eth0 -o eth0 -j ACCEPT
+        ip46tables -A FORWARD -i eth2 -o eth2 -j ACCEPT
         ip46tables -A FORWARD -m limit --limit 5/s --limit-burst 5 \
                    -j LOG --log-prefix "NF: routing evasion: " --log-level warning
         ip46tables -A FORWARD -j DROP
@@ -81,7 +81,7 @@ case $uts in
         ip46tables -t raw -A RPFILTER -m limit --limit 5/s --limit-burst 5 \
                    -j LOG --log-prefix "NF: rpfilter: " --log-level warning
         ip46tables -t raw -A RPFILTER -j DROP
-        ip46tables -t raw -A PREROUTING -i eth0 -j RPFILTER
+        ip46tables -t raw -A PREROUTING -i eth2 -j RPFILTER
 
         # VM could access BGP/BFD. There is TTL security, but better safe than sorry.
         ip46tables -N BGP-BFD
@@ -105,33 +105,33 @@ case $uts in
         # send_redirects is "OR"
         sysctl -qw net.ipv4.conf.all.send_redirects=0
         sysctl -qw net.ipv4.conf.default.send_redirects=0
-        sysctl -qw net.ipv4.conf.eth0.send_redirects=0
+        sysctl -qw net.ipv4.conf.eth2.send_redirects=0
+        sysctl -qw net.ipv4.conf.eth0/public.send_redirects=0
         sysctl -qw net.ipv4.conf.eth1/public.send_redirects=0
-        sysctl -qw net.ipv4.conf.eth2/public.send_redirects=0
         # Unfortunately, not possible to disable that for IPv6.
-        ip6tables -A OUTPUT -o eth0 -p ipv6-icmp --icmpv6-type redirect -j DROP
+        ip6tables -A OUTPUT -o eth2 -p ipv6-icmp --icmpv6-type redirect -j DROP
 
         # We do ARP proxying
-        sysctl -qw net.ipv4.conf.eth0.proxy_arp=1
+        sysctl -qw net.ipv4.conf.eth2.proxy_arp=1
+        sysctl -qw net.ipv4.conf.eth0/public.proxy_arp=1
         sysctl -qw net.ipv4.conf.eth1/public.proxy_arp=1
-        sysctl -qw net.ipv4.conf.eth2/public.proxy_arp=1
-        sysctl -qw net.ipv4.neigh.eth0.proxy_delay=0
+        sysctl -qw net.ipv4.neigh.eth2.proxy_delay=0
 
         # For IPv6, we use ndppd. Being stateless, it's safe
         # enough. It may answer requests we don't have routes for, but
         # that's not our problem.
 
         # Use a public routing table and a private one
-        ip rule add iif eth0         lookup 90   priority 20
-        ip rule add iif eth0         unreachable priority 21
-        ip rule add iif eth1.public  lookup 90   priority 22
-        ip rule add iif eth1.public  unreachable priority 23
-        ip rule add iif eth2.public  lookup 90   priority 24
-        ip rule add iif eth2.public  unreachable priority 25
-        ip rule add iif eth1.private lookup 20   priority 26
-        ip rule add iif eth1.private unreachable priority 27
-        ip rule add iif eth2.private lookup 20   priority 28
-        ip rule add iif eth2.private unreachable priority 29
+        ip rule add iif eth2         lookup 90   priority 20
+        ip rule add iif eth2         unreachable priority 21
+        ip rule add iif eth0.public  lookup 90   priority 22
+        ip rule add iif eth0.public  unreachable priority 23
+        ip rule add iif eth1.public  lookup 90   priority 24
+        ip rule add iif eth1.public  unreachable priority 25
+        ip rule add iif eth0.private lookup 20   priority 26
+        ip rule add iif eth0.private unreachable priority 27
+        ip rule add iif eth1.private lookup 20   priority 28
+        ip rule add iif eth1.private unreachable priority 29
         # For local lookups
         ip rule add iif lo lookup main priority 51
         ip rule add iif lo lookup 20   priority 52
@@ -140,12 +140,12 @@ case $uts in
 
         # Same for IPv6, less important since we don't have private
         # stuff, but link local addresses may still be used.
-        ip -6 rule add iif eth0         lookup 90   priority 20
-        ip -6 rule add iif eth0         unreachable priority 21
-        ip -6 rule add iif eth1.public  lookup 90   priority 22
-        ip -6 rule add iif eth1.public  unreachable priority 23
-        ip -6 rule add iif eth2.public  lookup 90   priority 24
-        ip -6 rule add iif eth2.public  unreachable priority 25
+        ip -6 rule add iif eth2         lookup 90   priority 20
+        ip -6 rule add iif eth2         unreachable priority 21
+        ip -6 rule add iif eth0.public  lookup 90   priority 22
+        ip -6 rule add iif eth0.public  unreachable priority 23
+        ip -6 rule add iif eth1.public  lookup 90   priority 24
+        ip -6 rule add iif eth1.public  unreachable priority 25
         ip -6 rule add iif lo lookup main priority 51
         ip -6 rule add iif lo lookup 90   priority 53 # Last: has a default
         ip -6 rule add unreachable        priority 100
@@ -154,18 +154,18 @@ case $uts in
         # of automatic registration process.
         case ${uts#HV} in
             1)
-                    ip route add 203.0.113.1/32 dev eth0 table 90
-                    ip route add 203.0.113.2/32 dev eth0 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:4/128 dev eth0 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:5/128 dev eth0 table 90
+                    ip route add 203.0.113.1/32 dev eth2 table 90
+                    ip route add 203.0.113.2/32 dev eth2 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:4/128 dev eth2 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:5/128 dev eth2 table 90
                     ;;
             2)
-                    ip route add 203.0.113.3/32 dev eth0 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:9/128 dev eth0 table 90
+                    ip route add 203.0.113.3/32 dev eth2 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:9/128 dev eth2 table 90
                     ;;
             3)
-                    ip route add 203.0.113.4/32 dev eth0 table 90
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:d/128 dev eth0 table 90
+                    ip route add 203.0.113.4/32 dev eth2 table 90
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:d/128 dev eth2 table 90
                     ;;
         esac
 
@@ -176,7 +176,7 @@ case $uts in
         service bird
         service radvd radvd.HV.conf
         service ndppd ndppd.HV.conf
-        service dhcrelay -4 --no-pid -q -i eth0 192.168.17.2 -a -U dummy0
+        service dhcrelay -4 --no-pid -q -i eth2 192.168.17.2 -a -U dummy0
         ;;
     RR*)
         ip link add name eth0.public link eth0 type vlan id 90
