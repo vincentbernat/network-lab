@@ -6,34 +6,14 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 # Which VM to spawn
-spawn vm R1 networks 1,2,3,4
-spawn vm R2 networks 1,2,5,6
-spawn vm R3 networks 3,4
-spawn vm R4 networks 5,6
+spawn vm R1 network 1
+spawn vm R2 network 1
 
 run
 
 # Executed on each VM
 case $uts in
-    R1)
-        ip addr add 10.234.71.1/27 dev eth0
-        ip addr add 10.234.72.1/27 dev eth1
-        ip addr add 10.234.73.1/27 dev eth2
-        ip addr add 10.234.74.1/27 dev eth3
-        ;;
-    R2)
-        ip addr add 10.234.71.2/27 dev eth0
-        ip addr add 10.234.72.2/27 dev eth1
-        ip addr add 10.234.75.2/27 dev eth2
-        ip addr add 10.234.76.2/27 dev eth3
-        ;;
-    R3)
-        ip addr add 10.234.73.3/27 dev eth0
-        ip addr add 10.234.74.3/27 dev eth1
-        ;;
-    R4)
-        ip addr add 10.234.75.4/27 dev eth0
-        ip addr add 10.234.76.4/27 dev eth1
-        ;;
+    R1) ip addr add 10.234.78.65/27 dev eth0 ;;
+    R2) ip addr add 10.234.78.66/27 dev eth0 ;;
 esac
 service nginx
