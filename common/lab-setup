@@ -547,6 +547,7 @@ case $$,$STATE in
         rsyslogd
 
         log_info_msg "Setup terminal"
+        unset SHLVL
         export STATE=GETTY
         exec setsid /sbin/agetty -L ttyS0 -a root -l /mnt/lab/setup -i 115200 $TERM
         ;;
