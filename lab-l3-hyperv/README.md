@@ -44,6 +44,12 @@ There are various iterations of this lab:
    able to send an answer for some reason (socket not bound to the
    VRF?).
 
-The current iteration is similar to VRF but uses firewall marks
-instead. Unfortunately, ARP proxying breaks as it is not possible to
-put marks for those "internal" requests.
+ - d4ad9a028b51 uses firewall marks instead of VRF. Unfortunately, ARP
+   proxying breaks as it is not possible to put marks for those
+   "internal" requests. Regular reverse path filtering wouldn't work
+   either (but we used the one based on Netfilter).
+
+The current iteration uses multiple routing tables and "ip rules". The
+scalability issues are avoided by specifying "ip rules" for private
+traffic (there should be less of them), local traffic and have a catch
+all for what we assume to be public traffic.
