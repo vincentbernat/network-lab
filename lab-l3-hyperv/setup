@@ -24,11 +24,21 @@ run
 
 case $uts in
     HV*)
+        # Create VRF
+        ip link add public type vrf table 90
+        ip link add private type vrf table 20
+        ip link set up dev public
+        ip link set up dev private
+
         # We add some VLAN
         ip link add name eth0.private link eth0 type vlan id 20
         ip link add name eth1.private link eth1 type vlan id 20
         ip link add name eth0.public link eth0 type vlan id 90
         ip link add name eth1.public link eth1 type vlan id 90
+        ip link set master private dev eth0.private
+        ip link set master private dev eth1.private
+        ip link set master public dev eth0.public
+        ip link set master public dev eth1.public
         ip link set up dev eth0.private
         ip link set up dev eth1.private
         ip link set up dev eth0.public
@@ -37,10 +47,12 @@ case $uts in
         for iface in eth2 eth3 eth4 eth5; do
                 [ -d /sys/class/net/$iface ] || continue
                 vmifaces="$vmifaces $iface"
+                ip link set master public dev $iface
                 ip link set up dev $iface
         done
 
         # Fake router IP for VM
+        ip addr add 203.0.113.254/32 dev public
         for vmiface in $vmifaces; do
                 ip addr add 203.0.113.254/32 dev $vmiface
                 # For IPv6, this is not needed, but in case someone wants to
@@ -142,18 +154,10 @@ EOF
         # that's not our problem.
 
         # Use a public routing table and a private one
-        for vmiface in $vmifaces; do
-                ip rule add iif $vmiface     lookup 90   priority 20
-                ip rule add iif $vmiface     unreachable priority 21
-        done
-        ip rule add iif eth0.public  lookup 90   priority 22
-        ip rule add iif eth0.public  unreachable priority 23
-        ip rule add iif eth1.public  lookup 90   priority 24
-        ip rule add iif eth1.public  unreachable priority 25
-        ip rule add iif eth0.private lookup 20   priority 26
-        ip rule add iif eth0.private unreachable priority 27
-        ip rule add iif eth1.private lookup 20   priority 28
-        ip rule add iif eth1.private unreachable priority 29
+        ip rule add iif public  lookup 90   priority 22
+        ip rule add iif public  unreachable priority 23
+        ip rule add iif private lookup 20   priority 26
+        ip rule add iif private unreachable priority 27
         # For local lookups
         ip rule add iif lo lookup main priority 51
         ip rule add iif lo lookup 20   priority 52
