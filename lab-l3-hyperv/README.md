@@ -34,13 +34,16 @@ There are various iterations of this lab:
    namespaces). Moreover, this requires to run several instances of
    BIRD (no support for namespaces in BIRD either).
 
-The current iteration make use of VRF, a recent (4.3+ for IPv4, 4.4+
-for IPv6) addition to Linux that provides L3 separation (like a
-bridge, but for L3). We are back to using multiple routing tables, but
-the number of ip rules is now constant (4.8+ can even remove the need
-for specific ip rules). However, the feature is quite recent, has poor
-performance before 4.8 (7889681f4a6c), integration with Netfilter is
-still a moving target.
+ - d86e9ed65886 makes use of VRF, a recent (4.3+ for IPv4, 4.4+ for
+   IPv6) addition to Linux that provides L3 separation (like a bridge,
+   but for L3). We are back to using multiple routing tables, but the
+   number of ip rules is now constant (4.8+ can even remove the need
+   for specific ip rules). However, the feature is quite recent, has
+   poor performance before 4.8 (7889681f4a6c), integration with
+   Netfilter is still a moving target. Moreover, the DHCP server isn't
+   able to send an answer for some reason (socket not bound to the
+   VRF?).
 
-Moreover, the DHCP server isn't able to send an answer for some reason
-(socket not bound to the VRF?).
+The current iteration is similar to VRF but uses firewall marks
+instead. Unfortunately, ARP proxying breaks as it is not possible to
+put marks for those "internal" requests.
