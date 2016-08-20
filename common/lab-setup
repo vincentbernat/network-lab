@@ -42,6 +42,7 @@ check_dependencies() {
     log_begin_msg "Checking if dependencies are present"
     for exec in \
         busybox \
+        strings \
         qemu-system-x86_64 \
         tmux vde_switch \
         start-stop-daemon \
