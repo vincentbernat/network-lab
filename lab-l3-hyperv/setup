@@ -42,7 +42,9 @@ case $uts in
 
         # Fake router IP for VM
         for vmiface in $vmifaces; do
-                ip addr add 203.0.113.254/32 dev $vmiface scope link
+                # This address could just be a /32 without noprefixroute.
+                # "git blame" for explanation. Needs a 4.4+ kernel.
+                ip addr add 203.0.113.254/24 dev $vmiface scope link noprefixroute
                 # For IPv6, this is not needed, but in case someone wants to
                 # configure IPv6 manually, we provide a fixed router address.
                 ip -6 addr add 2001:db8:cb00:7100::fe/128 dev $vmiface scope link
