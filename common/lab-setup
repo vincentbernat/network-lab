@@ -272,10 +272,13 @@ setup_initrd () {
     [ -z "$MODULES" ] || {
         modules="9pnet_virtio 9p virtio_pci $UNION"
         for mod in $modules; do
-            modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
-                --ignore-install --quiet --show-depends $mod > /dev/null || {
-                log_warn_msg "Unable to find module $mod"
-                log_begin_msg "Continue building initrd"
+            base=${MODULES}/../../..
+            cmd="modprobe --all --set-version=${VERSION} -d ${base} --ignore-install --quiet --show-depends $mod"
+            $cmd > /dev/null || {
+                depmod -b ${base} ${VERSION} 2> /dev/null && $cmd > /dev/null || {
+                        log_warn_msg "Unable to find module $mod"
+                        log_begin_msg "Continue building initrd"
+                }
             }
             modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
                 --ignore-install --quiet --show-depends $mod |
