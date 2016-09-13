@@ -52,4 +52,8 @@ There are various iterations of this lab:
 The current iteration uses multiple routing tables and "ip rules". The
 scalability issues are avoided by specifying "ip rules" for private
 traffic (there should be less of them), local traffic and have a catch
-all for what we assume to be public traffic.
+all for what we assume to be public traffic. This only works with
+3.15+ kernels. Before that, the kernel was checking the reachability
+of the next hop with iif equal to 0 and therefore didn't match any
+rule. This was changed in commit
+6a662719c9868b3d6c7d26b3a085f0cd3cc15e64.
