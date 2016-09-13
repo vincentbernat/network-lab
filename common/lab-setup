@@ -228,7 +228,9 @@ EOF
     done
 
     log_begin_msg "Search for modules"
-    for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" "/lib/modules/$VERSION"; do
+    for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" \
+                   "$(dirname $KERNEL)/../lib/modules/$VERSION" \
+                   "/lib/modules/$VERSION"; do
         [ -d $dir ] || continue
         MODULES="$dir"
         break
