@@ -280,9 +280,7 @@ setup_initrd () {
                         log_begin_msg "Continue building initrd"
                 }
             }
-            modprobe --all --set-version="${VERSION}" -d ${MODULES}/../../.. \
-                --ignore-install --quiet --show-depends $mod |
-            while read prefix kmod options ; do
+            $cmd | while read prefix kmod options ; do
                 [ "${prefix}" = "insmod" ] || continue
                 grep -qFw "$kmod" ${DESTDIR}/modules 2> /dev/null || {
                     install -D "$kmod" "${DESTDIR}/${kmod}"
