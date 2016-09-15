@@ -320,7 +320,7 @@ start_vm () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 echo
-exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
      -nodefconfig -nodefaults \
