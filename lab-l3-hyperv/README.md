@@ -52,8 +52,12 @@ There are various iterations of this lab:
 The current iteration uses multiple routing tables and "ip rules". The
 scalability issues are avoided by specifying "ip rules" for private
 traffic (there should be less of them), local traffic and have a catch
-all for what we assume to be public traffic. This only works with
-3.15+ kernels. Before that, the kernel was checking the reachability
-of the next hop with iif equal to 0 and therefore didn't match any
-rule. This was changed in commit
-6a662719c9868b3d6c7d26b3a085f0cd3cc15e64.
+all for what we assume to be public traffic. To be compatible with
+kernels before 3.15, BIRD also copy the direct routes from the main
+table to the public table. This is needed before commit
+6a662719c9868b3d6c7d26b3a085f0cd3cc15e64 as the kernel doesn't use
+"iif lo" for internal lookups. Since the kernel won't accept anything
+else than a "scope link" route, this needs a patched version of
+BIRD. Patch is available here:
+
+ http://bird.network.cz/pipermail/bird-users/2016-September/010593.html
