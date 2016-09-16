@@ -20,6 +20,8 @@ This lab is also compatible with IPv6 but there are two drawbacks:
    used. Another option would be to program those IP using some daemon
    listening to netlink messages for added/removed routes.
 
+IPv6 was broken with commit 8c14586fc320 (part of 4.7).
+
 There are various iterations of this lab:
 
  - 5dfab33b776b will use multiple routing tables and "ip rules" to
