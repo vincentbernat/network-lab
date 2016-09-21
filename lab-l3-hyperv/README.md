@@ -8,7 +8,7 @@ The hypervisors distribute routes to VM using BGP (through a pair of
 route reflectors) on two distinct L2 layers. ARP proxying is used to
 let the hypervisors answer to ARP requests for VM on other hypervisors
 
-This lab is also compatible with IPv6 but there are two drawbacks:
+This lab is also compatible with IPv6 but there are small drawbacks:
 
  - BIRD doesn't support correctly IPv6 ECMP routes. Therefore, only
    one route gets installed. This is fixed by commit 2feaa6931bfe in
@@ -19,6 +19,11 @@ This lab is also compatible with IPv6 but there are two drawbacks:
    should be proxied. To avoid that, a userland proxy (ndppd) is
    used. Another option would be to program those IP using some daemon
    listening to netlink messages for added/removed routes.
+
+ - Hypervisor are not expected to do regular IPv6 traffic (they can do
+   IPv4 for internal use using the private IP addresses). If they do,
+   they'll use a non-loopback IP that would depend on the
+   corresponding interface state.
 
 IPv6 was broken with commit 8c14586fc320 (part of 4.7).
 
