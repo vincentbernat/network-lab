@@ -379,17 +379,12 @@ start_juniper_vrr () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vrr.img $TMP/junos-$name.img
-qemu-img create -q -f qcow2 $TMP/metadata-$name.img 10M
+truncate -s 10M $TMP/metadata-$name.img
+mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name
 cp junos-$name.conf $TMP/metadata-$name/juniper.conf
 tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
-guestfish -a $TMP/metadata-$name.img <<EOS
-run
-mkfs vfat /dev/sda
-mount /dev/sda /
-mkdir /config
-upload $TMP/metadata-$name.tgz /vrr-config.tgz
-EOS
+mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vrr-config.tgz
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
@@ -400,7 +395,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -boot c \
      -drive file=$TMP/junos-$name.img,if=ide,media=disk \
-     -usb -usbdevice disk:$TMP/metadata-$name.img \
+     -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
