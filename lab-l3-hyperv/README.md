@@ -69,3 +69,7 @@ rule. This was changed in kernel commit 6a662719c986. For a version
 compatible with older kernels, have a look at commit 39b804c1e759. It
 uses BIRD to make copies of the device routes to the other
 tables. However, a modified version of BIRD is needed.
+
+It is possible to replace one of the route reflector (RR2) by a
+Juniper vRR. You need a proper image (at least 15.1) to be placed in
+`images/junos-vrr.img`.
