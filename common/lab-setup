@@ -381,7 +381,7 @@ start_juniper_vrr () {
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vrr.img $TMP/junos-$name.img
 qemu-img create -q -f qcow2 $TMP/metadata-$name.img 10M
 mkdir -p $TMP/metadata-$name
-cp $name.conf $TMP/metadata-$name/juniper.conf
+cp junos-$name.conf $TMP/metadata-$name/juniper.conf
 tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
 guestfish -a $TMP/metadata-$name.img <<EOS
 run
