@@ -230,6 +230,20 @@ EOF
         grep -qx "CONFIG_$el" $CONFIG || log_error_msg "Kernel not configured with CONFIG_$el"
     done
 
+    if grep -Eqc "CONFIG_OVERLAYFS_FS=[ym]" $CONFIG; then
+        log_ok_msg "Kernel configuration checked. overlayfs present"
+        UNION="${UNION}${UNION+ }overlayfs"
+    elif grep -Eqc "CONFIG_OVERLAY_FS=[ym]" $CONFIG; then
+        log_ok_msg "Kernel configuration checked. overlayfs present"
+        UNION="${UNION}${UNION+ }overlay"
+    fi
+    if grep -qc "CONFIG_AUFS_FS=[ym]" $CONFIG; then
+        log_ok_msg "Kernel configuration checked. AUFS present"
+        UNION="${UNION}${UNION+ }aufs"
+    fi
+    [ -n "$UNION" ] || \
+        log_error_msg "Kernel configuration checked. Neither overlayfs nor AUFS present"
+
     log_begin_msg "Search for modules"
     for dir in "$(dirname $KERNEL)/lib/modules/$VERSION" \
                    "$(dirname $KERNEL)/../lib/modules/$VERSION" \
@@ -517,7 +531,21 @@ case $$,$STATE in
         mkdir /tmp/target
         mkdir /tmp/target/ro
         mkdir /tmp/target/overlay
-        mount -n -t 9p    rootshare /tmp/target/overlay -o trans=virtio,version=9p2000.u,ro
+        mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro
+        mkdir /tmp/target/rw
+        mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
+        mkdir /tmp/target/rw/workdir
+        mkdir /tmp/target/rw/upperdir
+        mount -n -t aufs aufs /tmp/target/overlay \
+              -o noxino,noatime,dirs=/tmp/target/rw/upperdir:/tmp/target/ro=ro \
+              2> /dev/null || \
+            mount -n -t overlayfs overlayfs /tmp/target/overlay \
+                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,noatime \
+                  2> /dev/null || \
+            mount -n -t overlay overlayfs /tmp/target/overlay \
+                  -o lowerdir=/tmp/target/ro,upperdir=/tmp/target/rw/upperdir,workdir=/tmp/target/rw/workdir,noatime \
+                  2> /dev/null ||
+            log_error_msg "Unable to mount AUFS/overlayfs"
         mount -n -t proc  proc /tmp/target/overlay/proc
         mount -n -t sysfs sys  /tmp/target/overlay/sys
         log_ok_msg "Root file system setup"
@@ -566,6 +594,7 @@ case $$,$STATE in
         log_begin_msg "Starting udev"
         udev_log=err
         mount -n -o size=10M,mode=0755 -t devtmpfs devtmpfs /dev
+        rm -f /etc/udev/rules.d/70-persistent-net.rules
         udevadm info --cleanup-db
         for udev in /lib/systemd/systemd-udevd /usr/lib/systemd/systemd-udevd $(command -v udevd 2> /dev/null); do
             [ ! -x $udev ] || break

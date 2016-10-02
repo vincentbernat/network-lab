@@ -21,9 +21,9 @@ due to more recent changes. In this case, get the latest commit for a
 lab (`git log --oneline -1 lab-generic` for example) and get a
 checkout for it (`git checkout 22f22864632a`).
 
-**⚠ Warning!** Currently, most labs won't work due to the inability to
-use an overlay over 9P starting from kernel 4.2. Labs updated in 2016+
-should work with such a kernel. This includes `lab-generic`.
+**⚠ Warning!** There is a bug in Linux that would prevent the labs
+from working when using a kernel 4.2, 4.3, 4.4 or 4.5. This bug is
+fixed in kernel 4.6 as well as in 4.4.17.
 
 License
 -------
