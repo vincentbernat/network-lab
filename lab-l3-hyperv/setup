@@ -198,12 +198,17 @@ EOF
         service radvd ../../tmp/radvd.conf
         service ndppd ../../tmp/ndppd.conf
 
-        touch /tmp/dhcpd.leases
-        service dhcpd \
-                -4 -q \
-                -cf /mnt/lab/dhcpd.conf \
-                -lf /tmp/dhcpd.leases \
-                -pf /tmp/dhcpd.pid
+        service dnsmasq \
+                --no-ping \
+                --no-resolv \
+                --port 0 \
+                --dhcp-authoritative \
+                --dhcp-range=tag:known,203.0.113.0,static,255.255.255.0,infinite \
+                --dhcp-host=50:54:33:00:00:05,203.0.113.1,VM1 \
+                --dhcp-host=50:54:33:00:00:06,203.0.113.2,VM2 \
+                --dhcp-host=50:54:33:00:00:0a,203.0.113.3,VM3 \
+                --dhcp-host=50:54:33:00:00:0e,203.0.113.4,VM4 \
+                --dhcp-option=option:router,203.0.113.254
         ;;
     RR*)
         ip link add name eth0.public link eth0 type vlan id 90
