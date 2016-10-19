@@ -203,7 +203,8 @@ EOF
                 -4 -q \
                 -cf /mnt/lab/dhcpd.conf \
                 -lf /tmp/dhcpd.leases \
-                -pf /tmp/dhcpd.pid
+                -pf /tmp/dhcpd.pid \
+                eth2 eth3
         ;;
     RR*)
         ip link add name eth0.public link eth0 type vlan id 90
