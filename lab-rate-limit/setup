@@ -36,6 +36,13 @@ case $uts in
         #  --hashlimit-htable-size 8192 (buckets) (except when low on memory)
         #  --hashlimit-htable-max 8*size
         #  --hashlimit-htable-gcinterval 1000 (milliseconds)
+
+        # The format of /proc/net/ipt_hashlimit/web is:
+        #  - expiration (seconds)
+        #  - source->dest
+        #  - credit
+        #  - credit cap
+        #  - cost
         ;;
     router)
         ip addr add 192.0.2.1/24 dev eth0
