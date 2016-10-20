@@ -25,8 +25,17 @@ case $uts in
                  --hashlimit-mode dstip \
                  --hashlimit-above 1mb/s --hashlimit-burst 5mb \
                  --hashlimit-name web \
-                 --hashlimit-dstmask 32 \
                  -j DROP
+
+        # Default values are:
+        #  --hashlimit-burst 5
+        #  --hashlimit-srcmask 32
+        #  --hashlimit-dstmask 32
+        #  --hashlimit-htable-expire 15 (without burst)
+        #  --hashlimit-htable-expire 60 (with burst)
+        #  --hashlimit-htable-size 8192 (buckets) (except when low on memory)
+        #  --hashlimit-htable-max 8*size
+        #  --hashlimit-htable-gcinterval 1000 (milliseconds)
         ;;
     router)
         ip addr add 192.0.2.1/24 dev eth0
