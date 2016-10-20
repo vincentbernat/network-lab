@@ -96,7 +96,7 @@ setup_switch() {
 plugin/add /usr/lib/vde2/plugins/pdump.so
 pdump/filename $TMP/switch-$nb.pcap
 pdump/buffered 0
-pdump/active 1
+pdump/active ${PCAP_ENABLED:-1}
 EOF
     start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$nb.pid" \
         --start --startas $(which vde_switch) -- \
@@ -451,7 +451,7 @@ service () {
             mkdir /var/log/nginx
             mkdir -p /tmp/nginx/www
             echo $uts > /tmp/nginx/www/index.html
-            for size in 100M 1G 10G 100G; do
+            for size in 10M 100M 1G 10G 100G; do
                 dd if=/dev/zero of=/tmp/nginx/www/$size bs=1 count=1 seek=$size 2> /dev/null
             done
             execute nginx -c /mnt/common/nginx.conf

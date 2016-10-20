@@ -1,0 +1,54 @@
+#!/bin/sh
+
+LABNAME="rate-limit"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+PCAP_ENABLED=0
+
+spawn vm web     network  1
+spawn vm router  networks 1,2
+spawn vm clients network  2
+
+run
+
+# Executed on each VM
+case $uts in
+    web)
+        ip addr add 192.0.2.15/24 dev eth0
+        ip route add default via 192.0.2.1
+        service nginx           # We have /100M, /1G, /10G
+
+        # Setup QoS with netfilter, easy!
+        iptables -t raw -I OUTPUT -m hashlimit \
+                 --hashlimit-mode dstip \
+                 --hashlimit-above 1mb/s --hashlimit-burst 5mb \
+                 --hashlimit-name web \
+                 --hashlimit-dstmask 32 \
+                 -j DROP
+        ;;
+    router)
+        ip addr add 192.0.2.1/24 dev eth0
+        ip addr add 203.0.113.1/24 dev eth1
+        sysctl -qw net.ipv4.ip_forward=1
+        ;;
+    clients)
+        ip addr add 203.0.113.25/24 dev eth0
+        for i in $(seq 100 199); do
+            # Use those addresses with `curl --interface`
+            ip addr add 203.0.113.$i/32 dev eth0
+        done
+        ip route add default via 203.0.113.1
+
+        # Try this:
+        cat <<EOF''
+parallel -j5 -i curl -s \
+         --interface 203.0.113.'{}' \
+         --write-out '%{local_ip}: %{speed_download}\n' \
+         --output /dev/null \
+         http://192.0.2.15/10M \
+         -- $(seq 130 140)
+EOF
+        ;;
+esac
