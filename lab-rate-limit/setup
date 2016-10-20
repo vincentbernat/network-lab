@@ -21,10 +21,16 @@ case $uts in
         service nginx           # We have /100M, /1G, /10G
 
         # Setup QoS with netfilter, easy!
-        iptables -t raw -I OUTPUT -m hashlimit \
+        iptables -t raw -A OUTPUT -m hashlimit \
+                 -p tcp --sport 80 \
+                 --hashlimit-above 5mb/s --hashlimit-burst 10mb \
+                 --hashlimit-name web-global \
+                 -j DROP
+        iptables -t raw -A OUTPUT -m hashlimit \
+                 -p tcp --sport 80 \
                  --hashlimit-mode dstip \
                  --hashlimit-above 1mb/s --hashlimit-burst 5mb \
-                 --hashlimit-name web \
+                 --hashlimit-name web-perip \
                  -j DROP
 
         # Default values are:
@@ -37,7 +43,7 @@ case $uts in
         #  --hashlimit-htable-max 8*size
         #  --hashlimit-htable-gcinterval 1000 (milliseconds)
 
-        # The format of /proc/net/ipt_hashlimit/web is:
+        # The format of /proc/net/ipt_hashlimit/web* is:
         #  - expiration (seconds)
         #  - source->dest
         #  - credit
@@ -57,7 +63,8 @@ case $uts in
         done
         ip route add default via 203.0.113.1
 
-        # Try this:
+        # Try this. Replace -j5 by -j10 if you want to hit the global
+        # limit.
         cat <<EOF''
 parallel -j5 -i curl -s \
          --interface 203.0.113.'{}' \
