@@ -70,6 +70,13 @@ compatible with older kernels, have a look at commit 39b804c1e759. It
 uses BIRD to make copies of the device routes to the other
 tables (need BIRD 1.6.2+).
 
+The hypervisor has a local table dedicated for its own use
+(local-out). This table is built with BIRD (need 1.6.2+, otherwise,
+use commit 28a0f7758d08). This is both to enable use of several
+default routes (one public, one private) and to avoid hyperv to use
+the public interface more than necessary (like contact arbitrary
+hosts).
+
 It is possible to replace one of the route reflector (RR2) by a
 Juniper vRR. You need a proper image (at least 15.1) to be placed in
 `images/junos-vrr.img`.

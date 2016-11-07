@@ -147,9 +147,9 @@ EOF
         # that's not our problem.
 
         # Local lookups
-        ip rule add iif lo lookup main    priority 21
-        ip rule add iif lo lookup private priority 22
-        ip rule add iif lo lookup public  priority 23 # Last: has a default
+        ip rule add iif lo lookup main      priority 21
+        ip rule add iif lo lookup local-out priority 22 # mostly local-out = private + public
+        ip rule add iif lo unreachable      priority 23
         # Private lookups
         ip rule add iif eth0.private lookup private priority 26
         ip rule add iif eth0.private unreachable    priority 27
