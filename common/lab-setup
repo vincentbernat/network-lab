@@ -175,6 +175,9 @@ spawn () {
         juniper-vrr)
             start_juniper_vrr
             ;;
+        juniper-vsrx)
+            start_juniper_vsrx
+            ;;
     esac
 }
 
@@ -410,6 +413,47 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -boot c \
      -drive file=$TMP/junos-$name.img,if=ide,media=disk \
      -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
+     \
+     -chardev stdio,id=charserial0,signal=off \
+     -device isa-serial,chardev=charserial0,id=serial0 \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -mon chardev=con0,mode=readline,default \
+     \
+     $netargs
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    chmod +x "$TMP/vm-$name.exec"
+    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+}
+
+start_juniper_vsrx () {
+    name=$NAME
+    netargs=""
+    for net in $NET; do
+        mac=$(mac_address)
+        netargs="$netargs -net nic,model=e1000,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+    done
+
+    log_info_msg "Start Juniper VSRX $name"
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+qemu-img create -q -f qcow2 -b $PWD/../images/junos-vsrx.img $TMP/junos-$name.img
+mkdir -p $TMP/junos-$name-iso
+cp junos-$name.conf $TMP/junos-$name-iso/juniper.conf
+genisoimage -quiet -o $TMP/junos-$name.iso $TMP/junos-$name-iso
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+     --start --startas $(which qemu-system-x86_64) -- \
+     -enable-kvm \
+     -nodefconfig -nodefaults \
+     -display none \
+     -m ${MEM:-4G} \
+     -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VSRX \
+     \
+     -boot c \
+     -drive file=$TMP/junos-$name.img,if=ide,media=disk \
+     -drive file=$TMP/junos-$name.iso,if=ide,media=cdrom \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \

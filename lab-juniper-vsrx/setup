@@ -1,0 +1,27 @@
+#!/bin/sh
+
+LABNAME="vsrx"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm R1 network 1
+spawn vm R2 network 1
+spawn juniper-vsrx SRX1 network 1
+spawn juniper-vsrx SRX2 network 1
+
+run
+
+case $uts in
+    R1)
+        ip addr add 192.0.2.1/24 dev eth0
+        ip addr add 198.51.100.101/32 dev dummy0
+        service bird
+        ;;
+    R2)
+        ip addr add 192.0.2.2/24 dev eth0
+        ip addr add 198.51.100.102/32 dev dummy0
+        service bird
+        ;;
+esac

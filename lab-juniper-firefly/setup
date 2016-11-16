@@ -280,7 +280,7 @@ start_srx () {
     IFS="$saveifs"
 
     log_info_msg "Start SRX $name"
-    qemu-img create -q -f qcow2 -b $PWD/../images/junos-vsrx.img $TMP/junos-$name.img
+    qemu-img create -q -f qcow2 -b $PWD/../images/junos-firefly.img $TMP/junos-$name.img
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
         echo
