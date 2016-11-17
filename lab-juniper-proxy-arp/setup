@@ -1,0 +1,28 @@
+#!/bin/sh
+
+LABNAME="firefly"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm A network 1
+spawn vm B network 1,2
+spawn juniper-firefly SRX network 1,2
+
+run
+
+case $uts in
+    A)
+        # Simple host
+        ip addr add 192.0.2.3/24 dev eth0
+        ;;
+    B)
+        # This host IP is 192.0.2.2.
+        ip addr add 192.0.2.2/24 dev eth0
+        ip addr add 192.0.2.2/32 dev lo
+        ip addr add 198.51.100.0/31 dev eth1
+        ip route add default via 198.51.100.1
+        service bird
+        ;;
+esac
