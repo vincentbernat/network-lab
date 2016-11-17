@@ -431,6 +431,8 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set -w -t $name force-width 80
+    tmux set -w -t $name force-heigh 25
 }
 
 start_juniper_vsrx () {
@@ -442,7 +444,7 @@ start_juniper_vsrx () {
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
 
-    log_info_msg "Start Juniper VSRX $name"
+    log_info_msg "Start Juniper vSRX $name"
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vsrx.img $TMP/junos-$name.img
@@ -472,6 +474,8 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set -w -t $name force-width 80
+    tmux set -w -t $name force-heigh 25
 }
 
 start_juniper_firefly () {
@@ -484,7 +488,7 @@ start_juniper_firefly () {
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
 
-    log_info_msg "Start Juniper VSRX $name"
+    log_info_msg "Start Juniper vSRX $name"
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-firefly.img $TMP/junos-$name.img
@@ -519,6 +523,8 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set -w -t $name force-width 80
+    tmux set -w -t $name force-heigh 25
 }
 
 ########################################################################
