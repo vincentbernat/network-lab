@@ -178,6 +178,12 @@ spawn () {
         juniper-vsrx)
             start_juniper_vsrx
             ;;
+        juniper-firefly)
+            start_juniper_firefly
+            ;;
+        *)
+            log_error_msg "Unknown kind of VM \`$kind'"
+            ;;
     esac
 }
 
@@ -461,6 +467,53 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
      -mon chardev=con0,mode=readline,default \
      \
+     $netargs
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    chmod +x "$TMP/vm-$name.exec"
+    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+}
+
+start_juniper_firefly () {
+    # This is not the same as VSRX as the provisioning is different
+    name=$NAME
+    netargs=""
+    for net in $NET; do
+        mac=$(mac_address)
+        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+    done
+
+    log_info_msg "Start Juniper VSRX $name"
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+qemu-img create -q -f qcow2 -b $PWD/../images/junos-firefly.img $TMP/junos-$name.img
+mkdir -p $TMP/tftp
+ln -s $PWD/junos-$name.conf $TMP/tftp/$name.conf
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+     --start --startas $(which qemu-system-x86_64) -- \
+     -enable-kvm \
+     -nodefconfig -nodefaults \
+     -display none \
+     -machine pc \
+     -cpu host \
+     -smp cpus=2 \
+     -rtc base="2014-06-09" \
+     -smbios 'type=0,vendor=,version=' \
+     -smbios 'type=1,product=,version=' \
+     -m ${MEM:-512M} \
+     \
+     -boot c \
+     -drive file=$TMP/junos-$name.img,if=ide,media=disk \
+     \
+     -chardev stdio,id=charserial0,signal=off \
+     -device isa-serial,chardev=charserial0,id=serial0 \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -mon chardev=con0,mode=readline,default \
+     \
+     -net nic,model=virtio,macaddr=$(mac_address),vlan=4095 \
+     -net user,vlan=4095,tftp=$TMP/tftp,hostname=$name \
      $netargs
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
