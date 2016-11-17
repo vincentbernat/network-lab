@@ -484,7 +484,7 @@ start_juniper_firefly () {
     netargs=""
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net nic,model=e1000,macaddr=$mac,vlan=$net"
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
 
@@ -516,7 +516,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
      -mon chardev=con0,mode=readline,default \
      \
-     -net nic,model=virtio,macaddr=$(mac_address),vlan=4095 \
+     -net nic,model=e1000,macaddr=$(mac_address),vlan=4095 \
      -net user,vlan=4095,tftp=$TMP/tftp,hostname=$name \
      $netargs
 EOF
