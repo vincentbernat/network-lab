@@ -137,8 +137,40 @@ A. After a few seconds:
     192.0.2.1 dev eth0 lladdr 50:54:33:00:00:04 REACHABLE
     192.0.2.2 dev eth0 lladdr 50:54:33:00:00:02 STALE
 
+Also, another odd behavior. If we want to delete the ARP entry before
+its expiration, it doesn't work. No error, but entry is still here:
+
+    root@SRX> show arp no-resolve expiration-time
+    MAC Address       Address         Interface     Flags    TTE
+    50:54:33:00:00:02 192.0.2.2       ge-0/0/1.0           none  206
+    50:54:33:00:00:01 192.0.2.3       ge-0/0/1.0           none  104
+    50:54:33:00:00:03 198.51.100.0    ge-0/0/2.0           none  139
+    Total entries: 3
+    
+    root@SRX> clear arp hostname 192.0.2.2 interface ge-0/0/1.0
+    
+    root@SRX> show route 192.0.2.2
+    
+    inet.0: 5 destinations, 5 routes (5 active, 0 holddown, 0 hidden)
+    + = Active Route, - = Last Active, * = Both
+    
+    192.0.2.2/32       *[BGP/170] 00:00:09, localpref 100
+                          AS path: I
+                        > to 198.51.100.0 via ge-0/0/2.0
+
+As long as we have a route overlapping the ARP entry, we cannot delete
+the entry. If we remove the route, there is no problem to remove the entry:
+
+    B# ip route del 192.0.2.2/32 dev lo
+    
+    root@SRX> clear arp hostname 192.0.2.2 interface ge-0/0/1.0
+    192.0.2.2        deleted
+
 Workarounds
 -----------
 
 A limited workaround is to lower the aging timer. This is done in the
 lab and the timer is 1 minute. This is not really satisfying.
+
+Another workaround would be to use event scripts. However, since we
+cannot delete the ARP entry, this won't work.
