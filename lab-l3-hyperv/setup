@@ -259,5 +259,5 @@ EOF
         ;;
 esac
 
-sysctl -qw net.ipv4.conf.arp_announce=2
+sysctl -qw net.ipv4.conf.all.arp_announce=2
 service nginx
