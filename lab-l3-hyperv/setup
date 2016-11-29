@@ -152,19 +152,20 @@ EOF
         ip rule add iif lo unreachable      priority 23
         # Private lookups
         ip rule add iif eth0.private lookup private priority 26
-        ip rule add iif eth0.private unreachable    priority 27
+        ip rule add iif eth0.private blackhole      priority 27
         ip rule add iif eth1.private lookup private priority 28
-        ip rule add iif eth1.private unreachable    priority 29
+        ip rule add iif eth1.private blackhole      priority 29
         # Public lookups (the remaining)
         ip rule add lookup public priority 99
-        ip rule add unreachable   priority 100
+        ip rule add blackhole     priority 100
 
         # For IPv6, we don't have private stuff. So, simpler
         # rules. Also, route lookup is a bit different in IPv6. Routes
         # to next-hop need to be looked up as well.
         ip -6 rule add lookup main   priority 51
         ip -6 rule add lookup public priority 53 # Last: has a default
-        ip -6 rule add unreachable   priority 100
+        ip -6 rule add iif lo unreachable priority 99
+        ip -6 rule add blackhole          priority 100
 
         # Add routes to VM. Of course, it should be done by some kind
         # of automatic registration process.
@@ -243,10 +244,14 @@ EOF
         ip -6 addr add 2001:db8:c633:6401::ff/120 dev eth1.public
 
         # Routing
-        ip rule add iif lo lookup main   priority 51
-        ip rule add iif lo lookup public priority 53 # Last: has a default
+        ip rule add lookup main   priority 51
+        ip rule add lookup public priority 53 # Last: has a default
+        ip rule add iif lo unreachable priority 99
+        ip rule add blackhole          priority 100
         ip -6 rule add lookup main   priority 51
         ip -6 rule add lookup public priority 53 # Last: has a default
+        ip -6 rule add iif lo unreachable priority 99
+        ip -6 rule add blackhole          priority 100
 
         # We are a router
         sysctl -qw net.ipv4.ip_forward=1
