@@ -116,6 +116,12 @@ EOF
                    -j LOG --log-prefix "NF: BGP/BFD: " --log-level warning
         ip46tables -A BGP-BFD -j DROP
 
+        # When virnet-host is enabled, checksums of locally generated
+        # UDP packets to vnet interfaces are not computed.
+        for vmiface in $vmifaces; do
+            iptables -t mangle -A OUTPUT -o $vmiface -p udp --dport 68 -j CHECKSUM --checksum-fill
+        done
+
         # Don't accept redirects and don't generate them (we don't
         # control how much time it takes for them to expire). As a
         # router, we should not accept redirects, but better safe than
