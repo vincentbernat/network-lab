@@ -100,6 +100,11 @@ restart.
 >    plane on the BGP peer might be working and only the control plane
 >    has gone down.
 
+However, this means that BFD needs to continue to run. On JunOS,
+*bgpd* and *bfdd* are two different processes. However, with BIRD,
+this is not possible. When configuring a Juniper VRR with graceful
+restart, we don't get graceful restart either due to this problem.
+
 [1]: https://www.juniper.net/techpubs/en_US/junose10.3/information-products/topic-collections/swconfig-bgp-mpls/id-44002.html
 
 # Problem 2

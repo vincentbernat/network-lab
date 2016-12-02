@@ -6,11 +6,14 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 # Which VM to spawn
-spawn vm RR1 network  1
 spawn vm R1  networks 1,2
 spawn vm R2  networks 1,3
 spawn vm H1  network  2
 spawn vm H2  network  3
+
+# Choose one of the following lines:
+#spawn vm RR1 network  1
+spawn juniper-vrr RR1 networks 0,1
 
 run
 
