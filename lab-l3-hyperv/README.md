@@ -8,6 +8,8 @@ The hypervisors distribute routes to VM using BGP (through a pair of
 route reflectors) on two distinct L2 layers. ARP proxying is used to
 let the hypervisors answer to ARP requests for VM on other hypervisors
 
+## IPv6
+
 This lab is also compatible with IPv6 but there are small drawbacks:
 
  - BIRD doesn't support correctly IPv6 ECMP routes until 1.6.1. If you
@@ -27,6 +29,8 @@ This lab is also compatible with IPv6 but there are small drawbacks:
 
 IPv6 was broken with commit 8c14586fc320 (part of 4.7) and fixed with
 a435a07f9164 (part of 4.8).
+
+## Variations
 
 There are various iterations of this lab:
 
@@ -80,3 +84,19 @@ hosts).
 It is possible to replace one of the route reflector (RR2) by a
 Juniper vRR. You need a proper image (at least 15.1) to be placed in
 `images/junos-vrr.img`.
+
+## Use of BFD
+
+There are some limitations of using BFD with BIRD. If the hypervisors
+are directly connected to the route reflectors (for example, if the
+top of the rack switch act as a route reflector), it makes sense to
+disabled BFD: link failure should be enough to detect the peer is
+down.
+
+With BIRD, BFD is handled by the same process as BGP. It disables the
+ability to use BGP graceful restart since the BFD sessions are
+interrupted at the same time than the BGP session. If you disable BFD,
+you can enable graceful restart. This can be done by reverting commit
+10762d58961c. When disabling BFD, you may want to check that a link
+down is enough to bring down the BGP session. Otherwise, you will also
+need to reduce the BGP timers.
