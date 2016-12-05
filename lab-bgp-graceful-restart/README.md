@@ -286,3 +286,53 @@ is expunged:
     Dec  5 13:46:40.060434 bgp_rt_sync:1511: 192.0.2.2 (Internal AS 65000): remove from readyq
     Dec  5 13:46:40.060440 bgp_oq_ready_dequeue:1382: group public-v4 type Internal: delete for ribix 1
     Dec  5 13:46:41.059923 Group timer update, nexttime=0
+
+## Diagnostic
+
+Before "restart", we can check that the peers agree on the restart stuff:
+
+    root@RR1# run show bgp neighbor 192.0.2.1
+    Peer: 192.0.2.1+35445 AS 65000 Local: 192.0.2.254+179 AS 65000
+      Group: public-v4             Routing-Instance: master
+      Forwarding routing-instance: master
+      Type: Internal    State: Established  (route reflector client)Flags: <Unconfigured Sync>
+      Last State: OpenConfirm   Last Event: RecvKeepAlive
+      Last Error: None
+      Options: <Preference LocalAddress GracefulRestart Ttl Cluster Refresh>
+      Local Address: 192.0.2.254 Holdtime: 90 Preference: 170
+      Number of flaps: 0
+      Peer ID: 0.0.0.1         Local ID: 1.1.1.1           Active Holdtime: 90
+      Keepalive Interval: 30         Group index: 0    Peer index: 0
+      I/O Session Thread: bgpio-0 State: Enabled
+      BFD: disabled, down
+      NLRI for restart configured on peer: inet-unicast
+      NLRI advertised by peer: inet-unicast
+      NLRI for this session: inet-unicast
+      Peer supports Refresh capability (2)
+      Restart time configured on the peer: 60
+      Stale routes from peer are kept for: 60
+      Restart time requested by this peer: 120
+      Restart flag received from the peer: Restarting
+      NLRI that peer supports restart for: inet-unicast
+      NLRI peer can save forwarding state: inet-unicast
+      NLRI that peer saved forwarding for: inet-unicast
+      NLRI that restart is negotiated for: inet-unicast
+      NLRI of received end-of-rib markers: inet-unicast
+      NLRI of all end-of-rib markers sent: inet-unicast
+      Peer does not support LLGR Restarter or Receiver functionality
+      Peer supports 4 byte AS extension (peer-as 65000)
+      Peer does not support Addpath
+      Table inet.0 Bit: 20000
+        RIB State: BGP restart is complete
+        Send state: in sync
+        Active prefixes:              1
+        Received prefixes:            1
+        Accepted prefixes:            1
+        Suppressed due to damping:    0
+        Advertised prefixes:          1
+      Last traffic (seconds): Received 1968 Sent 4    Checked 1968
+      Input messages:  Total 4      Updates 2       Refreshes 0     Octets 145
+      Output messages: Total 0      Updates 1       Refreshes 0     Octets 104
+      Output Queue[1]: 0            (inet.0, inet-unicast)
+      Trace options: open, general, state, graceful-restart, bridge
+      Trace file: /var/log/bgp size 131072 files 10
