@@ -179,3 +179,110 @@ forget time 30`.
 
 The only "bug" left is the fact that an incoming connection cannot be
 established due to a previous BFD error. Is that really a bug?
+
+# Problem 3
+
+Even without BFD, graceful restart with a Juniper VRR doesn't work. As
+soon as the Juniper VRR detects the BGP session is closed, the route
+is expunged:
+
+    Dec  5 13:46:40.056062 bgp_io_mgmt_cb: peer 192.0.2.1 (Internal AS 65000): USER_IND_ERROR event for I/O session Broken pipe - closing it
+    Dec  5 13:46:40.056914 bgp_peer_close_and_restart: closing peer 192.0.2.1 (Internal AS 65000), state is 7 (Established) event Restart
+    Dec  5 13:46:40.056924 bgp_send_deactivate:2368: 192.0.2.1 (Internal AS 65000) ,flags=0x8010002: removed from active list
+    Dec  5 13:46:40.056935 bgp_event: peer 192.0.2.1 (Internal AS 65000) old state Established event Restart new state Idle
+    Dec  5 13:46:40.057018 bgp_rt_unsync_all:1671: 192.0.2.1 (Internal AS 65000): entered v4nsync 2
+    Dec  5 13:46:40.057029 bgp_oq_ready_enqueue:1340: group public-v4 type Internal: called for ribix 1, inserted node on thread
+    Dec  5 13:46:40.057036 bgp_rt_nosync_bitreset: bgp (0xb7fa000) group public-v4 type Internal, bgp_nosync { 0xb7fa69c, 0xb7fa69c }
+    Dec  5 13:46:40.057043 bgp_rt_unsync_all:1715: 192.0.2.1 (Internal AS 65000): end v4nsync 1
+    Dec  5 13:46:40.057053 BGP peer 192.0.2.1 (Internal AS 65000) rt terminate: enqueue in close list, start close job (flags Unconfigured Closing GRHelperMark)
+    Dec  5 13:46:40.058244 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: Threaded I/O session delete done event - do user cleanup
+    Dec  5 13:46:40.058261 I/O session delete o-101-11-BGP_65000.192.0.2.1+57697 (0xad1f620): current bgp I/O session 0xad1f620, pending session count 0
+    Dec  5 13:46:40.058270 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: Unlink theI/O session
+    Dec  5 13:46:40.058276 I/O session delete o-101-11-BGP_65000.192.0.2.1+57697: primary session 0xad1f620 socket -1 unlinked, user cleanup completed
+    Dec  5 13:46:40.058284 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: Check proceed with close? Rt terminate=In Progress, I/O session cleanup=Complete
+    Dec  5 13:46:40.058322 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: I/O session delete completed synchronously, res 0, error 32
+    Dec  5 13:46:40.058419 bgp_rti_terminate 192.0.2.1 (Internal AS 65000): peer close flags 0x9, rtt -, terminating=Y routes 0, bgp routes 1
+    Dec  5 13:46:40.058495 CHANGE   203.0.113.0/24      nhid 0 gw zero-len        BGP      pref 170/-101 metric  <Delete Int Ext>  as 65000
+    Dec  5 13:46:40.058505 bgp_rti_terminate 192.0.2.1 (Internal AS 65000): terminating, rt deleted
+    Dec  5 13:46:40.058513 rt_close: 1/0 route proto BGP_RT_Background from
+    Dec  5 13:46:40.058513
+    Dec  5 13:46:40.058525 bgp_rti_terminate 192.0.2.1 (Internal AS 65000) complete, 96us saw 1 10416/s marked 0 deleted 1
+    Dec  5 13:46:40.058545 bgp_advq_peer_clear_int: Clear bits on route 198.51.100.0 via BGP_Group_public-v4
+    Dec  5 13:46:40.058556 bgp_reref_adv_helper_rt: 192.0.2.1 (Internal AS 65000) not re-referencing route 198.51.100.0 via peer_clear adv_entry: no afmets
+    Dec  5 13:46:40.058566 bgp_bit_reset: 198.51.100.0 Clearing bit 0x20000
+    Dec  5 13:46:40.058573 From 192.0.2.2
+    Dec  5 13:46:40.058580 bgp_master_tsi_free: Freeing bgp_tsi_t for 198.51.100.0
+    Dec  5 13:46:40.058591 bgp_advq_peer_clear_int: Clear bits on route 203.0.113.0via BGP_Group_public-v4
+    Dec  5 13:46:40.058604 BGP close rib done: bcls 0xb809a80 (RIB Done)peer 192.0.2.1 (Internal AS 65000), group group public-v4 type Internal ribix 0x1
+    Dec  5 13:46:40.058628 bgp_flush_grhelp_labels 192.0.2.1 (Internal AS 65000) nothing to do
+    Dec  5 13:46:40.058634 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: Check proceed with close? Rt terminate=Complete, I/O session cleanup=Complete
+    Dec  5 13:46:40.058647 bgp_peer_post_close: Cleanup complete for peer 192.0.2.1(last_flap Restart, state Idle, flags Unconfigured)
+    Dec  5 13:46:40.058658 bgp_peer_post_close:6864 BGP peer 192.0.2.1 (Internal AS65000) CLOSE: post close cleanup - NO restart required, (last_flap Restart, state Idle, flags Unconfigured), group (flags , # peers 2)
+    Dec  5 13:46:40.058672 BGP 192.0.2.1 (Internal AS 65000) unlink from group public-v4 type Internal
+    Dec  5 13:46:40.058679 BGP peer 192.0.2.1 (Internal AS 65000) free
+    Dec  5 13:46:40.058685 bgp_flush_grhelp_labels 192.0.2.1 (Internal AS 65000) nothing to do
+    Dec  5 13:46:40.058738 bgp_flash_cb: rtt (null)(0xb924200) rib=1 flash type=1 cb target=group public-v4 type Internal
+    Dec  5 13:46:40.058759 bgp_rto_count_update:2170: 192.0.2.2 (Internal AS 65000): rib 1, priority 0, updated count, 0 + 1 =  1
+    Dec  5 13:46:40.058766 bgp_rt_timer_update_now: Forced update of route timer to1324 for group public-v4 type Internal
+    Dec  5 13:46:40.058774 bgp_oq_ready_enqueue:1321: group public-v4 type Internal: called for ribix 1, node inserted into rtq_ready thread pri 0
+    Dec  5 13:46:40.058779 bgp_oq_ready_enqueue:1328: group public-v4 type Internal: called for ribix 1, node already on rtq_ready thread
+    Dec  5 13:46:40.058790 bgp_write_ready:3331: 192.0.2.2 (Internal AS 65000): Write ready, inserted in act list, write job started
+    Dec  5 13:46:40.058799 bgp_rt_send_group_subr:3182: group public-v4 type Internal: table=1, state_grp=0xab27d80, Triggered write ready for 1 total and 1 sync peers, isflash=1, nextime -14872, start = 1324:177208, peers in sync 1
+    Dec  5 13:46:40.058804 bgp_group_ready:7739: group public-v4 type Internal: ribix 0x1, isflash
+    Dec  5 13:46:40.058812 Group ready, new=Y, grprib=0xb928a00 {sbits=0xc6fd4b0, sync=0xc6fd4b0, ribsync=Y, rtqdefer=N}, rtq ready=Y, act rib=1, nsync=1, rto nexttme=1324
+    Dec  5 13:46:40.059922 brt_active_set:2722: send proc: active table set for peer 192.0.2.2 (Internal AS 65000), rib 1, priority 0
+    Dec  5 13:46:40.059936 bgp_rt_send_active:3824: group=group public-v4 type Internal, priorities not done=1
+    Dec  5 13:46:40.059945 bgp_rt_send_active_subr:3495: send proc: group=group public-v4 type Internal, stategrp=0xab27d80, act=0xadb8200 table 1 sending to peersfor priority 0
+    Dec  5 13:46:40.060042 bgp_rt_send_active_subr:3566: group=group public-v4 typeInternal, table 1 sending to 1 peers for priority 0
+    Dec  5 13:46:40.060058 bgp_rt_send_common:2076: group public-v4 type Internal: Start, 1324:178336
+    Dec  5 13:46:40.060068 bgp_rt_send_common:2111: group public-v4 type Internal: rtop=0xa8fbe5c, prev (mrtop=0x0, mrtop_next=0x0, status=0x0 tokens=1)
+    Dec  5 13:46:40.060078 Initialized group send msg bld area data=0xa8fbf4c
+    Dec  5 13:46:40.060087 bgp_rt_send_attr_insert:1670: group public-v4 type Internal: Inserted attr into update, status=0x0
+    Dec  5 13:46:40.060093 bgp_rt_send_update_check_init:1917: group public-v4 typeInternal: Initialized new update with attr, status=0x0
+    Dec  5 13:46:40.060108 bgp_bit_reset: 203.0.113.0 Clearing bit 0x20000
+    Dec  5 13:46:40.060116 bgp_master_tsi_free: Freeing bgp_tsi_t for 203.0.113.0
+    Dec  5 13:46:40.060136 RELEASE  203.0.113.0/24      nhid 0 gw zero-len        BGP      pref 170/-101 metric  <Release Delete Int Ext>  as 65000
+    Dec  5 13:46:40.060155 start @ mrtop=0x0
+    Dec  5 13:46:40.060164 bgp_peer_send_msg_start:2325: Cloned new peer send msg into build area 0xc3b69b8 from group, parts=3, bytes=27
+    Dec  5 13:46:40.060173 BGP_65000.192.0.2.2+47355: send proc: send via threaded I/O
+    Dec  5 13:46:40.060183  wrote 27 bytes to I/O queue
+    Dec  5 13:46:40.060189 finished number of messages 3, write qidx 1 rc 1
+    Dec  5 13:46:40.060196 bgp_output_thrashold_reached: peer 192.0.2.2 (Internal AS 65000): rtt 0xb924200 id 0x1000000, change count 0, bgp threshold 5000
+    Dec  5 13:46:40.060201 bgp_rt_send_message:1449: 192.0.2.2 (Internal AS 65000):send succeeded, written=27
+    Dec  5 13:46:40.060208 bgp_rt_send_v4_flush:1754: 192.0.2.2 (Internal AS 65000): Flushed, len=0, status=0x0, updates 24, updates_bnp 24, tokens=0
+    Dec  5 13:46:40.060214 bgp_send_flush:997: send proc: Flushed, type=1, status=0x0
+    Dec  5 13:46:40.060220 bgp_group_send_msg_done:2099: group public-v4 type Internal: Reset/released group send msg bld area
+    Dec  5 13:46:40.060226 bgp_send_handle_error:1324: group public-v4 type Internal: Flush type=GROUPP, status=0x0, num_tokens=0
+    Dec  5 13:46:40.060237 bgp_send_handle_error:1422: group public-v4 type Internal: Flush type=GROUPP, status=0x0, Return status=0x20, num_tokens=0 - exit
+    Dec  5 13:46:40.060242 rt send common: Exited loop normally - flushed partial -status=0x20
+    Dec  5 13:46:40.060247 rt send common: END, status=0x20
+    Dec  5 13:46:40.060252 bgp_group_send_msg_done:2099: group public-v4 type Internal: Reset/released group send msg bld area
+    Dec  5 13:46:40.060260 bgp_rt_send_common_end:1496: 192.0.2.2 (Internal AS 65000): rib 1, priority 0, Decrement count 1 - 1 =  0
+    Dec  5 13:46:40.060269 bgp_rt_send_common:2591: group public-v4 type Internal: Saved key BRT_KEY rib 1, pri 0, brt_key(0xffff7048), {gen=0, t=1324} mets=0x0, rt=0xac08274, addpath=N
+    
+    Dec  5 13:46:40.060278 bgp_rt_send_active_subr:3606: group public-v4 type Internal: sent: 1 timer expired(start = 1324:178336, nexttime = 1),  Flash deferred: 0 Peers blocked: 0 , status=0x20
+    Dec  5 13:46:40.060285 brt_active_set:2722: send proc: active table set for peer 192.0.2.2 (Internal AS 65000), rib 1, priority 0
+    Dec  5 13:46:40.060291 bgp_rt_send_active_subr:3659: group=group public-v4 typeInternal, Reinserted active markers, requeue_active=Y,- status=0x20
+    Dec  5 13:46:40.060297 bgp_rt_send_active_subr:3671: group public-v4 type Internal: suspend/tokens, flush type = GROUPP, status = 0x20, ret status = 0x20, tokens = 0
+    Dec  5 13:46:40.060303 bgp_rt_send_active:3872: group public-v4 type Internal: Sent priority 0 status 0x20 1 tokens used 0 tokens still left, last_used_nothingis 0
+    Dec  5 13:46:40.060310 bgp_rt_send_active:3943: group public-v4 type Internal: refilling tokens
+    Dec  5 13:46:40.060317 bgp_rt_send_active_subr:3495: send proc: group=group public-v4 type Internal, stategrp=0xab27d80, act=0xadb8200 table 1 sending to peersfor priority 0
+    Dec  5 13:46:40.060323 bgp_rt_send_active_subr:3566: group=group public-v4 typeInternal, table 1 sending to 1 peers for priority 0
+    Dec  5 13:46:40.060329 bgp_rt_send_common:2076: group public-v4 type Internal: Start, 1324:178336
+    Dec  5 13:46:40.060347 rt send common: END, status=0x0
+    Dec  5 13:46:40.060353 bgp_group_send_msg_done:2099: group public-v4 type Internal: Reset/released group send msg bld area
+    Dec  5 13:46:40.060362 bgp_rt_send_common:2591: group public-v4 type Internal: Saved key BRT_KEY rib 1, pri 0, brt_key(0xffff7048), {gen=0, t=1324} mets=0x0, rt=0xac08274, addpath=N
+    
+    Dec  5 13:46:40.060371 bgp_rt_send_active_subr:3606: group public-v4 type Internal: sent: 0 timer expired(start = 1324:178336, nexttime = 1),  Flash deferred: 0 Peers blocked: 0 , status=0x0
+    Dec  5 13:46:40.060378 bgp_rt_send_active_subr:3659: group=group public-v4 typeInternal, Reinserted active markers, requeue_active=N,- status=0x0
+    Dec  5 13:46:40.060385 bgp_rt_send_active_subr:3688: group public-v4 type Internal: 1 peers processed a RIB, enqueue active queue of next RIB at marker rib_act=1, pri=0, status=0x0
+    Dec  5 13:46:40.060392 bgp_rt_send_active:3872: group public-v4 type Internal: Sent priority 0 status 0x0 0 tokens used 1 tokens still left, last_used_nothing is 1
+    Dec  5 13:46:40.060398 bgp_rt_send_active:3905: group public-v4 type Internal: priority=0, done
+    Dec  5 13:46:40.060404 bgp_rt_send_active:3975: group public-v4 type Internal: END, status=0x0
+    Dec  5 13:46:40.060410 bgp_write: group group public-v4 type Internal: wrote routes, status = 0x0
+    Dec  5 13:46:40.060416 bgp_write: peer 192.0.2.2 (Internal AS 65000): wrote routes, status=SEND_OK, no more work
+    Dec  5 13:46:40.060422 bgp_write:3263: 192.0.2.2 (Internal AS 65000): removed from active list
+    Dec  5 13:46:40.060428 bgp_rt_sync:1471: 192.0.2.2 (Internal AS 65000): v4bits 1 v4nsync 1 peer insync y
+    Dec  5 13:46:40.060434 bgp_rt_sync:1511: 192.0.2.2 (Internal AS 65000): remove from readyq
+    Dec  5 13:46:40.060440 bgp_oq_ready_dequeue:1382: group public-v4 type Internal: delete for ribix 1
+    Dec  5 13:46:41.059923 Group timer update, nexttime=0
