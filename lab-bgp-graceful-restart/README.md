@@ -336,3 +336,50 @@ Before "restart", we can check that the peers agree on the restart stuff:
       Output Queue[1]: 0            (inet.0, inet-unicast)
       Trace options: open, general, state, graceful-restart, bridge
       Trace file: /var/log/bgp size 131072 files 10
+
+As per RFC 4724, it is said:
+
+> When the Receiving Speaker detects termination of the TCP session for
+> a BGP session with a peer that has advertised the Graceful Restart
+> Capability, it MUST retain the routes received from the peer for all
+> the address families that were previously received in the Graceful
+> Restart Capability and MUST mark them as stale routing information.
+
+So, there is something wrong here.
+
+If we declare neighbors explicitely with `neighbor` instead of using
+`allow`, this works:
+
+    Dec  5 14:34:01.372167 bgp_io_mgmt_cb: peer 192.0.2.1 (Internal AS 65000): USER_IND_ERROR event for I/O session Broken pipe - closing it
+    Dec  5 14:34:01.373425 bgp_peer_close_and_restart: closing peer 192.0.2.1 (Internal AS 65000), state is 7 (Established) event Restart
+    Dec  5 14:34:01.373437 bgp_send_deactivate:2368: 192.0.2.1 (Internal AS 65000) ,flags=0x8010000: removed from active list
+    Dec  5 14:34:01.373452 bgp_event: peer 192.0.2.1 (Internal AS 65000) old state Established event Restart new state Idle
+    Dec  5 14:34:01.373520 bgp_rt_unsync_all:1671: 192.0.2.1 (Internal AS 65000): entered v4nsync 2
+    Dec  5 14:34:01.373530 bgp_oq_ready_enqueue:1340: group public-v4 type Internal: called for ribix 1, inserted node on thread
+    Dec  5 14:34:01.373537 bgp_rt_nosync_bitreset: bgp (0xb7fa000) group public-v4 type Internal, bgp_nosync { 0xb7fa69c, 0xb7fa69c }
+    Dec  5 14:34:01.373543 bgp_rt_unsync_all:1715: 192.0.2.1 (Internal AS 65000): end v4nsync 1
+    Dec  5 14:34:01.373553 BGP peer 192.0.2.1 (Internal AS 65000) rt terminate: enqueue in close list, start close job (flags Closing GRHelperMark)
+    Dec  5 14:34:01.374745 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: Threaded I/O session delete done event - do user cleanup
+    Dec  5 14:34:01.374755 I/O session delete o-98-3-BGP_65000.192.0.2.1 (0xad1f620): current bgp I/O session 0xad1f620, pending session count 0
+    Dec  5 14:34:01.374762 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: Unlink theI/O session
+    Dec  5 14:34:01.374766 I/O session delete o-98-3-BGP_65000.192.0.2.1: primary session 0xad1f620 socket -1 unlinked, user cleanup completed
+    Dec  5 14:34:01.374774 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: Check proceed with close? Rt terminate=In Progress, I/O session cleanup=Complete
+    Dec  5 14:34:01.374789 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: I/O session delete completed synchronously, res 0, error 32
+
+Above messages are the same. First difference is:
+
+    Dec  5 14:34:01.374905 bgp_rti_terminate 192.0.2.1 (Internal AS 65000): peer close flags 0x1, rtt -, terminating=N routes 0, bgp routes 1
+    Dec  5 14:34:01.374923 bgp_mark_route_stale 192.0.2.1 (Internal AS 65000): peerflags 0x134218752, peer's rst flags 0x8000, rt 203.0.113.0/24
+    Dec  5 14:34:01.374934 bgp_rti_terminate 192.0.2.1 (Internal AS 65000): rt 203.0.113.0/24, marked stale
+    Dec  5 14:34:01.374942 bgp_rti_terminate 192.0.2.1 (Internal AS 65000) complete, 25us saw 1 40000/s marked 1 deleted 0
+    Dec  5 14:34:01.374962 bgp_advq_peer_clear_int: Clear bits on route 198.51.100.0 via BGP_Group_public-v4
+    Dec  5 14:34:01.375007 bgp_reref_adv_helper_rt: 192.0.2.1 (Internal AS 65000) not re-referencing route 198.51.100.0 via peer_clear adv_entry: no afmets
+    Dec  5 14:34:01.375020 bgp_bit_reset: 198.51.100.0 Clearing bit 0x20000
+    Dec  5 14:34:01.375027 From 192.0.2.2
+    Dec  5 14:34:01.375034 bgp_master_tsi_free: Freeing bgp_tsi_t for 198.51.100.0
+    Dec  5 14:34:01.375048 bgp_advq_peer_clear_int: Clear bits on route 203.0.113.0via BGP_Group_public-v4
+    Dec  5 14:34:01.375058 BGP close rib done: bcls 0xba83a80 (RIB Done)peer 192.0.2.1 (Internal AS 65000), group group public-v4 type Internal ribix 0x1
+    Dec  5 14:34:01.375067 BGP peer 192.0.2.1 (Internal AS 65000) CLOSE: Check proceed with close? Rt terminate=Complete, I/O session cleanup=Complete
+    Dec  5 14:34:01.375077 bgp_peer_post_close: Cleanup complete for peer 192.0.2.1(last_flap Restart, state Idle, flags )
+    Dec  5 14:34:01.375087 bgp_peer_post_close:6917 BGP Peer 192.0.2.1 (Internal AS65000) CLOSE: post close cleanup - NEED restart, (last_flap Restart, state Idle, flags )
+    Dec  5 14:34:01.375094 bgp_event: peer 192.0.2.1 (Internal AS 65000) old state Idle event Start new state Active
