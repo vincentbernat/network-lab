@@ -383,3 +383,6 @@ Above messages are the same. First difference is:
     Dec  5 14:34:01.375077 bgp_peer_post_close: Cleanup complete for peer 192.0.2.1(last_flap Restart, state Idle, flags )
     Dec  5 14:34:01.375087 bgp_peer_post_close:6917 BGP Peer 192.0.2.1 (Internal AS65000) CLOSE: post close cleanup - NEED restart, (last_flap Restart, state Idle, flags )
     Dec  5 14:34:01.375094 bgp_event: peer 192.0.2.1 (Internal AS 65000) old state Idle event Start new state Active
+
+The solution is either to use `neighbor` or to use
+`unconfigured-peer-graceful-restart` option.
