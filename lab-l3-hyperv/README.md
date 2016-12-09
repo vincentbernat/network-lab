@@ -85,7 +85,7 @@ It is possible to replace one of the route reflector (RR2) by a
 Juniper vRR. You need a proper image (at least 15.1) to be placed in
 `images/junos-vrr.img`.
 
-## Use of BFD
+## Use of BFD and graceful restart
 
 There are some limitations of using BFD with BIRD. If the hypervisors
 are directly connected to the route reflectors (for example, if the
@@ -100,3 +100,10 @@ you can enable graceful restart. This can be done by reverting commit
 10762d58961c. When disabling BFD, you may want to check that a link
 down is enough to bring down the BGP session. Otherwise, you will also
 need to reduce the BGP timers.
+
+However, because of the use of route reflectors, it's difficult to use
+graceful restart. If a link goes down, the directly connected
+hypervisor will detect that and invalidate routes, but the other
+hypervisors (or systems) won't see the link down. The route reflector
+will keep the route and distribute it. Other systems will happily use
+the route even if it's invalid.
