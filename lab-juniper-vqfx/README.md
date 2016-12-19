@@ -9,7 +9,9 @@ to convert them to QCOW2:
     $ qemu-img convert -c -O qcow2 vqfx10k-re-15.1X53-D60.vmdk vqfx10k-re-15.1X53-D60.img
     $ qemu-img convert -c -O qcow2 vqfx10k-pfe-20160609-2.vmdk vqfx10k-pfe-20160609-2.img
 
-Default passwords for root are "no" for the PFE and "Juniper" for the RE.
+Default passwords for root are "no" for the PFE and "Juniper" for the
+RE. It seems the PFE will eat all your available CPU (`pechip_main`
+process). You can find the logs in `/root/pecosim`.
 
 ## OSPF
 
