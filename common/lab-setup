@@ -178,6 +178,9 @@ spawn () {
         juniper-vsrx)
             start_juniper_vsrx
             ;;
+        juniper-vqfx)
+            start_juniper_vqfx
+            ;;
         juniper-firefly)
             start_juniper_firefly
             ;;
@@ -433,6 +436,88 @@ EOF
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
     tmux set -w -t $name force-width 80
     tmux set -w -t $name force-heigh 25
+}
+
+start_juniper_vqfx () {
+    name=$NAME
+    setup_switch $name-internal
+
+    log_info_msg "Start Juniper vQFX $name (RE)"
+    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=1001" # OOB
+    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=1000" # PFE
+    netargs="$netargs -net vde,sock=$TMP/switch-$name-internal.sock,vlan=1000"
+    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=1002" # Unused
+    for net in $NET; do
+        mac=$(mac_address)
+        netargs="$netargs -net nic,model=e1000,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+    done
+    cat <<EOF > "$TMP/vm-$name-re.exec"
+#!/bin/sh
+qemu-img create -q -f qcow2 -b $PWD/../images/junos-vqfx-re.img $TMP/junos-$name-re.img
+truncate -s 10M $TMP/metadata-$name.img
+mkfs.vfat $TMP/metadata-$name.img
+mkdir -p $TMP/metadata-$name
+cp junos-$name.conf $TMP/metadata-$name/juniper.conf
+tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
+mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vqfx-config.tgz
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
+     --start --startas $(which qemu-system-x86_64) -- \
+     -enable-kvm \
+     -nodefconfig -nodefaults \
+     -display none \
+     -smp cpus=2 \
+     -m ${MEM:-2G} \
+     -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VQFX \
+     \
+     -boot c \
+     -drive file=$TMP/junos-$name-re.img,if=ide,media=disk \
+     -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
+     \
+     -chardev stdio,id=charserial0,signal=off \
+     -device isa-serial,chardev=charserial0,id=serial0 \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-re-console.pipe,server,nowait \
+     -mon chardev=con0,mode=readline,default \
+     \
+     $netargs
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-re-console.pipe"
+    chmod +x "$TMP/vm-$name-re.exec"
+    tmux new-window -d -n $name/RE "$TMP/vm-$name-re.exec"
+    tmux set -w -t $name/RE force-width 80
+    tmux set -w -t $name/RE force-heigh 25
+
+    log_info_msg "Start Juniper vQFX $name (PFE)"
+    # Unfortunately, serial console is not enabled for the PFE.
+    netargs=""
+    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=1001" # OOB
+    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=1000" # RE
+    netargs="$netargs -net vde,sock=$TMP/switch-$name-internal.sock,vlan=1000"
+    cat <<EOF > "$TMP/vm-$name-pfe.exec"
+#!/bin/sh
+qemu-img create -q -f qcow2 -b $PWD/../images/junos-vqfx-pfe.img $TMP/junos-$name-pfe.img
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
+     --start --startas $(which qemu-system-x86_64) -- \
+     -enable-kvm \
+     -nodefconfig -nodefaults \
+     -display curses -vga cirrus \
+     -m ${MEM:-1G} \
+     -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VQFX \
+     \
+     -boot c \
+     -drive file=$TMP/junos-$name-pfe.img,if=ide,media=disk \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-pfe-console.pipe,server,nowait \
+     -mon chardev=con0,mode=readline,default \
+     \
+     $netargs
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-pfe-console.pipe"
+    chmod +x "$TMP/vm-$name-pfe.exec"
+    tmux new-window -d -n $name/PFE "$TMP/vm-$name-pfe.exec"
+    tmux set -w -t $name/PFE force-width 80
+    tmux set -w -t $name/PFE force-heigh 25
 }
 
 start_juniper_vsrx () {
