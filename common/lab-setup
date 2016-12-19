@@ -497,7 +497,7 @@ EOF
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vqfx-pfe.img $TMP/junos-$name-pfe.img
-exec nice cpulimit -l 20 -- start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
      -nodefconfig -nodefaults \

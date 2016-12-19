@@ -11,7 +11,15 @@ to convert them to QCOW2:
 
 Default passwords for root are "no" for the PFE and "Juniper" for the
 RE. It seems the PFE will eat all your available CPU (`pechip_main`
-process). You can find the logs in `/root/pecosim`.
+process). You can find the logs in `/root/pecosim`. As non-root, there
+is little to do to limit the CPU usage of such a process. However, if
+you are root, you can use a cgroup to avoid using a whole host core
+for this VM:
+
+    $ sudo cgcreate -a $(id -un) -g cpu:vqfx-pfe
+    $ echo 100000 > /sys/fs/cgroup/cpu/vqfx-pfe/cpu.cfs_period_us
+    $ echo 10000  > /sys/fs/cgroup/cpu/vqfx-pfe/cpu.cfs_quote_us
+    $ sudo cgclassify -g cpu:vqfx-pfe $(ls /proc/30474/task)
 
 ## OSPF
 
