@@ -22,24 +22,7 @@ There are several names for the same thing:
 
 The password for the RE is `Juniper`. The password for the PFE is `root`.
 
-The
-[license](http://www.juniper.net/us/en/dm/free-vmx-trial/E421992502.txt) needs
-to be installed:
-
-     root@vMX> request system license add terminal
-     [Type ^D at a new line to end input,
-      enter blank line between each license key]
-     E421992502 aeaqic aiagii ipabsc idycyi giydcn jrgazd
-                adapoz gvqlkk ovxgs4 dfojcx mylma4 ukgjwr
-                zccblo iwdzky 55ejop gj7pxv 3ftbxo dz3d3c
-                qgwi7f aambfm w6i3ai 4aadc2 mpi
-     E421992502: successfully added
-     add license complete (no errors)
-
-Then, the configuration needs to be committed again (otherwise, the
-PFE won't notice the new license). vMX should now come with a
-perpetual base license, but this doesn't seem to be the case for the
-16.1 version (release notes say this should be the case for 15.1F6).
+With 15.1F6 and 16.1, no license is needed for lab use.
 
 Lab
 ---
