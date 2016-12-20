@@ -2,9 +2,10 @@ Lab with Juniper vMX
 ====================
 
 Almost the same as the lab with vSRX. We only use one vMX as they are
-quite memory heavy. You need to extract the three images from the
-tarball (`junos-vmx-x86-74*.qcow2`, `vmxhdd.img` and
-`vFPC*.img`). Convert the later to the QCOW format:
+quite memory heavy. This has been tested with the 16.1 version. You
+need to extract the three images from the tarball
+(`junos-vmx-x86-74*.qcow2`, `vmxhdd.img` and `vFPC*.img`). Convert the
+later to the QCOW format:
 
     $ qemu-img convert -c -O qcow2 vFPC-20160617.img vFPC-20160617.qcow2
     
@@ -14,6 +15,11 @@ Then, create the appropriate symlinks:
     $ ln -s junos-vmx-x86*.qcow2 junos-vmx-re.img
     $ ln -s vFPC*.qcow2 junos-vmx-pfe.img
     
+There are several names for the same thing:
+
+ - RE, vRE, vCP (control plane)
+ - FPC, PFE, vFP, vPFE (data plane)
+
 The password for the RE is `Juniper`. The password for the PFE is `root`.
 
 The
@@ -31,7 +37,9 @@ to be installed:
      add license complete (no errors)
 
 Then, the configuration needs to be committed again (otherwise, the
-PFE won't notice the new license).
+PFE won't notice the new license). vMX should now come with a
+perpetual base license, but this doesn't seem to be the case for the
+16.1 version (release notes say this should be the case for 15.1F6).
 
 Lab
 ---
