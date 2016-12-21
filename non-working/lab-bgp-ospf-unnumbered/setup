@@ -1,0 +1,83 @@
+#!/bin/sh
+
+LABNAME="bgp-ospf-unnumbered"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm H1 network 1,2
+spawn vm H2 network 1,2
+spawn vm H3 network 3,4
+spawn vm H4 network 3,4
+spawn vm T11 network 1,5,6
+spawn vm T12 network 2,5,7
+spawn vm T21 network 3,8,9
+spawn vm T22 network 3,8,10
+spawn vm A1 network 6,9
+spawn vm A2 network 7,10
+
+run
+
+case $uts in
+    A*)
+        # We could do per-VLAN bridges, just do a generic bridge
+        ip link add name br0 type bridge
+        ip link set dev eth0 master br0
+        ip link set dev eth1 master br0
+        ;;
+    H*)
+        addr=100.64.0.${uts#H}
+        ip link add name vlan191 link eth0 type vlan id 191
+        ip link add name vlan192 link eth0 type vlan id 192
+        ip link add name vlan193 link eth1 type vlan id 193
+        ip link add name vlan194 link eth1 type vlan id 194
+        case $uts in
+            H1|H2)
+                ip addr add $addr peer 100.64.0.11 dev vlan191
+                ip addr add $addr peer 100.64.0.11 dev vlan192
+                ip addr add $addr peer 100.64.0.12 dev vlan193
+                ip addr add $addr peer 100.64.0.12 dev vlan194
+                ;;
+            H3|h4)
+                ip addr add $addr peer 100.64.0.21 dev vlan191
+                ip addr add $addr peer 100.64.0.21 dev vlan192
+                ip addr add $addr peer 100.64.0.22 dev vlan193
+                ip addr add $addr peer 100.64.0.22 dev vlan194
+                ;;
+        esac
+        service bird
+        ;;
+    T*)
+        addr=100.64.0.${uts#T}
+        case $uts in
+            T*1)
+                ip link add name eth0.191 link eth0 type vlan id 191
+                ip link add name eth0.192 link eth0 type vlan id 192
+                ip link add name eth2.191 link eth2 type vlan id 191
+                ip link add name eth2.194 link eth2 type vlan id 194
+                ;;
+            T*2)
+                ip link add name eth0.193 link eth0 type vlan id 193
+                ip link add name eth0.194 link eth0 type vlan id 194
+                ip link add name eth2.193 link eth2 type vlan id 193
+                ip link add name eth2.192 link eth2 type vlan id 192
+                ;;
+        esac
+        ip link add name eth1.192 link eth1 type vlan id 192
+        ip link add name eth1.194 link eth1 type vlan id 194
+        for iface in /sys/class/net/eth*.*; do
+            iface=${iface##*/}
+            vlan=${iface#*.}
+            [ -d /sys/class/net/br$vlan ] || ip link add name br$vlan type bridge
+            ip link set dev $iface master br$vlan
+        done
+        # Cannot really do unnumbered on top of a bridge...
+        service bird
+        ;;
+esac
+
+for intf in /sys/class/net/*; do
+    intf=${intf##*/}
+    ip link set up dev $intf
+done
