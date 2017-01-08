@@ -95,14 +95,15 @@ EOF
         # RP filtering. We use Netfilter for IPv6 (3.3+) and rp_filter for IPv4 (it also filters ARP).
         ip6tables -t raw -N RPFILTER
         ip6tables -t raw -A RPFILTER -m rpfilter -j RETURN
-        ip6tables  -t raw -A RPFILTER -m rpfilter --accept-local -m addrtype --dst-type MULTICAST -j DROP
+        ip6tables -t raw -A RPFILTER -m rpfilter --accept-local -m addrtype --dst-type MULTICAST -j DROP
         ip6tables -t raw -A RPFILTER -m limit --limit 5/s --limit-burst 5 \
                    -j LOG --log-prefix "NF: rpfilter: " --log-level warning
         ip6tables -t raw -A RPFILTER -j DROP
+        sysctl -qw net.ipv4.conf.all.rp_filter=0
         for vmiface in $vmifaces; do
-                ip6tables -t raw -A PREROUTING -i $vmiface -j RPFILTER
+            ip6tables -t raw -A PREROUTING -i $vmiface -j RPFILTER
+            sysctl -qw net.ipv4.conf.$vmiface.rp_filter=1
         done
-        sysctl -qw net.ipv4.conf.all.rp_filter=1
 
         # VM could access BGP/BFD. There is TTL security, but better safe than sorry.
         ip46tables -N BGP-BFD
