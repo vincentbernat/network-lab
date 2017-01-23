@@ -107,3 +107,15 @@ hypervisor will detect that and invalidate routes, but the other
 hypervisors (or systems) won't see the link down. The route reflector
 will keep the route and distribute it. Other systems will happily use
 the route even if it's invalid.
+
+## ECMP for IPv4
+
+Starting from kernel 3.6 and until kernel 4.4, ECMP for IPv4 is done
+on a round-robin fashion instead of per-flow. It is likely to cause
+some out-of-order packets and some flows may even be dropped by some
+IDS. Flow-based hashing is back only with 4.4. See a
+nice [summary on reddit][1]. When using affected kernels, it is
+advisable to disable ECMP when installing routes from BIRD, at least
+for the default route.
+
+[1]: https://www.reddit.com/r/networking/comments/4q3wmq/ipv4_flow_based_ecmp_broken_in_linux_kernels_36/
