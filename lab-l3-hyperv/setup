@@ -178,18 +178,22 @@ EOF
         # of automatic registration process.
         case ${uts#HV} in
             1)
-                    ip route add 203.0.113.1/32 dev eth2 table public
-                    ip route add 203.0.113.2/32 dev eth3 table public
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:5/128 dev eth2 table public
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:6/128 dev eth3 table public
+                    ip route add 203.0.113.1/32 dev eth2 table public metric 10
+                    ip route add 203.0.113.10/32 dev eth2 table public metric 10
+                    ip route add 203.0.113.2/32 dev eth3 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:5/128 dev eth2 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 dev eth2 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:6/128 dev eth3 table public metric 10
                     ;;
             2)
-                    ip route add 203.0.113.3/32 dev eth2 table public
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:a/128 dev eth2 table public
+                    ip route add 203.0.113.3/32 dev eth2 table public metric 10
+                    ip route add 203.0.113.10/32 dev eth2 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:a/128 dev eth2 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 dev eth2 table public metric 10
                     ;;
             3)
-                    ip route add 203.0.113.4/32 dev eth2 table public
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:e/128 dev eth2 table public
+                    ip route add 203.0.113.4/32 dev eth2 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:e/128 dev eth2 table public metric 10
                     ;;
         esac
 
@@ -236,6 +240,14 @@ EOF
         service dhclient -v -4 -1 eth0 -lf /tmp/dhcp.leases -cf /dev/null
 
         # For IPv6, they will get RA
+
+        # Additional IPs
+        case $uts in
+            VM1|VM3)
+                ip addr add 203.0.113.10/32 dev lo
+                ip -6 addr add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 dev lo
+                ;;
+        esac
         ;;
 
     internet)
