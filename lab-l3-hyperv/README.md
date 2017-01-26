@@ -119,3 +119,12 @@ advisable to disable ECMP when installing routes from BIRD, at least
 for the default route.
 
 [1]: https://www.reddit.com/r/networking/comments/4q3wmq/ipv4_flow_based_ecmp_broken_in_linux_kernels_36/
+
+## Anycast
+
+In the lab, 203.0.113.10 and 2001:db8:cb00:7100:5254:33ff:fe00:100 are
+anycasted. However, this requires support for RFC 7911 in the route
+reflectors. BIRD comes with this support, but on JunOS, the support is
+only available from 15.1 and is really effective with 16.1. Moreover,
+on a given hypervisor, flows are not anycasted (unless an ECMP route
+is installed specifically).
