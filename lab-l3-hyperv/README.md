@@ -125,6 +125,6 @@ for the default route.
 In the lab, 203.0.113.10 and 2001:db8:cb00:7100:5254:33ff:fe00:100 are
 anycasted. However, this requires support for RFC 7911 in the route
 reflectors. BIRD comes with this support, but on JunOS, the support is
-only available from 15.1 and is really effective with 16.1. Moreover,
-on a given hypervisor, flows are not anycasted (unless an ECMP route
-is installed specifically).
+not available when using routing instances. Moreover, on a given
+hypervisor, flows are not anycasted (unless an ECMP route is installed
+specifically).
