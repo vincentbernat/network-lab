@@ -430,7 +430,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
-     -mon chardev=con0,mode=readline,default \
+     -mon chardev=con0,mode=readline \
      \
      $netargs
 EOF
@@ -482,7 +482,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
      -chardev socket,id=con0,path=$TMP/vm-$name-re-console.pipe,server,nowait \
-     -mon chardev=con0,mode=readline,default \
+     -mon chardev=con0,mode=readline \
      \
      $netargs
 EOF
@@ -513,7 +513,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -drive file=$TMP/junos-$name-pfe.img,if=ide,media=disk \
      \
      -chardev socket,id=con0,path=$TMP/vm-$name-pfe-console.pipe,server,nowait \
-     -mon chardev=con0,mode=readline,default \
+     -mon chardev=con0,mode=readline \
      \
      $netargs
 EOF
@@ -567,7 +567,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
      -chardev socket,id=con0,path=$TMP/vm-$name-re-console.pipe,server,nowait \
-     -mon chardev=con0,mode=readline,default \
+     -mon chardev=con0,mode=readline \
      \
      $netargs
 EOF
@@ -608,7 +608,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
      -chardev socket,id=con0,path=$TMP/vm-$name-pfe-console.pipe,server,nowait \
-     -mon chardev=con0,mode=readline,default \
+     -mon chardev=con0,mode=readline \
      \
      $netargs
 EOF
@@ -651,7 +651,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
-     -mon chardev=con0,mode=readline,default \
+     -mon chardev=con0,mode=readline \
      \
      $netargs
 EOF
@@ -698,7 +698,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
-     -mon chardev=con0,mode=readline,default \
+     -mon chardev=con0,mode=readline \
      \
      -net nic,model=e1000,macaddr=$(mac_address),vlan=4095 \
      -net user,vlan=4095,tftp=$TMP/tftp,hostname=$name \
