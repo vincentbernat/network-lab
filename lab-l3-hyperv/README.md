@@ -128,3 +128,10 @@ reflectors. BIRD comes with this support, but on JunOS, the support is
 only available from 15.1 and is really effective with 16.1. Moreover,
 on a given hypervisor, flows are not anycasted (unless an ECMP route
 is installed specifically).
+
+## Overlay network
+
+A very simple overlay network is setup using VXLAN. It is not
+redundant as it is pinned to eth0.private as the support interface on
+each hypervisor. It also assumes that no routing is needed (which is
+the case in our lab).

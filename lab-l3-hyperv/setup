@@ -5,15 +5,15 @@ LABNAME="l3-hyperv"
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
-spawn vm HV1 networks 8,9,1,2
-spawn vm VM1 network 1
-spawn vm VM2 network 2
+spawn vm HV1 networks 8,9,1,2,11,22
+spawn vm VM1 network 1,11
+spawn vm VM2 network 2,22
 
-spawn vm HV2 networks 8,9,3
-spawn vm VM3 network 3
+spawn vm HV2 networks 8,9,3,33
+spawn vm VM3 network 3,33
 
-spawn vm HV3 networks 8,9,4
-spawn vm VM4 network 4
+spawn vm HV3 networks 8,9,4,44
+spawn vm VM4 network 4,44
 
 spawn vm internet networks 8,9
 
@@ -38,10 +38,17 @@ case $uts in
         ip link set up dev eth1.private
         ip link set up dev eth0.public
         ip link set up dev eth1.public
-        vmifaces=""
-        for iface in eth2 eth3 eth4 eth5; do
-                [ -d /sys/class/net/$iface ] || continue
-                vmifaces="$vmifaces $iface"
+        case $uts in
+            HV1)
+                vmifaces="eth2 eth3"
+                brifaces="eth4 eth5"
+                ;;
+            *)
+                vmifaces="eth2"
+                brifaces="eth3"
+                ;;
+        esac
+        for iface in $vmifaces; do
                 ip link set up dev $iface
         done
 
@@ -218,11 +225,33 @@ EOF
                 --port 0 \
                 --dhcp-authoritative \
                 --dhcp-range=tag:known,203.0.113.0,static,255.255.255.0,infinite \
-                --dhcp-host=50:54:33:00:00:05,203.0.113.1,VM1 \
-                --dhcp-host=50:54:33:00:00:06,203.0.113.2,VM2 \
-                --dhcp-host=50:54:33:00:00:0a,203.0.113.3,VM3 \
-                --dhcp-host=50:54:33:00:00:0e,203.0.113.4,VM4 \
+                --dhcp-host=50:54:33:00:00:07,203.0.113.1,VM1 \
+                --dhcp-host=50:54:33:00:00:09,203.0.113.2,VM2 \
+                --dhcp-host=50:54:33:00:00:0f,203.0.113.3,VM3 \
+                --dhcp-host=50:54:33:00:00:15,203.0.113.4,VM4 \
                 --dhcp-option=option:router,203.0.113.254
+
+        # Overlay network. br_netfilter shouldn't be loaded, otherwise, we need:
+        # sysctl -qw net.bridge.bridge-nf-call-arptables=0
+        # sysctl -qw net.bridge.bridge-nf-call-ip6tables=0
+        # sysctl -qw net.bridge.bridge-nf-call-iptables=0
+
+        brctl addbr br1
+        brctl stp br1 off
+        ip link set up dev br1
+        for iface in $brifaces; do
+            ip link set up dev $iface
+            brctl addif br1 $iface
+        done
+        ip link add vx1 type vxlan \
+           dstport 4789 \
+           id 100 \
+           ttl 1 \
+           group 239.0.0.100 \
+           dev eth0.private \
+           local 172.22.15.10${uts#HV}
+        ip link set up dev vx1
+        brctl addif br1 vx1
         ;;
     RR*)
         ip link set mtu 1600 dev eth0
@@ -251,6 +280,10 @@ EOF
                 ip -6 addr add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 dev lo
                 ;;
         esac
+
+        # Private IP in overlay network
+        ip link set up dev eth1
+        ip addr add 192.168.5.${uts#VM}/24 dev eth1
         ;;
 
     internet)
