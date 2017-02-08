@@ -6,25 +6,39 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 # Which VM to spawn
-spawn vm H1 network 1,2
-spawn vm H2 network 1,2
-spawn vm H3 network 1,2
+vms=3
+for i in $(seq 1 $vms); do
+    spawn vm H$i network 1,2
+done
 
 run
 
 # Executed on each VM
 case $uts in
     H*)
+        sysctl -qw net.ipv4.ip_forward=1
         ip addr add 192.0.2.${uts#H}/25 dev eth0
-        ip addr add 192.0.2.$((100 + ${uts#H}))/25 dev eth1
+        ip addr add 192.0.2.$((128 + ${uts#H}))/25 dev eth1
+
+        ip addr add 203.0.113.${uts#H}/32 dev lo
+        for i in $(seq 1 $vms); do
+            [ $i -ne ${uts#H} ] || continue
+            ip route add 203.0.113.$i/32 \
+               src 203.0.113.${uts#H} \
+               nexthop via 192.0.2.$i \
+               nexthop via 192.0.2.$((128 + i))
+        done
+
+        ip link set multicast on dev lo
+        service pimd -N -c /mnt/lab/pimd.conf
 
         ip link add vx0 type vxlan \
            dstport 4789 \
            id 100 \
-           ttl 1 \
+           ttl 5 \
            group 239.0.0.100 \
-           dev eth0 \
-           local 192.0.2.${uts#H}
+           dev lo \
+           local 203.0.113.${uts#H}
         ip link set up dev vx0
         ip addr add 192.168.0.${uts#H}/24 dev vx0
         ;;
