@@ -21,15 +21,8 @@ case $uts in
         ip addr add 192.0.2.$((128 + ${uts#H}))/25 dev eth1
 
         ip addr add 203.0.113.${uts#H}/32 dev lo
-        for i in $(seq 1 $vms); do
-            [ $i -ne ${uts#H} ] || continue
-            ip route add 203.0.113.$i/32 \
-               src 203.0.113.${uts#H} \
-               nexthop via 192.0.2.$i \
-               nexthop via 192.0.2.$((128 + i))
-        done
-
         ip link set multicast on dev lo
+        service bird
         service pimd -N -c /mnt/lab/pimd.conf
 
         ip link add vx0 type vxlan \
