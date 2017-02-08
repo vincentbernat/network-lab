@@ -1,0 +1,32 @@
+#!/bin/sh
+
+LABNAME="ecmp-vxlan"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm H1 network 1,2
+spawn vm H2 network 1,2
+spawn vm H3 network 1,2
+
+run
+
+# Executed on each VM
+case $uts in
+    H*)
+        ip addr add 192.0.2.${uts#H}/25 dev eth0
+        ip addr add 192.0.2.$((100 + ${uts#H}))/25 dev eth1
+
+        ip link add vx0 type vxlan \
+           dstport 4789 \
+           id 100 \
+           ttl 1 \
+           group 239.0.0.100 \
+           dev eth0 \
+           local 192.0.2.${uts#H}
+        ip link set up dev vx0
+        ip addr add 192.168.0.${uts#H}/24 dev vx0
+        ;;
+esac
+service nginx
