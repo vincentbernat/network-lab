@@ -17,6 +17,8 @@ run
 case $uts in
     H*)
         sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv4.icmp_echo_ignore_broadcasts=0
+
         ip addr add 192.0.2.${uts#H}/25 dev eth0
         ip addr add 192.0.2.$((128 + ${uts#H}))/25 dev eth1
 
