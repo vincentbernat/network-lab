@@ -20,7 +20,7 @@ case $uts in
         ip addr add 192.0.2.${uts#H}/25 dev eth0
         ip addr add 192.0.2.$((128 + ${uts#H}))/25 dev eth1
 
-        ip addr add 203.0.113.${uts#H}/32 dev lo
+        ip addr add 203.0.113.${uts#H}/32 dev lo label lo:1
         ip link set multicast on dev lo
         service bird
         service pimd -N -c /mnt/lab/pimd.conf

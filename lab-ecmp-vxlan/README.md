@@ -6,8 +6,9 @@ the host. We expect traffic to be able to use both interfaces.
 
 With a naive setup, we have to specify the output interface. Instead,
 we specify to use `lo` and let pimd figure out how to build the RP
-tree. This needs pimd 2.3.3 or more recent (see
-https://github.com/troglobit/pimd/pull/89).
+tree. This needs pimd 2.4.0 or more recent (see
+https://github.com/troglobit/pimd/pull/89). This also needs a pimd
+configured with `--disable-masklen-check`.
 
 In the current setup, multicast is not using diverse paths as the tie
 breaker used is the highest address. However, most of the VXLAN based
