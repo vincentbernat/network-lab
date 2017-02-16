@@ -8,13 +8,25 @@ cd "$(dirname "$(readlink -f "$0")")"
 # Which VM to spawn
 vms=3
 for i in $(seq 1 $vms); do
-    spawn vm H$i network 1,2
+    spawn vm H$i networks $i,$((i+vms))
 done
+spawn vm bridges networks $(seq -s, 1 $((vms*2)))
 
 run
 
 # Executed on each VM
 case $uts in
+    bridges*)
+        for br in br1 br2; do
+            brctl addbr $br
+            brctl stp $br off
+            ip link set up dev $br
+        done
+        for i in $(seq 1 $vms); do
+            brctl addif br1 eth$((i-1))
+            brctl addif br2 eth$((vms+i-1))
+        done
+        ;;
     H*)
         sysctl -qw net.ipv4.ip_forward=1
         sysctl -qw net.ipv4.icmp_echo_ignore_broadcasts=0
