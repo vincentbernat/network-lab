@@ -53,3 +53,4 @@ case $uts in
         ;;
 esac
 service nginx
+service lldpd -I '*,!vx*'
