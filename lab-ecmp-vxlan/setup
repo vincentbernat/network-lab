@@ -21,6 +21,8 @@ case $uts in
             brctl addbr $br
             brctl stp $br off
             ip link set up dev $br
+            # With Linux < 4.10, router detection is broken (see 91b02d3d133b)
+            echo 2 > /sys/class/net/$br/bridge/multicast_router
         done
         for i in $(seq 1 $vms); do
             brctl addif br1 eth$((i-1))
