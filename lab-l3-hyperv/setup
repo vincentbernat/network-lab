@@ -117,6 +117,7 @@ EOF
         ip46tables -A INPUT -p tcp --dport bgp -j BGP-BFD
         ip46tables -A INPUT -p udp --dport 3784 -j BGP-BFD
         ip46tables -A INPUT -p udp --dport 4784 -j BGP-BFD
+        iptables -A INPUT -p udp --dport 4789 -s 172.22.2.0/24 -m ttl --ttl-eq 1 -j ACCEPT
         iptables -A BGP-BFD -s 198.51.100.0/24 -m ttl --ttl-eq 255 -j ACCEPT
         iptables -A BGP-BFD -s 172.22.15.0/24 -m ttl --ttl-eq 255 -j ACCEPT
         ip6tables -A BGP-BFD -s 2001:db8:c633:6400::/63 -m hl --hl-eq 255 -j ACCEPT
@@ -245,11 +246,14 @@ EOF
            dstport 4789 \
            id 100 \
            ttl 1 \
-           group 239.0.0.100 \
-           dev eth0.private \
-           local 172.22.15.10${uts#HV}
+           dev dummy0 \
+           local 172.22.2.${uts#HV}
         ip link set up dev vx1
         brctl addif br1 vx1
+        for i in $(seq 1 3); do
+            [ $i -ne ${uts#HV} ] || continue
+            bridge fdb append 00:00:00:00:00:00 dev vx1 dst 172.22.2.$i
+        done
         ;;
     RR*)
         ip link add name eth0.public link eth0 type vlan id 90
