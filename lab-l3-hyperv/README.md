@@ -131,10 +131,9 @@ is installed specifically).
 
 ## Overlay network
 
-A very simple overlay network is setup using VXLAN. It is not
-redundant as it is pinned to eth0.private as the support interface on
-each hypervisor. It also assumes that no routing is needed (which is
-the case in our lab).
+A very simple overlay network is setup using VXLAN with unicast. It
+assumes that no routing is needed (which is the case in our
+lab). Otherwise, TTL must be increased.
 
 We should use a higher than normal MTU (at least 1550) for underlying
 interfaces to ensure we can put 1500 bytes in virtual
