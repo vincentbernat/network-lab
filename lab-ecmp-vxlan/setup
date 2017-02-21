@@ -45,7 +45,7 @@ case $uts in
             ip link add vx$i type vxlan \
                dstport 4789 \
                id $((100 + i)) \
-               ttl 5 \
+               ttl 1 \
                dev lo \
                local 203.0.113.${uts#H}
             ip link set up dev vx$i
