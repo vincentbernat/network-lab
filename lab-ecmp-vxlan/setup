@@ -38,21 +38,22 @@ case $uts in
         ip addr add 192.0.2.${uts#H}/25 dev eth0
         ip addr add 192.0.2.$((128 + ${uts#H}))/25 dev eth1
 
-        ip addr add 203.0.113.${uts#H}/32 dev lo label lo:1
-        ip link set multicast on dev lo
+        ip addr add 203.0.113.${uts#H}/32 dev lo
         service bird
-        service pimd -N -c /mnt/lab/pimd.conf -s debug
 
         for i in $(seq 0 5); do
             ip link add vx$i type vxlan \
                dstport 4789 \
                id $((100 + i)) \
                ttl 5 \
-               group 239.0.0.$((100 + i)) \
                dev lo \
                local 203.0.113.${uts#H}
             ip link set up dev vx$i
             ip addr add 192.168.${i}.${uts#H}/24 dev vx$i
+            for vm in $(seq 1 $vms); do
+                [ $vm -ne ${uts#H} ] || continue
+                bridge fdb append 00:00:00:00:00:00 dev vx$i dst 203.0.113.$vm
+            done
         done
         ;;
 esac
