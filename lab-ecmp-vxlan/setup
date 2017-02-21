@@ -41,7 +41,7 @@ case $uts in
         ip addr add 203.0.113.${uts#H}/32 dev lo label lo:1
         ip link set multicast on dev lo
         service bird
-        service pimd -N -c /mnt/lab/pimd.conf
+        service pimd -N -c /mnt/lab/pimd.conf -s debug
 
         for i in $(seq 0 5); do
             ip link add vx$i type vxlan \
