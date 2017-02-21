@@ -38,12 +38,17 @@ case $uts in
         ip addr add 192.0.2.${uts#H}/25 dev eth0
         ip addr add 192.0.2.$((128 + ${uts#H}))/25 dev eth1
 
-        ip addr add 203.0.113.${uts#H}/32 dev lo label lo:1
+        ip addr add 203.0.113.${uts#H}/32 dev lo
         ip link set multicast on dev lo
         service bird
-        service pimd -N -c /mnt/lab/pimd.conf
 
-        for i in $(seq 0 5); do
+        mkdir /var/log/quagga
+        mkdir /var/run/quagga
+        chown quagga:quagga /var/log/quagga /var/run/quagga
+        service zebra -d -f /mnt/lab/zebra.conf -A 127.0.0.1
+        service pimd  -d -f /mnt/lab/pimd.conf  -A 127.0.0.1
+
+        for i in $(seq 0 0); do
             ip link add vx$i type vxlan \
                dstport 4789 \
                id $((100 + i)) \
