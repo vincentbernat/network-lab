@@ -24,3 +24,10 @@ The lab is not quite functional, notably:
    delivered.
  - Topology change seems to not be handled correctly by pimd. Once
    routing is stable, pimd may need to be restarted.
+
+Other PIM daemons are not functional either:
+
+ - Quagga pimd only supports PIM SSM which wouldn't work in our case
+   since we have several sources for a multicast group. Moreover, it
+   chokes at using loopback addresses.
+ - XORP doesn't support the use of loopback addresses.
