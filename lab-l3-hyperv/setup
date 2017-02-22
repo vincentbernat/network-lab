@@ -253,7 +253,8 @@ EOF
            id 100 \
            ttl 1 \
            dev dummy0 \
-           local 172.22.2.${uts#HV}
+           local 172.22.2.${uts#HV} \
+           id 300
         sysctl -qw net.ipv6.conf.vx1.disable_ipv6=1
         sysctl -qw net.ipv4.conf.vx1.rp_filter=1
         sysctl -qw net.ipv4.conf.vx1.forwarding=0
