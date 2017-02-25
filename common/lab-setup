@@ -38,6 +38,8 @@ log_info_msg () {
 # Environment
 #
 
+oobmac=02:00:00:00:00:01
+
 check_dependencies() {
     log_begin_msg "Checking if dependencies are present"
     for exec in \
@@ -115,6 +117,33 @@ mac_address () {
     echo $((mac_counter + 1)) > $TMP/mac-counter
 }
 
+tcp_port () {
+    tcp_counter=$(cat $TMP/tcp-counter 2> /dev/null || awk 'BEGIN{srand(); print int(9400+rand()*5000)}')
+    echo $((tcp_counter + 1)) > $TMP/tcp-counter
+    echo $tcp_counter
+}
+
+add_ssh_config () {
+    [ -f $TMP/id_rsa ] || ssh-keygen -q -t rsa -N "" -f $TMP/id_rsa
+    cat <<EOF >> $TMP/ssh_config
+# $1.lab
+Host $1.lab
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  PasswordAuthentication no
+  IdentitiesOnly yes
+  LogLevel FATAL
+  IdentityFile $TMP/id_rsa
+  User ${3:-root}
+  Port $2
+  Hostname 127.0.0.1
+
+EOF
+    [ ! -d ~/.ssh/labs.d ] || \
+        ln -sf $TMP/ssh_config ~/.ssh/labs.d/$LABNAME.conf
+    log_info_msg "Connect with ssh -F $TMP/ssh_config $1.lab"
+}
+
 cleanup () {
     set +e
     [ x"$done" = x"1" ] || {
@@ -130,6 +159,7 @@ cleanup () {
         kill -9 -$(cat $pid) 2> /dev/null || true
     done
     rm -rf $TMP
+    rm -f ~/.ssh/labs.d/$LABNAME.conf
     tmux kill-session -t $LABNAME
 }
 
@@ -162,7 +192,10 @@ spawn () {
     done
 
     for net in $NET; do
-        setup_switch $net
+        case $net in
+            oob) ;;
+            *) setup_switch $net ;;
+        esac
     done
     sleep 0.5
 
@@ -338,14 +371,24 @@ setup_initrd () {
 
 start_vm () {
     name=$NAME
+    log_info_msg "Start VM $name"
     netargs=""
     for net in $NET; do
-        mac=$(mac_address)
-        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
-        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+        case $net in
+            oob)
+                ssh=$(tcp_port)
+                netargs="$netargs -net nic,model=virtio,macaddr=$oobmac,vlan=4090"
+                netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+                add_ssh_config $NAME $ssh
+                ;;
+            *)
+                mac=$(mac_address)
+                netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
+                netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+                ;;
+        esac
     done
 
-    log_info_msg "Start VM $name"
     # /root is mounted with version 9p2000.u to allow access to /dev,
     # /sys and to mount new partitions over them. This is not the case
     # for 9p2000.L.
@@ -923,6 +966,28 @@ case $$,$STATE in
 
         log_info_msg "Start syslog"
         rsyslogd
+
+        for intf in /sys/class/net/*; do
+            case $(cat $intf/address) in
+                $oobmac)
+                    intf=${intf##*/}
+                    log_info_msg "Setup OOB interface on $intf"
+                    dhclient $intf
+                    # Run sshd in a not very secure way
+                    mkdir /dev/pts
+                    mount -n -t devpts devpts /dev/pts
+                    mkdir /var/run/sshd
+                    $(which sshd) \
+                        -f /dev/null \
+                        -h /tmp/lab/id_rsa \
+                        -o AuthorizedKeysFile=/tmp/lab/id_rsa.pub \
+                        -o StrictModes=no \
+                        -o PrintLastLog=no
+                    break
+                    ;;
+            esac
+        done
+
 
         log_info_msg "Setup terminal"
         unset SHLVL
