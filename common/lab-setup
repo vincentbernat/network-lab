@@ -139,6 +139,27 @@ Host $1.lab
   Hostname 127.0.0.1
 
 EOF
+    cat <<EOF > $TMP/ssh-junos.conf
+system {
+  login {
+    user ${3:-root} {
+      uid 2000;
+      class super-user;
+      authentication {
+        ssh-rsa "$(cat $TMP/id_rsa.pub)";
+      }
+    }
+  }
+  services {
+    ssh {
+      root-login allow;
+    }
+    netconf {
+      ssh;
+    }
+  }
+}
+EOF
     log_info_msg "Connect with ssh -F $TMP/ssh_config $1.lab"
 }
 
@@ -436,7 +457,12 @@ EOF
 
 start_juniper_vrr () {
     name=$NAME
+    log_info_msg "Start Juniper VRR $name"
     netargs=""
+    ssh=$(tcp_port)
+    netargs="$netargs -net nic,model=e1000,macaddr=$oobmac,vlan=4090"
+    netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    add_ssh_config $NAME $ssh juniper
     for net in $NET; do
         mac=$(mac_address)
         netargs="$netargs -net nic,model=e1000,macaddr=$mac,vlan=$net"
@@ -444,14 +470,19 @@ start_juniper_vrr () {
     done
 
     # Have a look at /etc/rc.vmguest for what is done
-    log_info_msg "Start Juniper VRR $name"
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vrr.img $TMP/junos-$name.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name
-cp junos-$name.conf $TMP/metadata-$name/juniper.conf
+cat - $TMP/ssh-junos.conf junos-$name.conf <<END > $TMP/metadata-$name/juniper.conf
+interfaces {
+  em0 unit 0 {
+    family inet dhcp;
+  }
+}
+END
 tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
 mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vrr-config.tgz
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \

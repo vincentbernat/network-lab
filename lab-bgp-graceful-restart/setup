@@ -13,7 +13,7 @@ spawn vm H2  network  3
 
 # Choose one of the following lines:
 #spawn vm RR1 network  1
-spawn juniper-vrr RR1 networks 0,1
+spawn juniper-vrr RR1 networks 1
 
 run
 
