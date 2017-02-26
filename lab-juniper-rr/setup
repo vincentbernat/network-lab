@@ -1,0 +1,21 @@
+#!/bin/sh
+
+LABNAME="juniper-rr"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn juniper-vrr RR networks 1
+spawn juniper-vrr edge networks 1
+spawn vm R1 network 1,oob
+spawn vm R2 network 1,oob
+spawn vm R3 network 1,oob
+
+run
+
+modprobe dummy
+sysctl -qw net.ipv6.conf.all.forwarding=1
+ip addr add 2001:db8:1::${uts#R}/64  dev eth0
+ip addr add 2001:db8:2::${uts#R}/48  dev dummy0  # each router can route this shared subnet
+ip addr add 2001:db8:3${uts#R}::1/48 dev dummy0  # each router can route this own subnet
+service bird
