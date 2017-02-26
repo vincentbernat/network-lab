@@ -139,8 +139,6 @@ Host $1.lab
   Hostname 127.0.0.1
 
 EOF
-    [ ! -d ~/.ssh/labs.d ] || \
-        ln -sf $TMP/ssh_config ~/.ssh/labs.d/$LABNAME.conf
     log_info_msg "Connect with ssh -F $TMP/ssh_config $1.lab"
 }
 
@@ -159,7 +157,6 @@ cleanup () {
         kill -9 -$(cat $pid) 2> /dev/null || true
     done
     rm -rf $TMP
-    rm -f ~/.ssh/labs.d/$LABNAME.conf
     tmux kill-session -t $LABNAME
 }
 
