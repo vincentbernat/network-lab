@@ -19,8 +19,8 @@ spawn vm internet networks 8,9
 
 spawn vm RR1 network 8
 # Choose one of the following RR2:
-spawn vm RR2 network 9
-# spawn juniper-vrr RR2 networks 9
+# spawn vm RR2 network 9
+spawn juniper-vrr RR2 networks 9
 
 run
 
