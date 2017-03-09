@@ -71,34 +71,44 @@ case $uts in
                    dev eth0 \
                    local 2001:db8:${uts#S}::1
                 ;;
-            unicast-static-default|unicast-static-l2)
-                # VXLAN configuration using unicast flooding. When
-                # using static L2 entries, disable learning.
+            unicast-static-default)
+                # VXLAN configuration using unicast flooding.
+                ip -6 link add vxlan0 type vxlan \
+                   dstport 4789 \
+                   id 100 \
+                   ttl 5 \
+                   local 2001:db8:${uts#S}::1
+                ;;
+            unicast-static-l2)
+                # Same as previously, but we disable learning as we
+                # don't expect any additional entries (this could
+                # protect us from some exhaustion attack).
                 ip -6 link add vxlan0 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
                    local 2001:db8:${uts#S}::1 \
-                   $([ $VARIANT != unicast-static-l2 ] || echo nolearning)
-
-                # Any BUM frame will be sent to the two other hosts
-                for x in 1 2 3; do
-                    [ $x != ${uts#S} ] || continue
-                    bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 2001:db8:$x::1
-                done
-
-                # If needed, put static entries.
-                [ $VARIANT != unicast-static-l2 ] || {
-                    while read mac x; do
-                        [ $x != ${uts#S} ] || continue
-                        bridge fdb append $mac dev vxlan0 dst 2001:db8:$x::1
-                    done <<EOF
-50:54:33:00:00:08 1
-50:54:33:00:00:09 2
-50:54:33:00:00:0a 2
-50:54:33:00:00:0b 3
-EOF
-                }
+                   nolearning
+                ;;
+        esac
+        case $VARIANT in
+            unicast-static-default|unicast-static-l2)
+                # Any BUM frame will be sent to the other hosts. We
+                # need that even for static L2 as we will have
+                # broadcast/multicast frames for neighbors discovery
+                # (ARP/ND). Not strictly needed for unicast static L3
+                # case (but no broadcast will be possible then).
+                [ ${uts#S} = 1 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 2001:db8:1::1
+                [ ${uts#S} = 2 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 2001:db8:2::1
+                [ ${uts#S} = 3 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 2001:db8:3::1
+        esac
+        case $VARIANT in
+            unicast-static-l2)
+                # We put static entries for known mac.
+                [ ${uts#S} = 1 ] || bridge fdb append 50:54:33:00:00:08 dev vxlan0 dst 2001:db8:1::1
+                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:09 dev vxlan0 dst 2001:db8:2::1
+                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:0a dev vxlan0 dst 2001:db8:2::1
+                [ ${uts#S} = 3 ] || bridge fdb append 50:54:33:00:00:0b dev vxlan0 dst 2001:db8:3::1
                 ;;
         esac
 
