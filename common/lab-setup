@@ -789,9 +789,6 @@ EOF
 execute () {
     command="$1"
     shift
-    for command in /mnt/common/bin/"$command" "$command"; do
-        [ ! -x "$command" ] || break
-    done
     if [ -n "$netns" ]; then
         ip netns exec $netns "$command" "$@"
     else
@@ -1080,7 +1077,6 @@ case $$,$STATE in
 
         log_begin_msg "Setup additional commands"
         mkdir /tmp/tools
-        export PATH=/tmp/tools:$PATH
         cat <<EOF > /tmp/tools/reboot
 #!/bin/sh
 echo b > /proc/sysrq-trigger
@@ -1092,6 +1088,7 @@ EOF
         chmod +x /tmp/tools/*
         log_ok_msg "System can be halted with halt or reboot"
 
+        export PATH=/tmp/tools:/mnt/common/bin:$PATH
         export STATE=SETUP
         . /mnt/lab/setup
 
