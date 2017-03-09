@@ -834,6 +834,20 @@ service () {
             fi
             log_ok_msg "bird started${netns+, netns=}$netns"
             ;;
+        quagga)
+            log_begin_msg "Running quagga"
+            mkdir -p /var/log/quagga
+            mkdir -p /var/run/quagga
+            chown quagga:quagga /var/log/quagga /var/run/quagga
+            for svc in zebra bgpd ospfd isisd ospf6d ripd ripngd; do
+                if [ -f /mnt/lab/quagga-$svc.$uts.conf ]; then
+                    execute $svc -d -f /mnt/lab/quagga-$svc.$uts.conf -A 127.0.0.1
+                elif [ -f /mnt/lab/quagga-$svc.conf ]; then
+                    execute $svc -d -f /mnt/lab/quagga-$svc.conf -A 127.0.0.1
+                fi
+            done
+            log_ok_msg "Quagga started"
+            ;;
         gobgp)
             log_begin_msg "Running gobgp"
             execute gobgpd -f /mnt/lab/gobgp.$uts.conf -t yaml -p -s unix --disable-stdlog &
