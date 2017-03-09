@@ -1,0 +1,79 @@
+#!/bin/sh
+
+LABNAME="vxlan"
+
+VARIANT=multicast
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Network 1 is the underlay network. We consider it as a routed L3
+# network, but we lie a bit.
+spawn vm S1 networks 1,2
+spawn vm S2 networks 1,3,4
+spawn vm S3 networks 1,5
+
+spawn vm H1 network 2
+spawn vm H2 network 3
+spawn vm H3 network 4
+spawn vm H4 network 5
+
+run
+
+noip() {
+    # Linux have IP enabled on all interfaces and it cannot be
+    # disabled for IPv4. Let's use iptables when we want to disable IP
+    # processing on an interface. ARP requests will still be
+    # processed. Don't try to be too smart, the goal is just to avoid
+    # the switches to answer to some multicast traffic.
+    iptables -I INPUT -i $1 -j DROP
+    ip6tables -I INPUT -i $1 -j DROP
+}
+
+# Executed on each VM
+case $uts in
+    H*)
+        ip -6 addr add 2001:db8:ff::$(( ${uts#H} + 9 ))/64 dev eth0
+        service nginx
+        ;;
+    S*)
+        # Setup the "routed" underlay network
+        # On lo, an IPv6 loopback address would be marked as
+        # "unreachable" (and not considered by BIRD). Therefore, we put it on dummy0.
+        ip -6 addr add 2001:db8:${uts#S}::1/128 dev dummy0
+        service bird
+
+        brctl addbr br0
+        brctl setfd br0 0
+        for iface in /sys/class/net/eth*; do
+            [ -d $iface ] || continue
+            iface=${iface##*/}
+            case $iface in
+                eth0) ;;
+                *)
+                    brctl addif br0 $iface
+                    noip $iface
+                    ;;
+            esac
+        done
+
+        case $VARIANT in
+            multicast)
+                # VXLAN configuration using multicast
+                ip link add vxlan0 type vxlan \
+                   dstport 4789 \
+                   id 100 \
+                   ttl 5 \
+                   group ff05::100 \
+                   dev eth0 \
+                   local 2001:db8:${uts#S}::1
+                ;;
+        esac
+
+        noip vxlan0
+        noip br0
+        brctl addif br0 vxlan0
+        ip link set up dev vxlan0
+        ip link set up dev br0
+        ;;
+esac
