@@ -18,9 +18,10 @@ spawn vm VM4 network 4,44
 spawn vm internet networks 8,9
 
 spawn vm RR1 network 8
-# Choose one of the following RR2:
-spawn vm RR2 network 9
-# spawn juniper-vrr RR3 networks 9
+# Choose one of the following:
+spawn vm RR2 network 9              # Route reflector using BIRD
+# spawn juniper-vrr RR3 networks 9  # Route reflector using Juniper vRR
+# spawn vm RR4 network 9            # Route reflector using Quagga
 
 run
 
@@ -270,11 +271,18 @@ EOF
         ip link set up dev eth0.public
         ip link set up dev eth0.private
 
-        ip addr add 198.51.100.${uts#RR}26/25 dev eth0.public
-        ip addr add 172.22.15.${uts#RR}26/25 dev eth0.private
-        ip -6 addr add 2001:db8:c633:640$((${uts#RR} - 1))::26/120 dev eth0.public
+        case $uts in
+            RR1) n=1 ;;
+            *)   n=2 ;;
+        esac
+        ip addr add 198.51.100.${n}26/25 dev eth0.public
+        ip addr add 172.22.15.${n}26/25 dev eth0.private
+        ip -6 addr add 2001:db8:c633:640$((${n} - 1))::26/120 dev eth0.public
 
-        service bird
+        case $uts in
+            RR1|RR2) service bird ;;
+            RR4) service quagga ;;
+        esac
         ;;
     VM*)
         # Classic DHCP request for IPv4
