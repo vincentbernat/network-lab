@@ -4,7 +4,8 @@ LABNAME="vxlan"
 
 # Choose one variant:
 #VARIANT=multicast
-VARIANT=unicast-default
+#VARIANT=unicast-static-default
+VARIANT=unicast-static-l2
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -70,18 +71,34 @@ case $uts in
                    dev eth0 \
                    local 2001:db8:${uts#S}::1
                 ;;
-            unicast-default)
-                # VXLAN configuration using unicast flooding
+            unicast-static-default|unicast-static-l2)
+                # VXLAN configuration using unicast flooding. When
+                # using static L2 entries, disable learning.
                 ip -6 link add vxlan0 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
-                   local 2001:db8:${uts#S}::1
+                   local 2001:db8:${uts#S}::1 \
+                   $([ $VARIANT != unicast-static-l2 ] || echo nolearning)
+
+                # Any BUM frame will be sent to the two other hosts
                 for x in 1 2 3; do
                     [ $x != ${uts#S} ] || continue
-                    # Any BUM frame will be sent to the two other hosts
                     bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 2001:db8:$x::1
                 done
+
+                # If needed, put static entries.
+                [ $VARIANT != unicast-static-l2 ] || {
+                    while read mac x; do
+                        [ $x != ${uts#S} ] || continue
+                        bridge fdb append $mac dev vxlan0 dst 2001:db8:$x::1
+                    done <<EOF
+50:54:33:00:00:08 1
+50:54:33:00:00:09 2
+50:54:33:00:00:0a 2
+50:54:33:00:00:0b 3
+EOF
+                }
                 ;;
         esac
 
