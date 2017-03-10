@@ -69,3 +69,16 @@ absent:
     --- 2001:db8:fe::13 ping statistics ---
     2 packets transmitted, 2 received, 0% packet loss, time 1001ms
     rtt min/avg/max/mdev = 0.598/0.811/1.024/0.213 ms
+
+## Unicast and dynamic L2 entries
+
+The kernel can signal missing L2 entries. We can have a controller add
+the entries when the kernel requests them. We use a simple shell
+script for this purpose. This is slow and clunky but illustrates how
+it works.
+
+We cannot have a catch-all rule (otherwise, we won't be notified of L2
+misses). But we still need to propagate correctly propagate broadcast
+and multicast for ARP/ND. No problem with broadcast (except we have a
+large amplification factor) but with multicast, many multicast
+addresses have to be added in the FDB.

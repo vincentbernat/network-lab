@@ -7,7 +7,8 @@ LABNAME="vxlan"
 #VARIANT=unicast-static-default
 #VARIANT=unicast-static-l2
 #VARIANT=unicast-static-nd
-VARIANT=unicast-static-rsc
+#VARIANT=unicast-static-rsc
+VARIANT=unicast-dynamic-l2
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -142,6 +143,53 @@ case $uts in
                 [ ${uts#S} != 3 ] || bridge fdb append 02:00:00:00:00:02 dev vxlan0 dst 2001:db8:10::1 router
                 [ ${uts#S} != 1 ] || ip -6 neigh add 2001:db8:fe::13 lladdr 50:54:33:00:00:0b dev vxlan0
                 [ ${uts#S} != 3 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 50:54:33:00:00:08 dev vxlan0
+                ;;
+            unicast-dynamic-l2)
+                # No default FDB rules but uses a simplistic custom
+                # controller to register entries when they are needed.
+                ip -6 link add vxlan0 type vxlan \
+                   dstport 4789 \
+                   id 100 \
+                   ttl 5 \
+                   local 2001:db8:${uts#S}::1 \
+                   nolearning \
+                   l2miss
+
+                # We still need ARP/ND to work. We register (broadcast
+                # and) multicast addresses. That's quite a limitation
+                # of this solution.
+                [ ${uts#S} = 1 ] || bridge fdb append 33:33:FF:00:00:10 dev vxlan0 dst 2001:db8:1::1
+                [ ${uts#S} = 2 ] || bridge fdb append 33:33:FF:00:00:11 dev vxlan0 dst 2001:db8:2::1
+                [ ${uts#S} = 2 ] || bridge fdb append 33:33:FF:00:00:12 dev vxlan0 dst 2001:db8:2::1
+                [ ${uts#S} = 3 ] || bridge fdb append 33:33:FF:00:00:13 dev vxlan0 dst 2001:db8:3::1
+
+                # Now, ip monitor will display stuff like this:
+                # miss dev vxlan0 lladdr 50:54:33:00:00:08 STALE
+                # Then, we have to add the entry (with bridge fdb).
+
+                # As a PoC, we use a shell script for this purpose,
+                # but of course, this should be done by something more
+                # robust.
+                (
+                    ip monitor neigh dev vxlan0 | while read miss lladdr mac remaining; do
+                        case $miss,$lladdr in
+                            miss,lladdr) ;;
+                            *) continue
+                        esac
+                        # The list of entries is hard-coded in the
+                        # script. You should use a registry instead or
+                        # some way to let VTEP share their local FDB
+                        # with their peers.
+                        case $mac in
+                            50:54:33:00:00:08) dst=2001:db8:1::1 ;;
+                            50:54:33:00:00:09) dst=2001:db8:2::1 ;;
+                            50:54:33:00:00:0a) dst=2001:db8:2::1 ;;
+                            50:54:33:00:00:0b) dst=2001:db8:3::1 ;;
+                            *) continue ;;
+                        esac
+                        bridge fdb replace $mac dev vxlan0 dst $dst dynamic
+                    done
+                ) &
                 ;;
         esac
         case $VARIANT in
