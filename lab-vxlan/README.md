@@ -9,6 +9,9 @@ Some of the setups described below may seem complex. The major idea is
 that for complex setup, you are expected to have some kind of software
 to put entries for you.
 
+Due to the use of IPv6, you need a special version of "ip" including
+[a special patch][https://patchwork.ozlabs.org/patch/737132/].
+
 ## Multicast
 
 This simply uses multicast to discover neighbors and send BUM
@@ -82,3 +85,15 @@ misses). But we still need to propagate correctly propagate broadcast
 and multicast for ARP/ND. No problem with broadcast (except we have a
 large amplification factor) but with multicast, many multicast
 addresses have to be added in the FDB.
+
+## Unicast and dynamic ARP/ND entries
+
+The kernel can also signal missing L3 entries. By combining this with
+the previous approach, we can remove the need of multicast addresses
+in the FDB (and the need for amplification). We get a result similar
+to the static approach but can request addresses from a registry only
+when we need them.
+
+We also use a simple script and it is still slow and clunky.
+
+This needs a [patched kernel][http://patchwork.ozlabs.org/patch/737444/].

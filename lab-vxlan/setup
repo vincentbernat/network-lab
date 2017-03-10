@@ -8,7 +8,8 @@ LABNAME="vxlan"
 #VARIANT=unicast-static-l2
 #VARIANT=unicast-static-nd
 #VARIANT=unicast-static-rsc
-VARIANT=unicast-dynamic-l2
+#VARIANT=unicast-dynamic-l2
+VARIANT=unicast-dynamic-nd
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -164,7 +165,7 @@ case $uts in
                 [ ${uts#S} = 3 ] || bridge fdb append 33:33:FF:00:00:13 dev vxlan0 dst 2001:db8:3::1
 
                 # Now, ip monitor will display stuff like this:
-                # miss dev vxlan0 lladdr 50:54:33:00:00:08 STALE
+                #     miss lladdr 50:54:33:00:00:08 STALE
                 # Then, we have to add the entry (with bridge fdb).
 
                 # As a PoC, we use a shell script for this purpose,
@@ -188,6 +189,53 @@ case $uts in
                             *) continue ;;
                         esac
                         bridge fdb replace $mac dev vxlan0 dst $dst dynamic
+                    done
+                ) &
+                ;;
+            unicast-dynamic-nd)
+                # Combine the previous example but also add dynamic ARP/ND entries
+                ip -6 link add vxlan0 type vxlan \
+                   dstport 4789 \
+                   id 100 \
+                   ttl 5 \
+                   local 2001:db8:${uts#S}::1 \
+                   nolearning \
+                   l2miss \
+                   l3miss \
+                   proxy
+
+                # Same kind of script than previously. But we can get:
+                #     miss lladdr 50:54:33:00:00:08 STALE
+                #     miss 2001:db8:ff::12 STALE
+                #     2001:db8:ff::10 lladdr 50:54:33:00:00:08 STALE
+                # We don't handle the last kind, so we use a permanent entry.
+                (
+                    ip monitor neigh dev vxlan0 | while read x y z w; do
+                        case $x,$y,$z,$w in
+                            miss,lladdr,*,STALE)
+                                mac=$z
+                                case $mac in
+                                    50:54:33:00:00:08) dst=2001:db8:1::1 ;;
+                                    50:54:33:00:00:09) dst=2001:db8:2::1 ;;
+                                    50:54:33:00:00:0a) dst=2001:db8:2::1 ;;
+                                    50:54:33:00:00:0b) dst=2001:db8:3::1 ;;
+                                    *) continue ;;
+                                esac
+                                bridge fdb replace $mac dev vxlan0 dst $dst dynamic
+                                ;;
+                            miss,*,STALE,)
+                                addr=$y
+                                case $addr in
+                                    2001:db8:ff::10) dst=50:54:33:00:00:08 ;;
+                                    2001:db8:ff::11) dst=50:54:33:00:00:09 ;;
+                                    2001:db8:ff::12) dst=50:54:33:00:00:0a ;;
+                                    2001:db8:ff::13) dst=50:54:33:00:00:0b ;;
+                                    *) continue ;;
+                                esac
+                                ip -6 neigh replace $addr lladdr $dst dev vxlan0 nud permanent
+                                ;;
+                            *) continue
+                        esac
                     done
                 ) &
                 ;;
