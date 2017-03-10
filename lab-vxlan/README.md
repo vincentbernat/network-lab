@@ -5,6 +5,10 @@ of `./setup`, there is the possibility to choose one variant. Only
 IPv6 is supported. OSPFv3 is used for the underlay network. It can
 takes some time to converge when the lab starts.
 
+Some of the setups described below may seem complex. The major idea is
+that for complex setup, you are expected to have some kind of software
+to put entries for you.
+
 ## Multicast
 
 This simply uses multicast to discover neighbors and send BUM
@@ -37,3 +41,31 @@ This is something that would work if you know in advance all MAC/IP
 you will use (or have a registry to update them). No amplification
 factor. No way to increase the size of a table above some limit. No
 multicast/broadcast.
+
+## Unicast and route short circuit
+
+This is an optimization to avoid classic L3 routing when we can
+directly L2 switch. The VTEP will not forward the frame to the router
+when it knows how to switch it directly to the destination.
+
+In the lab, the router doesn't exist at all, but the host an ND entry
+for it to ensure it sends the appropriate frame to the network (the
+router should exist when the VTEP doesn't know the destination, this
+is just a simplification).
+
+The VTEP notices the MAC address is associated to a router in the FDB
+(it is marked "router"). It does a lookup in the neighbor table for
+the original destination, notices it knows how to reach it and will
+uses this entry (and MAC).
+
+At the end, from `H1`, you can ping `H4`, despite the router being
+absent:
+
+    $ ping -c2 2001:db8:fe::13a
+    PING 2001:db8:fe::13(2001:db8:fe::13) 56 data bytes
+    64 bytes from 2001:db8:fe::13: icmp_seq=1 ttl=64 time=0.598 ms
+    64 bytes from 2001:db8:fe::13: icmp_seq=2 ttl=64 time=1.02 ms
+    
+    --- 2001:db8:fe::13 ping statistics ---
+    2 packets transmitted, 2 received, 0% packet loss, time 1001ms
+    rtt min/avg/max/mdev = 0.598/0.811/1.024/0.213 ms

@@ -6,7 +6,8 @@ LABNAME="vxlan"
 #VARIANT=multicast
 #VARIANT=unicast-static-default
 #VARIANT=unicast-static-l2
-VARIANT=unicast-static-nd
+#VARIANT=unicast-static-nd
+VARIANT=unicast-static-rsc
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -37,7 +38,25 @@ noip() {
 # Executed on each VM
 case $uts in
     H*)
-        ip -6 addr add 2001:db8:ff::$(( ${uts#H} + 9 ))/64 dev eth0
+        # With the unicast-static-rsc variant, we want to "route"
+        # traffic directly between two subnets by using switching. We
+        # put H1 and H4 on different subnets. They should use some
+        # router which doesn't exist.
+        case $uts,$VARIANT in
+            H1,unicast-static-rsc)
+                ip -6 addr add 2001:db8:ff::10/64 dev eth0
+                ip -6 route add default via 2001:db8:ff::1
+                ip -6 neigh add 2001:db8:ff::1 lladdr 02:00:00:00:00:01 dev eth0 # doesn't exist
+                ;;
+            H4,unicast-static-rsc)
+                ip -6 addr add 2001:db8:fe::13/64 dev eth0
+                ip -6 route add default via 2001:db8:fe::1
+                ip -6 neigh add 2001:db8:fe::1 lladdr 02:00:00:00:00:02 dev eth0 # doesn't exist
+                ;;
+            *,*)
+                ip -6 addr add 2001:db8:ff::$(( ${uts#H} + 9 ))/64 dev eth0
+                ;;
+        esac
         service nginx
         ;;
     S*)
@@ -107,9 +126,26 @@ case $uts in
                 [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 50:54:33:00:00:0a dev vxlan0
                 [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 50:54:33:00:00:0b dev vxlan0
                 ;;
+            unicast-static-rsc)
+                # Same as unicast-static-default but we use a route
+                # short circuit to let H1 and H4 communicate despite
+                # the absence of router (so, for H1/H4, the setup is
+                # more similar to unicast-static-nd).
+                ip -6 link add vxlan0 type vxlan \
+                   dstport 4789 \
+                   id 100 \
+                   ttl 5 \
+                   local 2001:db8:${uts#S}::1 \
+                   rsc
+
+                [ ${uts#S} != 1 ] || bridge fdb append 02:00:00:00:00:01 dev vxlan0 dst 2001:db8:10::1 router
+                [ ${uts#S} != 3 ] || bridge fdb append 02:00:00:00:00:02 dev vxlan0 dst 2001:db8:10::1 router
+                [ ${uts#S} != 1 ] || ip -6 neigh add 2001:db8:fe::13 lladdr 50:54:33:00:00:0b dev vxlan0
+                [ ${uts#S} != 3 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 50:54:33:00:00:08 dev vxlan0
+                ;;
         esac
         case $VARIANT in
-            unicast-static-default|unicast-static-l2)
+            unicast-static-default|unicast-static-l2|unicast-static-rsc)
                 # Any BUM frame will be sent to the other hosts. We
                 # need that even for static L2 as we will have
                 # broadcast/multicast frames for neighbors discovery
