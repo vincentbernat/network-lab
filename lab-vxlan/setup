@@ -208,7 +208,6 @@ case $uts in
                 #     miss lladdr 50:54:33:00:00:08 STALE
                 #     miss 2001:db8:ff::12 STALE
                 #     2001:db8:ff::10 lladdr 50:54:33:00:00:08 STALE
-                # We don't handle the last kind, so we use a permanent entry.
                 (
                     ip monitor neigh dev vxlan0 | while read x y z w; do
                         case $x,$y,$z,$w in
@@ -232,7 +231,18 @@ case $uts in
                                     2001:db8:ff::13) dst=50:54:33:00:00:0b ;;
                                     *) continue ;;
                                 esac
-                                ip -6 neigh replace $addr lladdr $dst dev vxlan0 nud permanent
+                                ip -6 neigh replace $addr lladdr $dst dev vxlan0 nud reachable
+                                ;;
+                            *,lladdr,*,STALE)
+                                addr=$x
+                                case $addr in
+                                    2001:db8:ff::10) dst=50:54:33:00:00:08 ;;
+                                    2001:db8:ff::11) dst=50:54:33:00:00:09 ;;
+                                    2001:db8:ff::12) dst=50:54:33:00:00:0a ;;
+                                    2001:db8:ff::13) dst=50:54:33:00:00:0b ;;
+                                    *) continue ;;
+                                esac
+                                ip -6 neigh replace $addr lladdr $dst dev vxlan0 nud reachable
                                 ;;
                             *) continue
                         esac
