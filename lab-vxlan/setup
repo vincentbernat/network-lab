@@ -5,7 +5,8 @@ LABNAME="vxlan"
 # Choose one variant:
 #VARIANT=multicast
 #VARIANT=unicast-static-default
-VARIANT=unicast-static-l2
+#VARIANT=unicast-static-l2
+VARIANT=unicast-static-nd
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -90,6 +91,22 @@ case $uts in
                    local 2001:db8:${uts#S}::1 \
                    nolearning
                 ;;
+            unicast-static-nd)
+                # Same as previously, but we enable proxy mode to reduce ARP/ND traffic.
+                ip -6 link add vxlan0 type vxlan \
+                   dstport 4789 \
+                   id 100 \
+                   ttl 5 \
+                   local 2001:db8:${uts#S}::1 \
+                   nolearning \
+                   proxy
+
+                # Static neighbor entries to reduce neighbors discovery.
+                [ ${uts#S} = 1 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 50:54:33:00:00:08 dev vxlan0
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::11 lladdr 50:54:33:00:00:09 dev vxlan0
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 50:54:33:00:00:0a dev vxlan0
+                [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 50:54:33:00:00:0b dev vxlan0
+                ;;
         esac
         case $VARIANT in
             unicast-static-default|unicast-static-l2)
@@ -103,7 +120,7 @@ case $uts in
                 [ ${uts#S} = 3 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 2001:db8:3::1
         esac
         case $VARIANT in
-            unicast-static-l2)
+            unicast-static-l2|unicast-static-nd)
                 # We put static entries for known mac.
                 [ ${uts#S} = 1 ] || bridge fdb append 50:54:33:00:00:08 dev vxlan0 dst 2001:db8:1::1
                 [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:09 dev vxlan0 dst 2001:db8:2::1
