@@ -9,7 +9,8 @@ LABNAME="vxlan"
 #VARIANT=unicast-static-nd
 #VARIANT=unicast-static-rsc
 #VARIANT=unicast-dynamic-l2
-VARIANT=unicast-dynamic-nd
+#VARIANT=unicast-dynamic-nd
+VARIANT=unicast-routing
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -68,19 +69,21 @@ case $uts in
         ip -6 addr add 2001:db8:${uts#S}::1/128 dev dummy0
         service bird
 
-        brctl addbr br0
-        brctl setfd br0 0
-        for iface in /sys/class/net/eth*; do
-            [ -d $iface ] || continue
-            iface=${iface##*/}
-            case $iface in
-                eth0) ;;
-                *)
-                    brctl addif br0 $iface
-                    noip $iface
-                    ;;
-            esac
-        done
+        [ $VARIANT = unicast-routing ] || {
+            brctl addbr br0
+            brctl setfd br0 0
+            for iface in /sys/class/net/eth*; do
+                [ -d $iface ] || continue
+                iface=${iface##*/}
+                case $iface in
+                    eth0) ;;
+                    *)
+                        brctl addif br0 $iface
+                        noip $iface
+                        ;;
+                esac
+            done
+        }
 
         case $VARIANT in
             multicast)
@@ -249,6 +252,50 @@ case $uts in
                     done
                 ) &
                 ;;
+            unicast-routing)
+                # This is a quite different setup. VXLAN is just used
+                # for encapsulation. For some reason, checksums are
+                # not computed. Disable them as we rely on the inner
+                # IP checksum.
+                ip -6 link add vxlan0 \
+                   address 02:00:00:00:00:0${uts#S} \
+                   type vxlan \
+                   dstport 4789 \
+                   ttl 5 \
+                   local 2001:db8:${uts#S}::1 \
+                   nolearning \
+                   external \
+                   udp6zerocsumtx \
+                   udp6zerocsumrx
+                # We enable routing
+                sysctl -qw net.ipv6.conf.all.forwarding=1
+                # Routes to remote hosts. This should be distributed by some IGP (BGP for example)
+                [ ${uts#S} = 1 ] || ip -6 route add 2001:db8:ff::10/128 encap ip6 id 100 dst 2001:db8:1::1 dev vxlan0
+                [ ${uts#S} = 2 ] || ip -6 route add 2001:db8:ff::11/128 encap ip6 id 100 dst 2001:db8:2::1 dev vxlan0
+                [ ${uts#S} = 2 ] || ip -6 route add 2001:db8:ff::12/128 encap ip6 id 100 dst 2001:db8:2::1 dev vxlan0
+                [ ${uts#S} = 3 ] || ip -6 route add 2001:db8:ff::13/128 encap ip6 id 100 dst 2001:db8:3::1 dev vxlan0
+                # Routes to local hosts.
+                [ ${uts#S} != 1 ] || ip -6 route add 2001:db8:ff::10/128 dev eth1
+                [ ${uts#S} != 2 ] || ip -6 route add 2001:db8:ff::11/128 dev eth1
+                [ ${uts#S} != 2 ] || ip -6 route add 2001:db8:ff::12/128 dev eth2
+                [ ${uts#S} != 3 ] || ip -6 route add 2001:db8:ff::13/128 dev eth1
+                # ND proxying for remote hosts (should use somethig like ndppd, more flexible)
+                for iface in $(sysctl -a | sed -n 's/^net\.ipv6\.conf\.\(eth[1-9]\)\.proxy_ndp = .*/\1/p'); do
+                    sysctl -qw net.ipv6.conf.$iface.proxy_ndp=1
+                    [ ${uts#S} = 1 ] || ip -6 neigh add proxy 2001:db8:ff::10 dev $iface
+                    [ ${uts#S} = 2 ] || ip -6 neigh add proxy 2001:db8:ff::11 dev $iface
+                    [ ${uts#S} = 2 ] || ip -6 neigh add proxy 2001:db8:ff::12 dev $iface
+                    [ ${uts#S} = 3 ] || ip -6 neigh add proxy 2001:db8:ff::13 dev $iface
+                done
+                # Static ND entries. We would want to use "ip link set
+                # arp off", but on the remote, the vxlan driver is
+                # still checking the MAC address and the IP layer will
+                # drop the packet if the MAC is not its own.
+                [ ${uts#S} = 1 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 02:00:00:00:00:01 dev vxlan0
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::11 lladdr 02:00:00:00:00:02 dev vxlan0
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 02:00:00:00:00:02 dev vxlan0
+                [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 02:00:00:00:00:03 dev vxlan0
+                ;;
         esac
         case $VARIANT in
             unicast-static-default|unicast-static-l2|unicast-static-rsc)
@@ -271,10 +318,12 @@ case $uts in
                 ;;
         esac
 
-        noip vxlan0
-        noip br0
-        brctl addif br0 vxlan0
+        [ $VARIANT = unicast-routing ] || {
+            noip vxlan0
+            noip br0
+            brctl addif br0 vxlan0
+            ip link set up dev br0
+        }
         ip link set up dev vxlan0
-        ip link set up dev br0
         ;;
 esac

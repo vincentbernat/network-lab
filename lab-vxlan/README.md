@@ -12,6 +12,13 @@ to put entries for you.
 Due to the use of IPv6, you need a special version of "ip" including
 [a special patch][https://patchwork.ozlabs.org/patch/737132/].
 
+The following kernel options are needed:
+
+    CONFIG_DUMMY=y
+    CONFIG_VXLAN=y
+    CONFIG_PACKET=y
+    CONFIG_LWTUNNEL=y
+
 ## Multicast
 
 This simply uses multicast to discover neighbors and send BUM
@@ -97,3 +104,19 @@ when we need them.
 We also use a simple script and it is still slow and clunky.
 
 This needs a [patched kernel][http://patchwork.ozlabs.org/patch/737444/].
+
+## Unicast routing
+
+VXLAN can also be used as a generic IP tunnel (like GRE). For each
+route, it's possible to specify an unicast destination and/or a VNI. A
+unique VXLAN endpoint can therefore multiplex many tunnels.
+
+To not modify the lab too much, hosts are still believing they are not
+on the same subnet and we use ARP/ND proxying for this usage. It's a
+secondary issue and you should not pay attention too much to this
+detail.
+
+However, VXLAN driver is still checking the destination MAC address
+with its own. Therefore, we need some static ARP/ND entries. This
+makes this solution a bit cumbersome. It's unclear to me how this
+encapsulation feature should work.
