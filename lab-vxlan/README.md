@@ -120,3 +120,38 @@ However, VXLAN driver is still checking the destination MAC address
 with its own. Therefore, we need some static ARP/ND entries. This
 makes this solution a bit cumbersome. It's unclear to me how this
 encapsulation feature should work.
+
+## Cumulus vxfld daemon
+
+The previous unicast examples need some additional software to make
+them. This example is using [Cumulus vxfld daemon][] which is the
+brick behind Cumulus [Lightweight Network Virtualization][] solution.
+
+[Cumulus vxfld daemon]: https://github.com/CumulusNetworks/vxfld
+[Lightweight Network Virtualization]: https://docs.cumulusnetworks.com/display/DOCS/Lightweight+Network+Virtualization+-+LNV+Overview
+
+There are two components:
+
+ - the service node daemon (`vxsnd`) that should run on non-VTEP
+   servers and will handle registration and optionally BUM frames,
+ - the registration daemon (`vxrd`) that should run on VTEP devices.
+
+The are two possible modes:
+
+ - head-end replication: the VTEP devices are handling BUM frames
+   directly (duplicating them)
+ - service node replication: BUM frames are forwarded to the service
+   nodes which forward them to the appropriate VTEP
+
+The two modes are available in the lab.
+
+You need to either install vxfld on your system or in a virtualenv
+(`python setup.py install` or `python setup.py develop`). In the later
+case, put relative symbolic links in `common/bin` to the virtualenv to
+ensure the lab find them.
+
+Unfortunately, there is currently no IPv6 support, so this lab uses
+with IPv4. See this [issue](https://github.com/CumulusNetworks/vxfld/issues/4).
+
+With a recent version of iproute,
+a [patch](https://github.com/CumulusNetworks/vxfld/pull/5) is needed.

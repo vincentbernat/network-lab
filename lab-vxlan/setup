@@ -10,7 +10,9 @@ LABNAME="vxlan"
 #VARIANT=unicast-static-rsc
 #VARIANT=unicast-dynamic-l2
 #VARIANT=unicast-dynamic-nd
-VARIANT=unicast-routing
+#VARIANT=unicast-routing
+#VARIANT=cumulus-vxfld-her     # Head end replication
+VARIANT=cumulus-vxfld-snr      # Service node replication
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -20,6 +22,12 @@ cd "$(dirname "$(readlink -f "$0")")"
 spawn vm S1 networks 1,2
 spawn vm S2 networks 1,3,4
 spawn vm S3 networks 1,5
+case $VARIANT in
+    cumulus-vxfld-*)
+        spawn vm SN1 network 1
+        spawn vm SN2 network 1
+        ;;
+esac
 
 spawn vm H1 network 2
 spawn vm H2 network 3
@@ -62,6 +70,32 @@ case $uts in
                 ;;
         esac
         service nginx
+        ;;
+    SN*)
+        # Service nodes (for vflxd)
+        ip addr add 203.0.113.$((97+${uts#SN}))/32 dev dummy0
+        ip addr add 203.0.113.100/32 dev dummy0
+        ip addr add 169.254.15.$((97+${uts#SN}))/24 dev eth0
+        ip -6 addr add 2001:db8:$((97+${uts#SN}))::1/128 dev dummy0
+        service bird
+
+        case $uts in
+            SN1) peer=203.0.113.99 ;;
+            SN2) peer=203.0.113.98 ;;
+        esac
+
+        cat <<EOF > /tmp/vxsnd.conf
+[vxsnd]
+svcnode_peers = $peer
+
+[common]
+svcnode_ip = 203.0.113.100
+src_ip = 203.0.113.$((97+${uts#SN}))
+EOF
+        log_begin_msg "Start vxsnd"
+        vxsnd -d -c /tmp/vxsnd.conf -D &
+        sleep 1
+        log_ok_msg "vxsnd started"
         ;;
     S*)
         # Setup the "routed" underlay network
@@ -298,6 +332,44 @@ case $uts in
                 [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::11 lladdr 02:00:00:00:00:02 dev vxlan0
                 [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 02:00:00:00:00:02 dev vxlan0
                 [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 02:00:00:00:00:03 dev vxlan0
+                ;;
+            cumulus-vxfld-*)
+                # Use of Cumulus vxfld
+                case $VARIANT in
+                    *-her)
+                        # Head end replication (like unicast-static-default)
+                        headrep=true
+                        ip link add vxlan0 \
+                           type vxlan \
+                           dstport 4789 \
+                           id 100 \
+                           ttl 5 \
+                           local 203.0.113.${uts#S}
+                        ;;
+                    *-snr)
+                        # Service node replication (flooding done by SN* nodes)
+                        headrep=false
+                        ip link add vxlan0 \
+                           type vxlan \
+                           dstport 4789 \
+                           id 100 \
+                           ttl 5 \
+                           local 203.0.113.${uts#S} \
+                           remote 203.0.113.100
+                        ;;
+                esac
+                cat <<EOF > /tmp/vxrd.conf
+[vxrd]
+head_rep = $headrep
+
+[common]
+svcnode_ip = 203.0.113.100
+src_ip = 203.0.113.${uts#S}
+EOF
+                log_begin_msg "Start vxrd"
+                vxrd -d -c /tmp/vxrd.conf -D &
+                sleep 1
+                log_ok_msg "vxrd started"
                 ;;
         esac
         case $VARIANT in
