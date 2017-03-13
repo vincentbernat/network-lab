@@ -57,6 +57,7 @@ case $uts in
                 ip -6 neigh add 2001:db8:fe::1 lladdr 02:00:00:00:00:02 dev eth0 # doesn't exist
                 ;;
             *,*)
+                ip addr add 192.0.2.$(( ${uts#H} + 9 ))/24 dev eth0
                 ip -6 addr add 2001:db8:ff::$(( ${uts#H} + 9 ))/64 dev eth0
                 ;;
         esac
@@ -66,6 +67,8 @@ case $uts in
         # Setup the "routed" underlay network
         # On lo, an IPv6 loopback address would be marked as
         # "unreachable" (and not considered by BIRD). Therefore, we put it on dummy0.
+        ip addr add 203.0.113.${uts#S}/32 dev dummy0
+        ip addr add 169.254.15.${uts#S}/24 dev eth0
         ip -6 addr add 2001:db8:${uts#S}::1/128 dev dummy0
         service bird
 
@@ -88,7 +91,7 @@ case $uts in
         case $VARIANT in
             multicast)
                 # VXLAN configuration using multicast
-                ip link add vxlan0 type vxlan \
+                ip -6 link add vxlan0 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
