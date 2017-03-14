@@ -1,0 +1,46 @@
+# Not all features are available. Missing:
+#  - BFD
+---
+global:
+  config:
+    as: 65000
+    router-id: 2.0.0.2
+    local-address-list:
+      - 172.22.15.226
+neighbors:
+  - config:
+      neighbor-address: 172.22.15.201
+      peer-as: 65000
+      auth-password: Akeezool6ni4EiLagu4o
+    route-reflector:
+      config:
+        route-reflector-client: true
+        route-reflector-cluster-id: 172.22.15.226
+    add-paths:
+      config:
+        receive: true
+        send-max: 8
+  - config:
+      neighbor-address: 172.22.15.202
+      peer-as: 65000
+      auth-password: Akeezool6ni4EiLagu4o
+    route-reflector:
+      config:
+        route-reflector-client: true
+        route-reflector-cluster-id: 172.22.15.226
+    add-paths:
+      config:
+        receive: true
+        send-max: 8
+  - config:
+      neighbor-address: 172.22.15.203
+      peer-as: 65000
+      auth-password: Akeezool6ni4EiLagu4o
+    route-reflector:
+      config:
+        route-reflector-client: true
+        route-reflector-cluster-id: 172.22.15.226
+    add-paths:
+      config:
+        receive: true
+        send-max: 8
