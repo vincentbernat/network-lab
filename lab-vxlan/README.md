@@ -155,3 +155,50 @@ with IPv4. See this [issue](https://github.com/CumulusNetworks/vxfld/issues/4).
 
 With a recent version of iproute,
 a [patch](https://github.com/CumulusNetworks/vxfld/pull/5) is needed.
+
+## BGP EVPN
+
+Not done yet. There is currently two major solutions on Linux for
+that:
+
+ - [BaGPipe BGP][] (see also this [article][3]), [adopted by OpenStack][4]
+ - [Cumulus Quagga][] (see also this [article][5])
+ 
+See also [RFC 7432](https://tools.ietf.org/html/rfc7432).
+
+[BaGPipe BGP]: https://github.com/Orange-OpenSource/bagpipe-bgp
+[3]: http://murat1985.github.io/kubernetes/cni/2016/05/15/bagpipe-gobgp.html
+[4]: https://docs.openstack.org/developer/networking-bagpipe/
+[Cumulus Quagga]: http://github.com/cumulusnetworks/quagga
+[5]: https://docs.cumulusnetworks.com/display/DOCS/Ethernet+Virtual+Private+Network+-+EVPN
+
+# Other considerations
+
+## Security
+
+While VXLAN provides isolation, there is no encryption
+builtin. Encryption can be added inside the VXLAN (notably, Linux
+supports MACsec since 4.6) or in the underlay network (notably, with
+IPsec).
+
+For MACsec, the key exchange should be done through 802.1X (notably
+with `wpa_supplicant`). See this [article][6] for how to setup MACsec
+with static keys.
+
+[6]: https://developers.redhat.com/blog/2016/10/14/macsec-a-different-solution-to-encrypt-network-traffic/
+
+For IPsec, there are plenty of documentation about that. Since many
+peers may be present, opportunistic encryption seems a good
+idea. However, implementations for this are scarce.
+
+## MTU & overhead
+
+To avoid any trouble, it's preferable to ensure that the overlay
+network MTU is set to 1500. VXLAN overhead is 50 bytes. Therefore, MTU
+of the underlay network needs to be 1550. If you use MACsec, the added
+overhead is 32 bytes. IPsec overhead depends on many factors. In
+transport mode, with AES and SHA256, the overhead is 56 bytes. With
+NAT traversal, this is 64 bytes (additional UDP header). In tunnel
+mode, this is 72 bytes. See [Cisco IPSec Overhead Calculator Tool][].
+
+[Cisco IPSec Overhead Calculator Tool]: https://cway.cisco.com/tools/ipsec-overhead-calc/
