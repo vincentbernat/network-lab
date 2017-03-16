@@ -162,7 +162,7 @@ Not done yet. There is currently two major solutions on Linux for
 that:
 
  - [BaGPipe BGP][] (see also this [article][3]), [adopted by OpenStack][4]
- - [Cumulus Quagga][] (see also this [article][5])
+ - [Cumulus Quagga][] (see also this [article][5] and this [one][7])
  
 See also [RFC 7432](https://tools.ietf.org/html/rfc7432).
 
@@ -171,6 +171,7 @@ See also [RFC 7432](https://tools.ietf.org/html/rfc7432).
 [4]: https://docs.openstack.org/developer/networking-bagpipe/
 [Cumulus Quagga]: http://github.com/cumulusnetworks/quagga
 [5]: https://docs.cumulusnetworks.com/display/DOCS/Ethernet+Virtual+Private+Network+-+EVPN
+[7]: https://cumulusnetworks.com/learn/web-scale-networking-resources/whitepapers/Cumulus-Networks-White-Paper-EVPN.pdf
 
 # Other considerations
 
