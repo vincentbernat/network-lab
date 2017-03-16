@@ -10,7 +10,7 @@ that for complex setup, you are expected to have some kind of software
 to put entries for you.
 
 Due to the use of IPv6, you need a special version of "ip" including
-[a special patch][https://patchwork.ozlabs.org/patch/737132/].
+[a special patch](https://patchwork.ozlabs.org/patch/737132/).
 
 The following kernel options are needed:
 
@@ -103,7 +103,7 @@ when we need them.
 
 We also use a simple script and it is still slow and clunky.
 
-This needs a [patched kernel][http://patchwork.ozlabs.org/patch/737444/].
+This needs a [patched kernel](http://patchwork.ozlabs.org/patch/737444/).
 
 ## Unicast routing
 
