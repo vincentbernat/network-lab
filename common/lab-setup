@@ -983,6 +983,10 @@ case $$,$STATE in
         udevadm settle
         log_ok_msg "udev started"
 
+        ulimit -c unlimited
+        sysctl -qw kernel.core_pattern=/tmp/core.%h.%e.%t.%p
+        sysctl -qw fs.suid_dumpable=1
+
         log_info_msg "Setup interfaces"
         modprobe dummy 2>/dev/null || true
         sleep 0.5               # Some interfaces may take some time to appear
