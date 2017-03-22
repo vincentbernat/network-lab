@@ -141,3 +141,40 @@ frames. Unfortunately, `vde_switch` doesn't support large
 frames. Therefore, we keep the default MTU. This could be changed in
 `src/vde_switch/port.h` by increasing from 1504 to something larger in
 `struct packet`.
+
+Any other solution can be chosen, notably the use of BGP EVPN. See
+`../lab-vxlan` lab for solutions. All of them should work fine on this
+topology.
+
+## Reducing the number of BGP sessions
+
+It's important that the BGP session with the route reflector goes down
+when the data path is broken. Each hypervisor maintains 8 BGP sessions
+(IPv4/IPv6, two possible paths, public/private).
+
+This could be reduced to 4 BGP sessions by using MP-BGP and using one
+session for both IPv4 and IPv6. This is not done here since BIRD
+cannot do that (until BIRD 2).
+
+This could also be reduced by using a common session for
+public/private routes and using communities to put the routes in the
+right table. However, a clean separation is something nice too.
+
+It is not advisable to reduce the number of sessions by using only one
+of the data path. There are several reasons:
+
+ - next hop is set to self, the other route wouldn't exist at all
+   (maybe it would be possible to synthetize it and use add-path to
+   announce it)
+   
+ - if the used data path is broken, the other path is useless as no
+   announce will go through it
+   
+ - if the unused data path is broken, it would still be announced
+   through the working one (no way to detect it is broken with an L2
+   fabric)
+   
+However, this would be possible to only have one BGP session
+announcing everything by using an internal routing protocol like OSPF,
+using a loopback as next hop self, put BGP sessions between the
+loopbacks and tunneling data between loopbacks.
