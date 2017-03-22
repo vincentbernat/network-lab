@@ -158,13 +158,118 @@ a [patch](https://github.com/CumulusNetworks/vxfld/pull/5) is needed.
 
 ## BGP EVPN
 
-Not done yet. There is currently two major solutions on Linux for
-that:
+There is currently two major solutions on Linux for that:
 
  - [BaGPipe BGP][] (see also this [article][3]), [adopted by OpenStack][4]
  - [Cumulus Quagga][] (see also this [article][5] and this [one][7])
  
-See also [RFC 7432](https://tools.ietf.org/html/rfc7432).
+See also [RFC 7432](https://tools.ietf.org/html/rfc7432). We use the
+second solution. Unfortunately, VXLAN handling is not compatible with
+IPv6 yet, so we use IPv4.
+
+Here are some commands to observe the adjacencies from `vtysh`. First,
+which VNI are we interested in?
+
+    S1# show bgp evpn import-rt
+    Route-target: 0:100
+    List of VNIs importing routes with this route-target:
+      100
+
+how VNI 100 is exported/imported:
+
+    S1# show bgp evpn vni 100
+    VNI: 100 (defined in the kernel)
+      RD: 203.0.113.1:100
+      Originator IP: 203.0.113.1
+      Import Route Target:
+        65001:100
+      Export Route Target:
+        65001:100
+
+Then, the "routes" we have:
+
+    S1# show bgp evpn route
+    BGP table version is 0, local router ID is 203.0.113.1
+    Status codes: s suppressed, d damped, h history, * valid, > best, i - internal
+    Origin codes: i - IGP, e - EGP, ? - incomplete
+    
+       Network          Next Hop            Metric LocPrf Weight Path
+    Route Distinguisher: 203.0.113.1:100
+    *> [2]:[0]:[0]:[6]:[50:54:33:00:00:08]
+                        203.0.113.1                        32768 i
+    *> [3]:[0]:[4]:[203.0.113.1]
+                        203.0.113.1                        32768 i
+    Route Distinguisher: 203.0.113.2:100
+    *  [2]:[0]:[0]:[6]:[50:54:33:00:00:09]
+                        203.0.113.2                            0 65003 65002 i
+    *> [2]:[0]:[0]:[6]:[50:54:33:00:00:09]
+                        203.0.113.2                            0 65002 i
+    *  [2]:[0]:[0]:[6]:[50:54:33:00:00:0a]
+                        203.0.113.2                            0 65003 65002 i
+    *> [2]:[0]:[0]:[6]:[50:54:33:00:00:0a]
+                        203.0.113.2                            0 65002 i
+    *  [3]:[0]:[4]:[203.0.113.2]
+                        203.0.113.2                            0 65003 65002 i
+    *> [3]:[0]:[4]:[203.0.113.2]
+                        203.0.113.2                            0 65002 i
+    Route Distinguisher: 203.0.113.3:100
+    *  [2]:[0]:[0]:[6]:[50:54:33:00:00:0b]
+                        203.0.113.3                            0 65002 65003 i
+    *> [2]:[0]:[0]:[6]:[50:54:33:00:00:0b]
+                        203.0.113.3                            0 65003 i
+    *  [3]:[0]:[4]:[203.0.113.3]
+                        203.0.113.3                            0 65002 65003 i
+    *> [3]:[0]:[4]:[203.0.113.3]
+                        203.0.113.3                            0 65003 i
+    
+    Displayed 12 out of 12 total prefixes
+
+For more details, specify a route distinguisher:
+
+    S1# show bgp evpn route rd 203.0.113.3:100
+    BGP routing table entry for 203.0.113.3:100
+    Paths: (2 available, best #2)
+      Advertised to non peer-group peers:
+      S2(203.0.113.2) S3(203.0.113.3)
+    Route [2]:[0]:[0]:[6]:[50:54:33:00:00:0b]
+      65002 65003
+        203.0.113.3 from S2(203.0.113.2) (203.0.113.2)
+          Origin IGP, localpref 100, valid, external, bestpath-from-AS 65002
+          Extended Community: RT:65003:100
+          AddPath ID: RX 0, TX 12
+          Last update: Wed Mar 22 20:59:20 2017
+    
+    Route [2]:[0]:[0]:[6]:[50:54:33:00:00:0b]
+      65003
+        203.0.113.3 from S3(203.0.113.3) (203.0.113.3)
+          Origin IGP, localpref 100, valid, external, bestpath-from-AS 65003, best
+          Extended Community: RT:65003:100
+          AddPath ID: RX 0, TX 4
+          Last update: Wed Mar 22 20:59:20 2017
+    
+    Route [3]:[0]:[4]:[203.0.113.3]
+      65002 65003
+        203.0.113.3 from S2(203.0.113.2) (203.0.113.2)
+          Origin IGP, localpref 100, valid, external, bestpath-from-AS 65002
+          Extended Community: RT:65003:100
+          AddPath ID: RX 0, TX 13
+          Last update: Wed Mar 22 20:59:20 2017
+    
+    Route [3]:[0]:[4]:[203.0.113.3]
+      65003
+        203.0.113.3 from S3(203.0.113.3) (203.0.113.3)
+          Origin IGP, localpref 100, valid, external, bestpath-from-AS 65003, best
+          Extended Community: RT:65003:100
+          AddPath ID: RX 0, TX 5
+          Last update: Wed Mar 22 20:59:20 2017
+
+There are two types of routes (first digit):
+
+ - type 2 (MAC with IP advertisement route): they enable transmission
+   of FDB entries for a given VNI
+ 
+ - type 3 (multicast Ethernet routes): they are here to make
+   broadcast, unknown unicast and multicast traffic.
 
 [BaGPipe BGP]: https://github.com/Orange-OpenSource/bagpipe-bgp
 [3]: http://murat1985.github.io/kubernetes/cni/2016/05/15/bagpipe-gobgp.html

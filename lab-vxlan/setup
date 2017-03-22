@@ -12,7 +12,8 @@ LABNAME="vxlan"
 #VARIANT=unicast-dynamic-nd
 #VARIANT=unicast-routing
 #VARIANT=cumulus-vxfld-her     # Head end replication
-VARIANT=cumulus-vxfld-snr      # Service node replication
+#VARIANT=cumulus-vxfld-snr     # Service node replication
+VARIANT=bgp-evpn
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -370,6 +371,16 @@ EOF
                 vxrd -d -c /tmp/vxrd.conf -D &
                 sleep 1
                 log_ok_msg "vxrd started"
+                ;;
+            bgp-evpn)
+                # Use of BGP EVPN. Learning is disabled. Not compatible with IPv6.
+                ip link add vxlan0 type vxlan \
+                   dstport 4789 \
+                   id 100 \
+                   ttl 5 \
+                   local 203.0.113.${uts#S} \
+                   nolearning
+                service quagga
                 ;;
         esac
         case $VARIANT in
