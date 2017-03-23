@@ -598,10 +598,12 @@ EOF
 start_juniper_vmx () {
     name=$NAME
     setup_switch $name-internal
-
     log_info_msg "Start Juniper vMX $name (RE)"
     netargs=""
-    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=1001" # OOB
+    ssh=$(tcp_port)
+    netargs="$netargs -net nic,model=e1000,macaddr=$oobmac,vlan=4090" # OOB
+    netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    add_ssh_config $NAME $ssh juniper
     netargs="$netargs -net nic,model=virtio,macaddr=$(mac_address),vlan=1000" # PFE
     netargs="$netargs -net vde,sock=$TMP/switch-$name-internal.sock,vlan=1000"
     cat <<EOF > "$TMP/vm-$name-re.exec"
@@ -611,7 +613,13 @@ qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-re-hdd.img $TMP/junos-$n
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
-cp junos-$name.conf $TMP/metadata-$name/juniper.conf
+cat - $TMP/ssh-junos.conf junos-$name.conf <<END > $TMP/metadata-$name/juniper.conf
+interfaces {
+  fxp0 unit 0 {
+    family inet dhcp;
+  }
+}
+END
 cat <<END > $TMP/metadata-$name/boot/loader.conf
 vmtype="0"
 vm_retype="RE-VMX"
