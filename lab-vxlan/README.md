@@ -344,6 +344,12 @@ appropriate route targets and route distinguishers are
 computed). Until the above problem is fixed, it's difficult to move
 forward.
 
+Quick mental note: Juniper has a lot of material on configuring BGP
+EVPN on the QFX line, but far less for the MX which requires the use
+of virtual switches. Hopefully, there is an [Ansible playbook][] for
+this.
+
+[Ansible playbook]: https://github.com/JNPRAutomate/ansible-junos-evpn-vxlan/tree/master/roles/overlay-evpn-mx-l3
 [BaGPipe BGP]: https://github.com/Orange-OpenSource/bagpipe-bgp
 [3]: http://murat1985.github.io/kubernetes/cni/2016/05/15/bagpipe-gobgp.html
 [4]: https://docs.openstack.org/developer/networking-bagpipe/
