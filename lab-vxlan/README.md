@@ -165,7 +165,12 @@ There is currently two major solutions on Linux for that:
  
 See also [RFC 7432](https://tools.ietf.org/html/rfc7432). We use the
 second solution. Unfortunately, VXLAN handling is not compatible with
-IPv6 yet, so we use IPv4.
+IPv6 yet, so we use IPv4. Moreover,
+a [patch](https://github.com/CumulusNetworks/quagga/pull/26) is needed
+for interoperability with other vendors (notably GoBGP used as a
+RR). Also,
+another [patch](https://github.com/CumulusNetworks/quagga/pull/27) is
+needed to ensure appropriate handling of unicast FDB entries.
 
 Here are some commands to observe the adjacencies from `vtysh`. First,
 which VNI are we interested in?
