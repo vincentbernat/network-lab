@@ -1,0 +1,37 @@
+global:
+  config:
+    as: 65000
+    router-id: 1.0.0.254
+    local-address-list:
+      - 203.0.113.254
+neighbors:
+  - config:
+      neighbor-address: 203.0.113.1
+      peer-as: 65000
+    afi-safis:
+      - config:
+          afi-safi-name: l2vpn-evpn
+    route-reflector:
+      config:
+        route-reflector-client: true
+        route-reflector-cluster-id: 1.0.0.254
+  - config:
+      neighbor-address: 203.0.113.2
+      peer-as: 65000
+    afi-safis:
+      - config:
+          afi-safi-name: l2vpn-evpn
+    route-reflector:
+      config:
+        route-reflector-client: true
+        route-reflector-cluster-id: 1.0.0.254
+  - config:
+      neighbor-address: 203.0.113.3
+      peer-as: 65000
+    afi-safis:
+      - config:
+          afi-safi-name: l2vpn-evpn
+    route-reflector:
+      config:
+        route-reflector-client: true
+        route-reflector-cluster-id: 1.0.0.254

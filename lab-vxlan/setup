@@ -13,8 +13,8 @@ LABNAME="vxlan"
 #VARIANT=unicast-routing
 #VARIANT=cumulus-vxfld-her     # Head end replication
 #VARIANT=cumulus-vxfld-snr     # Service node replication
-#VARIANT=bgp-evpn
-VARIANT=bgp-evpn-junos
+VARIANT=bgp-evpn
+#VARIANT=bgp-evpn-junos
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -29,7 +29,9 @@ case $VARIANT in
     bgp-evpn-junos) spawn juniper-vmx S3 networks 1,5 ;;
     *) spawn vm S3 networks 1,5 ;;
 esac
+
 case $VARIANT in
+    bgp-evpn*) spawn vm RR network 1 ;;
     cumulus-vxfld-*)
         spawn vm SN1 network 1
         spawn vm SN2 network 1
@@ -103,6 +105,17 @@ EOF
         vxsnd -d -c /tmp/vxsnd.conf -D &
         sleep 1
         log_ok_msg "vxsnd started"
+        ;;
+    RR)
+        ip addr add 203.0.113.254/32 dev dummy0
+        ip addr add 169.254.15.254/24 dev eth0
+        ip -6 addr add 2001:db8:254::1/128 dev dummy0
+        service bird
+        log_begin_msg "Start gobgpd"
+        gobgpd -t yaml -f /mnt/lab/gobgpd.yaml \
+               --syslog yes --disable-stdlog &
+        sleep 1
+        log_ok_msg "gobgpd started"
         ;;
     S*)
         # Setup the "routed" underlay network
