@@ -339,8 +339,10 @@ Wireshark seems to expect the IP address to not be included, but the
 IP address length is 4 and therefore, the remaining bytes are the IP
 address. Maybe a bug in Wireshark?
 
-Some other configuration problems may be present but until this
-problem is fixed, it's difficult to move forward.
+Some other configuration problems may be present (notably in how the
+appropriate route targets and route distinguishers are
+computed). Until the above problem is fixed, it's difficult to move
+forward.
 
 [BaGPipe BGP]: https://github.com/Orange-OpenSource/bagpipe-bgp
 [3]: http://murat1985.github.io/kubernetes/cni/2016/05/15/bagpipe-gobgp.html
