@@ -13,16 +13,22 @@ LABNAME="vxlan"
 #VARIANT=unicast-routing
 #VARIANT=cumulus-vxfld-her     # Head end replication
 #VARIANT=cumulus-vxfld-snr     # Service node replication
-VARIANT=bgp-evpn
+#VARIANT=bgp-evpn
+VARIANT=bgp-evpn-junos
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
+
+SWITCH_MON=1
 
 # Network 1 is the underlay network. We consider it as a routed L3
 # network, but we lie a bit.
 spawn vm S1 networks 1,2
 spawn vm S2 networks 1,3,4
-spawn vm S3 networks 1,5
+case $VARIANT in
+    bgp-evpn-junos) spawn juniper-vmx S3 networks 1,5 ;;
+    *) spawn vm S3 networks 1,5 ;;
+esac
 case $VARIANT in
     cumulus-vxfld-*)
         spawn vm SN1 network 1
@@ -372,7 +378,7 @@ EOF
                 sleep 1
                 log_ok_msg "vxrd started"
                 ;;
-            bgp-evpn)
+            bgp-evpn*)
                 # Use of BGP EVPN. Learning is disabled. Not compatible with IPv6.
                 ip link add vxlan0 type vxlan \
                    dstport 4789 \
