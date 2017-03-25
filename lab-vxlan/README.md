@@ -163,9 +163,9 @@ There is currently two major solutions on Linux for that:
  - [BaGPipe BGP][] (see also this [article][3]), [adopted by OpenStack][4]
  - [Cumulus Quagga][] (see also this [article][5] and this [one][7])
  
-See also [RFC 7432](https://tools.ietf.org/html/rfc7432). We use the
-second solution. Unfortunately, VXLAN handling is not compatible with
-IPv6 yet, so we use IPv4. Moreover,
+See also [RFC 7432][]. We use the second solution. Unfortunately,
+VXLAN handling is not compatible with IPv6 yet, so we use
+IPv4. Moreover,
 a [patch](https://github.com/CumulusNetworks/quagga/pull/26) is needed
 for interoperability with other vendors (notably GoBGP used as a
 RR). Also,
@@ -282,7 +282,8 @@ As for interoperability, the biggest problem is how RD and RT are
 computed. A type 2 route contains the following fields:
 
  - a Route Distinguishier (RD)
- - an Ethernet Segment Identifier (ESI)
+ - an Ethernet Segment Identifier (ESI), used when an Ethernet segment
+   is multi-homed
  - an Ethernet Tag ID (ETag)
  - a MAC address
  - an optional IP address
@@ -295,7 +296,13 @@ A type 3 route contains the following fields:
  - an IP address
  
 Each vendor has its own way to map a VXLAN domain to one of the
-attributes. Moreover, each NLRI can have a Route Target (RT).
+attributes. Moreover, each NLRI can have a Route Target
+(RT). [RFC 7432][] acknowledges the fact that there is not a unique
+way to do it (it presents 3 options, in section 6: VLAN-based service
+interface, VLAN bundle service interface and VLAN-aware bundle service
+interface). The same options are presented
+in [draft-sd-l2vpn-evpn-overlay][] (single subnet per EVPN instance,
+multiple subnets per EVPN instance).
 
 #### Cumulus
 
@@ -315,6 +322,9 @@ Quick mental note: Juniper has a lot of material
 on [configuring BGP EVPN on the QFX line][10], but far less for the MX
 which requires the use of virtual switches. Hopefully, there is
 an [Ansible playbook][] for this.
+
+Juniper uses the "Multiple Subnets per EVI" model (with per-tenant
+RD).
 
 The RD is set manually by the user and doesn't have to encode the
 VNI. The ESI is also set by the user and is zero by default. The ETag
@@ -339,6 +349,8 @@ inter-operate.
 [5]: https://docs.cumulusnetworks.com/display/DOCS/Ethernet+Virtual+Private+Network+-+EVPN
 [7]: https://cumulusnetworks.com/learn/web-scale-networking-resources/whitepapers/Cumulus-Networks-White-Paper-EVPN.pdf
 [10]: https://www.juniper.net/techpubs/en_US/release-independent/nce/information-products/pathway-pages/nce/nce-153-vcf-evpn-vxlan-integrating.pdf
+[RFC 7432]: https://tools.ietf.org/html/rfc7432
+[draft-sd-l2vpn-evpn-overlay]: https://tools.ietf.org/html/draft-ietf-bess-evpn-overlay-07
 
 # Other considerations
 
