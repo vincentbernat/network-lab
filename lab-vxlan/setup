@@ -13,8 +13,8 @@ LABNAME="vxlan"
 #VARIANT=unicast-routing
 #VARIANT=cumulus-vxfld-her     # Head end replication
 #VARIANT=cumulus-vxfld-snr     # Service node replication
-VARIANT=bgp-evpn
-#VARIANT=bgp-evpn-junos
+#VARIANT=bgp-evpn
+VARIANT=bgp-evpn-junos
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup

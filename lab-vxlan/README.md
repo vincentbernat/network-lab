@@ -276,83 +276,60 @@ There are two types of routes (first digit):
  - type 3 (multicast Ethernet routes): they are here to make
    broadcast, unknown unicast and multicast traffic.
 
-The implementation should be interoperable with vendor
-implementations. It doesn't work with Juniper one which chokes on the
-received Type-3 route:
+### Interoperability
 
-    Mar 24 06:44:45  S3 rpd[4139]: bgp_rcv_nlri:10354: NOTIFICATION sent to 203.0.113.1 (External AS 65001): code 3 (Update Message Error) subcode 10 (bad address/prefix field), Reason: peer 203.0.113.1 (External AS 65001) update included invalid route 3:203.0.113.1:100::0::/304 (4 of 19)
+As for interoperability, the biggest problem is how RD and RT are
+computed. A type 2 route contains the following fields:
 
-Wireshark also finds the mentioned update suspicious:
+ - a Route Distinguishier (RD)
+ - an Ethernet Segment Identifier (ESI)
+ - an Ethernet Tag ID (ETag)
+ - a MAC address
+ - an optional IP address
+ - one or two MPLS labels
+ 
+A type 3 route contains the following fields:
 
-    Border Gateway Protocol - UPDATE Message
-        Marker: ffffffffffffffffffffffffffffffff
-        Length: 115
-        Type: UPDATE Message (2)
-        Withdrawn Routes Length: 0
-        Total Path Attribute Length: 92
-        Path attributes
-            Path Attribute - MP_REACH_NLRI
-                Flags: 0x90, Optional, Length: Optional, Non-transitive, Complete, Extended Length
-                Type Code: MP_REACH_NLRI (14)
-                Length: 63
-                Address family identifier (AFI): Layer-2 VPN (25)
-                Subsequent address family identifier (SAFI): EVPN (70)
-                Next hop network address (4 bytes)
-                Number of Subnetwork points of attachment (SNPA): 0
-                Network layer reachability information (54 bytes)
-                    EVPN NLRI: MAC Advertisement Route
-                        AFI: MAC Advertisement Route (2)
-                        Length: 33
-                        Route Distinguisher: 0001cb0071010064 (203.0.113.1:100)
-                        ESI: 00 00 00 00 00 00 00 00 00
-                        Ethernet Tag ID: 0
-                        MAC Address Length: 6
-                        MAC Address: 50:54:33:00:00:0b (50:54:33:00:00:0b)
-                        IP Address Length: 0
-                        IP Address: NOT INCLUDED
-                            [Expert Info (Note/Protocol): IP Address: NOT INCLUDED]
-                        MPLS Label Stack: 409600, (BOGUS: Bottom of Stack NOT set!)
-                    EVPN NLRI: Inclusive Multicast Route
-                        AFI: Inclusive Multicast Route (3)
-                        Length: 17
-                        Route Distinguisher: 0001cb0071010064 (203.0.113.1:100)
-                        Ethernet Tag ID: 0
-                        IP Address Length: 4
-                        IP Address: NOT INCLUDED
-                            [Expert Info (Note/Protocol): IP Address: NOT INCLUDED]
-                    [Expert Info (Error/Malformed): Invalid EVPN Route Type (203)!]
-                        [Invalid EVPN Route Type (203)!]
-                        [Severity level: Error]
-                        [Group: Malformed]
-            Path Attribute - ORIGIN: IGP
-                Flags: 0x40, Transitive: Well-known, Transitive, Complete
-                Type Code: ORIGIN (1)
-                Length: 1
-                Origin: IGP (0)
-            Path Attribute - AS_PATH: 65001 
-                Flags: 0x50, Transitive, Length: Well-known, Transitive, Complete, Extended Length
-                Type Code: AS_PATH (2)
-                Length: 6
-                AS Path segment: 65001
-            Path Attribute - EXTENDED_COMMUNITIES
-                Flags: 0xc0, Optional, Transitive: Optional, Transitive, Complete
-                Type Code: EXTENDED_COMMUNITIES (16)
-                Length: 8
-                Carried extended communities: (1 community)
+ - a Route Distinguishier (RD)
+ - an Ethernet Tag ID (ETag)
+ - an IP address
+ 
+Each vendor has its own way to map a VXLAN domain to one of the
+attributes. Moreover, each NLRI can have a Route Target (RT).
 
-Wireshark seems to expect the IP address to not be included, but the
-IP address length is 4 and therefore, the remaining bytes are the IP
-address. Maybe a bug in Wireshark?
+#### Cumulus
 
-Some other configuration problems may be present (notably in how the
-appropriate route targets and route distinguishers are
-computed). Until the above problem is fixed, it's difficult to move
-forward.
+For type 2 routes, the RD is set to the router ID and the VNI (eg
+203.0.113.1:100). ESI and ETag are ignored (and set to 0). The RT is
+set to ASN and VNI (eg 65000:100). No IP address is used. A MPLS label
+is set to the VNI encoded as a native 32-bit int clipped to 24-bit (eg
+0x640000 for VNI 100 on x86). This is not used when reading back the
+value (dunno why).
 
-Quick mental note: Juniper has a lot of material on configuring BGP
-EVPN on the QFX line, but far less for the MX which requires the use
-of virtual switches. Hopefully, there is an [Ansible playbook][] for
-this.
+For type 3 routes, RT and RD are set like for type 2. The IP address
+of the VTEP is used. No ETag (and its value is ignored).
+
+#### Juniper
+
+Quick mental note: Juniper has a lot of material
+on [configuring BGP EVPN on the QFX line][10], but far less for the MX
+which requires the use of virtual switches. Hopefully, there is
+an [Ansible playbook][] for this.
+
+The RD is set manually by the user and doesn't have to encode the
+VNI. The ESI is also set by the user and is zero by default. The ETag
+is encoding the VNI, as well as the first MPLS label. The router
+target is set to ASN and VNI&0x10000000 (eg 65000:268435556). There
+is also an opaque encapsulation community set to "VXLAN" (0x8).
+
+The type 3 route also include a PMSI attribute with the VNI and the
+tunnel endpoint.
+
+For interoperability with Cumulus Quagga, the VRF target has to be set
+manually for each VLAN. This requires the use of a virtual switch per
+VLAN. However, I don't know how to solve the other
+differences. Therefore, the two implementations are unlikely to
+inter-operate.
 
 [Ansible playbook]: https://github.com/JNPRAutomate/ansible-junos-evpn-vxlan/tree/master/roles/overlay-evpn-mx-l3
 [BaGPipe BGP]: https://github.com/Orange-OpenSource/bagpipe-bgp
@@ -361,6 +338,7 @@ this.
 [Cumulus Quagga]: http://github.com/cumulusnetworks/quagga
 [5]: https://docs.cumulusnetworks.com/display/DOCS/Ethernet+Virtual+Private+Network+-+EVPN
 [7]: https://cumulusnetworks.com/learn/web-scale-networking-resources/whitepapers/Cumulus-Networks-White-Paper-EVPN.pdf
+[10]: https://www.juniper.net/techpubs/en_US/release-independent/nce/information-products/pathway-pages/nce/nce-153-vcf-evpn-vxlan-integrating.pdf
 
 # Other considerations
 
