@@ -311,11 +311,12 @@ VNI on JunOS as we cannot use the `auto` directive. This means we have
 to use one virtual switch for each VNI. If the `auto` directive was
 possible, it is likely we could use a unique virtual switch: the RD is
 not important, the static `vrf-target` has to be set to something, but
-would be overrident by the `auto` directive, `extended-vni-list` could
-be set to `all`. The `bridge-domains` still has to be declared, but
-that's how bridging works on the MX. The incompatibility is that
-Cumulus uses AS:VNI for the RT while JunOS uses AS:VNI' where VNI' is
-VNI&0x10000000.
+would be overrident by the `auto` directive, the `vrf-import` has to
+be more permissive (it could just be removed if we want to accept
+everything), `extended-vni-list` could be set to `all`. The
+`bridge-domains` still has to be declared, but that's how bridging
+works on the MX. The incompatibility is that Cumulus uses AS:VNI for
+the RT while JunOS uses AS:VNI' where VNI' is VNI&0x10000000.
 
 Here is the output from the Juniper side:
 
