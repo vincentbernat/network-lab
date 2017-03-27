@@ -165,12 +165,7 @@ There is currently two major solutions on Linux for that:
  
 See also [RFC 7432][]. We use the second solution. Unfortunately,
 VXLAN handling is not compatible with IPv6 yet, so we use
-IPv4. Moreover,
-a [patch](https://github.com/CumulusNetworks/quagga/pull/26) is needed
-for interoperability with other vendors (notably GoBGP used as a
-RR). Also,
-another [patch](https://github.com/CumulusNetworks/quagga/pull/27) is
-needed to ensure appropriate handling of unicast FDB entries.
+IPv4.
 
 Here are some commands to observe the adjacencies from `vtysh`. First,
 which VNI are we interested in?
@@ -304,42 +299,55 @@ interface). The same options are presented
 in [draft-sd-l2vpn-evpn-overlay][] (single subnet per EVPN instance,
 multiple subnets per EVPN instance).
 
-#### Cumulus
-
-For type 2 routes, the RD is set to the router ID and the VNI (eg
-203.0.113.1:100). ESI and ETag are ignored (and set to 0). The RT is
-set to ASN and VNI (eg 65000:100). No IP address is used. A MPLS label
-is set to the VNI encoded as a native 32-bit int clipped to 24-bit (eg
-0x640000 for VNI 100 on x86). This is not used when reading back the
-value (dunno why).
-
-For type 3 routes, RT and RD are set like for type 2. The IP address
-of the VTEP is used. No ETag (and its value is ignored).
-
-#### Juniper
-
-Quick mental note: Juniper has a lot of material
+Juniper has a lot of material
 on [configuring BGP EVPN on the QFX line][10], but far less for the MX
 which requires the use of virtual switches. Hopefully, there is
 an [Ansible playbook][] for this.
 
-Juniper uses the "Multiple Subnets per EVI" model (with per-tenant
-RD).
+Currently, Cumulus Quagga and Junos don't agree on how to encode
+everything. However, they are both flexible enough to accept to speak
+to each other no matter what. This requires to manually configure each
+VNI on JunOS as we cannot use the `auto` directive. This means we have
+to use one virtual switch for each VNI. If the `auto` directive was
+possible, it is likely we could use a unique virtual switch: the RD is
+not important, the static `vrf-target` has to be set to something, but
+would be overrident by the `auto` directive, `extended-vni-list` could
+be set to `all`. The `bridge-domains` still has to be declared, but
+that's how bridging works on the MX. The incompatibility is that
+Cumulus uses AS:VNI for the RT while JunOS uses AS:VNI' where VNI' is
+VNI&0x10000000.
 
-The RD is set manually by the user and doesn't have to encode the
-VNI. The ESI is also set by the user and is zero by default. The ETag
-is encoding the VNI, as well as the first MPLS label. The router
-target is set to ASN and VNI&0x10000000 (eg 65000:268435556). There
-is also an opaque encapsulation community set to "VXLAN" (0x8).
+Here is the output from the Juniper side:
 
-The type 3 route also include a PMSI attribute with the VNI and the
-tunnel endpoint.
-
-For interoperability with Cumulus Quagga, the VRF target has to be set
-manually for each VLAN. This requires the use of a virtual switch per
-VLAN. However, I don't know how to solve the other
-differences. Therefore, the two implementations are unlikely to
-inter-operate.
+    juniper@S3> run show evpn database
+    Instance: vxlan-100
+    VLAN  DomainId  MAC address        Active source                  Timestamp        IP address
+         100        50:54:33:00:00:0c  203.0.113.1                    Mar 27 19:48:20
+         100        50:54:33:00:00:0d  203.0.113.2                    Mar 27 19:48:20
+         100        50:54:33:00:00:0e  203.0.113.2                    Mar 27 19:48:20
+         100        50:54:33:00:00:0f  ge-0/0/1.0                     Mar 27 19:33:16
+    
+    juniper@S3> run show bridge domain
+    
+    Routing instance        Bridge domain            VLAN ID     Interfaces
+    vxlan-100               bd100                    100
+                                                                 ge-0/0/1.0
+                                                                 vtep.32769
+                                                                 vtep.32770
+    
+    juniper@S3> run show bridge mac-table
+    
+    MAC flags       (S -static MAC, D -dynamic MAC, L -locally learned, C -Control MAC
+        O -OVSDB MAC, SE -Statistics enabled, NM -Non configured MAC, R -Remote PE MAC)
+    
+    Routing instance : vxlan-100
+     Bridging domain : bd100, VLAN : 100
+       MAC                 MAC      Logical                Active
+       address             flags    interface              source
+       50:54:33:00:00:0c   D        vtep.32770             203.0.113.1
+       50:54:33:00:00:0d   D        vtep.32769             203.0.113.2
+       50:54:33:00:00:0e   D        vtep.32769             203.0.113.2
+       50:54:33:00:00:0f   D        ge-0/0/1.0
 
 [Ansible playbook]: https://github.com/JNPRAutomate/ansible-junos-evpn-vxlan/tree/master/roles/overlay-evpn-mx-l3
 [BaGPipe BGP]: https://github.com/Orange-OpenSource/bagpipe-bgp
