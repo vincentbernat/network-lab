@@ -61,24 +61,30 @@ noip() {
 # Executed on each VM
 case $uts in
     H*)
+        ip link add name vlan100 link eth0 type vlan id 100
+        ip link add name vlan200 link eth0 type vlan id 200
+        ip link set up dev vlan100
+        ip link set up dev vlan200
         # With the unicast-static-rsc variant, we want to "route"
         # traffic directly between two subnets by using switching. We
         # put H1 and H4 on different subnets. They should use some
         # router which doesn't exist.
         case $uts,$VARIANT in
             H1,unicast-static-rsc)
-                ip -6 addr add 2001:db8:ff::10/64 dev eth0
+                ip -6 addr add 2001:db8:ff::10/64 dev vlan100
                 ip -6 route add default via 2001:db8:ff::1
-                ip -6 neigh add 2001:db8:ff::1 lladdr 02:00:00:00:00:01 dev eth0 # doesn't exist
+                ip -6 neigh add 2001:db8:ff::1 lladdr 02:00:00:00:00:01 dev vlan100 # doesn't exist
                 ;;
             H4,unicast-static-rsc)
-                ip -6 addr add 2001:db8:fe::13/64 dev eth0
+                ip -6 addr add 2001:db8:fe::13/64 dev vlan100
                 ip -6 route add default via 2001:db8:fe::1
-                ip -6 neigh add 2001:db8:fe::1 lladdr 02:00:00:00:00:02 dev eth0 # doesn't exist
+                ip -6 neigh add 2001:db8:fe::1 lladdr 02:00:00:00:00:02 dev vlan100 # doesn't exist
                 ;;
             *,*)
-                ip addr add 192.0.2.$(( ${uts#H} + 9 ))/24 dev eth0
-                ip -6 addr add 2001:db8:ff::$(( ${uts#H} + 9 ))/64 dev eth0
+                ip addr add 192.0.2.$(( ${uts#H} + 9 ))/25 dev vlan100
+                ip addr add 192.0.2.$(( ${uts#H} + 129 ))/25 dev vlan200
+                ip -6 addr add 2001:db8:ff::$(( ${uts#H} + 9 ))/64 dev vlan100
+                ip -6 addr add 2001:db8:ef::$(( ${uts#H} + 9 ))/64 dev vlan200
                 ;;
         esac
         service nginx
@@ -129,17 +135,42 @@ EOF
         ip -6 addr add 2001:db8:${uts#S}::1/128 dev dummy0
         service bird
 
+        for iface in /sys/class/net/eth*; do
+            [ -d $iface ] || continue
+            iface=${iface##*/}
+            case $iface in
+                eth0) ;;
+                *)
+                    ip link add name $iface.100 link $iface type vlan id 100
+                    ip link set up dev $iface.100
+                    [ $uts,$iface = S2,eth2 ] || {
+                        # We make an exception to ensure we don't mix FDB entries between VLAN
+                        ip link add name $iface.200 link $iface type vlan id 200
+                        ip link set up dev $iface.200
+                    }
+                    ;;
+            esac
+        done
         [ $VARIANT = unicast-routing ] || {
-            brctl addbr br0
-            brctl setfd br0 0
+            brctl addbr br100
+            brctl setfd br100 0
+            brctl addbr br200
+            brctl setfd br200 0
+            noip br100
+            noip br200
             for iface in /sys/class/net/eth*; do
                 [ -d $iface ] || continue
                 iface=${iface##*/}
                 case $iface in
+                    *.*) ;;
                     eth0) ;;
                     *)
-                        brctl addif br0 $iface
+                        brctl addif br100 $iface.100
+                        [ $uts,$iface = S2,eth2 ] || \
+                            brctl addif br200 $iface.200
                         noip $iface
+                        noip $iface.100
+                        noip $iface.200
                         ;;
                 esac
             done
@@ -148,7 +179,7 @@ EOF
         case $VARIANT in
             multicast)
                 # VXLAN configuration using multicast
-                ip -6 link add vxlan0 type vxlan \
+                ip -6 link add vxlan100 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
@@ -158,7 +189,7 @@ EOF
                 ;;
             unicast-static-default)
                 # VXLAN configuration using unicast flooding.
-                ip -6 link add vxlan0 type vxlan \
+                ip -6 link add vxlan100 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
@@ -168,7 +199,7 @@ EOF
                 # Same as previously, but we disable learning as we
                 # don't expect any additional entries (this could
                 # protect us from some exhaustion attack).
-                ip -6 link add vxlan0 type vxlan \
+                ip -6 link add vxlan100 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
@@ -177,7 +208,7 @@ EOF
                 ;;
             unicast-static-nd)
                 # Same as previously, but we enable proxy mode to reduce ARP/ND traffic.
-                ip -6 link add vxlan0 type vxlan \
+                ip -6 link add vxlan100 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
@@ -186,32 +217,32 @@ EOF
                    proxy
 
                 # Static neighbor entries to reduce neighbors discovery.
-                [ ${uts#S} = 1 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 50:54:33:00:00:08 dev vxlan0
-                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::11 lladdr 50:54:33:00:00:09 dev vxlan0
-                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 50:54:33:00:00:0a dev vxlan0
-                [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 50:54:33:00:00:0b dev vxlan0
+                [ ${uts#S} = 1 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 50:54:33:00:00:08 dev vxlan100
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::11 lladdr 50:54:33:00:00:09 dev vxlan100
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 50:54:33:00:00:0a dev vxlan100
+                [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 50:54:33:00:00:0b dev vxlan100
                 ;;
             unicast-static-rsc)
                 # Same as unicast-static-default but we use a route
                 # short circuit to let H1 and H4 communicate despite
                 # the absence of router (so, for H1/H4, the setup is
                 # more similar to unicast-static-nd).
-                ip -6 link add vxlan0 type vxlan \
+                ip -6 link add vxlan100 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
                    local 2001:db8:${uts#S}::1 \
                    rsc
 
-                [ ${uts#S} != 1 ] || bridge fdb append 02:00:00:00:00:01 dev vxlan0 dst 2001:db8:10::1 router
-                [ ${uts#S} != 3 ] || bridge fdb append 02:00:00:00:00:02 dev vxlan0 dst 2001:db8:10::1 router
-                [ ${uts#S} != 1 ] || ip -6 neigh add 2001:db8:fe::13 lladdr 50:54:33:00:00:0b dev vxlan0
-                [ ${uts#S} != 3 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 50:54:33:00:00:08 dev vxlan0
+                [ ${uts#S} != 1 ] || bridge fdb append 02:00:00:00:00:01 dev vxlan100 dst 2001:db8:10::1 router
+                [ ${uts#S} != 3 ] || bridge fdb append 02:00:00:00:00:02 dev vxlan100 dst 2001:db8:10::1 router
+                [ ${uts#S} != 1 ] || ip -6 neigh add 2001:db8:fe::13 lladdr 50:54:33:00:00:0b dev vxlan100
+                [ ${uts#S} != 3 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 50:54:33:00:00:08 dev vxlan100
                 ;;
             unicast-dynamic-l2)
                 # No default FDB rules but uses a simplistic custom
                 # controller to register entries when they are needed.
-                ip -6 link add vxlan0 type vxlan \
+                ip -6 link add vxlan100 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
@@ -222,10 +253,10 @@ EOF
                 # We still need ARP/ND to work. We register (broadcast
                 # and) multicast addresses. That's quite a limitation
                 # of this solution.
-                [ ${uts#S} = 1 ] || bridge fdb append 33:33:FF:00:00:10 dev vxlan0 dst 2001:db8:1::1
-                [ ${uts#S} = 2 ] || bridge fdb append 33:33:FF:00:00:11 dev vxlan0 dst 2001:db8:2::1
-                [ ${uts#S} = 2 ] || bridge fdb append 33:33:FF:00:00:12 dev vxlan0 dst 2001:db8:2::1
-                [ ${uts#S} = 3 ] || bridge fdb append 33:33:FF:00:00:13 dev vxlan0 dst 2001:db8:3::1
+                [ ${uts#S} = 1 ] || bridge fdb append 33:33:FF:00:00:10 dev vxlan100 dst 2001:db8:1::1
+                [ ${uts#S} = 2 ] || bridge fdb append 33:33:FF:00:00:11 dev vxlan100 dst 2001:db8:2::1
+                [ ${uts#S} = 2 ] || bridge fdb append 33:33:FF:00:00:12 dev vxlan100 dst 2001:db8:2::1
+                [ ${uts#S} = 3 ] || bridge fdb append 33:33:FF:00:00:13 dev vxlan100 dst 2001:db8:3::1
 
                 # Now, ip monitor will display stuff like this:
                 #     miss lladdr 50:54:33:00:00:08 STALE
@@ -235,7 +266,7 @@ EOF
                 # but of course, this should be done by something more
                 # robust.
                 (
-                    ip monitor neigh dev vxlan0 | while read miss lladdr mac remaining; do
+                    ip monitor neigh dev vxlan100 | while read miss lladdr mac remaining; do
                         case $miss,$lladdr in
                             miss,lladdr) ;;
                             *) continue
@@ -251,13 +282,13 @@ EOF
                             50:54:33:00:00:0b) dst=2001:db8:3::1 ;;
                             *) continue ;;
                         esac
-                        bridge fdb replace $mac dev vxlan0 dst $dst dynamic
+                        bridge fdb replace $mac dev vxlan100 dst $dst dynamic
                     done
                 ) &
                 ;;
             unicast-dynamic-nd)
                 # Combine the previous example but also add dynamic ARP/ND entries
-                ip -6 link add vxlan0 type vxlan \
+                ip -6 link add vxlan100 type vxlan \
                    dstport 4789 \
                    id 100 \
                    ttl 5 \
@@ -272,7 +303,7 @@ EOF
                 #     miss 2001:db8:ff::12 STALE
                 #     2001:db8:ff::10 lladdr 50:54:33:00:00:08 STALE
                 (
-                    ip monitor neigh dev vxlan0 | while read x y z w; do
+                    ip monitor neigh dev vxlan100 | while read x y z w; do
                         case $x,$y,$z,$w in
                             miss,lladdr,*,STALE)
                                 mac=$z
@@ -283,7 +314,7 @@ EOF
                                     50:54:33:00:00:0b) dst=2001:db8:3::1 ;;
                                     *) continue ;;
                                 esac
-                                bridge fdb replace $mac dev vxlan0 dst $dst dynamic
+                                bridge fdb replace $mac dev vxlan100 dst $dst dynamic
                                 ;;
                             miss,*,STALE,)
                                 addr=$y
@@ -294,7 +325,7 @@ EOF
                                     2001:db8:ff::13) dst=50:54:33:00:00:0b ;;
                                     *) continue ;;
                                 esac
-                                ip -6 neigh replace $addr lladdr $dst dev vxlan0 nud reachable
+                                ip -6 neigh replace $addr lladdr $dst dev vxlan100 nud reachable
                                 ;;
                             *,lladdr,*,STALE)
                                 addr=$x
@@ -305,7 +336,7 @@ EOF
                                     2001:db8:ff::13) dst=50:54:33:00:00:0b ;;
                                     *) continue ;;
                                 esac
-                                ip -6 neigh replace $addr lladdr $dst dev vxlan0 nud reachable
+                                ip -6 neigh replace $addr lladdr $dst dev vxlan100 nud reachable
                                 ;;
                             *) continue
                         esac
@@ -317,7 +348,7 @@ EOF
                 # for encapsulation. For some reason, checksums are
                 # not computed. Disable them as we rely on the inner
                 # IP checksum.
-                ip -6 link add vxlan0 \
+                ip -6 link add vxlan100 \
                    address 02:00:00:00:00:0${uts#S} \
                    type vxlan \
                    dstport 4789 \
@@ -330,18 +361,20 @@ EOF
                 # We enable routing
                 sysctl -qw net.ipv6.conf.all.forwarding=1
                 # Routes to remote hosts. This should be distributed by some IGP (BGP for example)
-                [ ${uts#S} = 1 ] || ip -6 route add 2001:db8:ff::10/128 encap ip6 id 100 dst 2001:db8:1::1 dev vxlan0
-                [ ${uts#S} = 2 ] || ip -6 route add 2001:db8:ff::11/128 encap ip6 id 100 dst 2001:db8:2::1 dev vxlan0
-                [ ${uts#S} = 2 ] || ip -6 route add 2001:db8:ff::12/128 encap ip6 id 100 dst 2001:db8:2::1 dev vxlan0
-                [ ${uts#S} = 3 ] || ip -6 route add 2001:db8:ff::13/128 encap ip6 id 100 dst 2001:db8:3::1 dev vxlan0
+                [ ${uts#S} = 1 ] || ip -6 route add 2001:db8:ff::10/128 encap ip6 id 100 dst 2001:db8:1::1 dev vxlan100
+                [ ${uts#S} = 2 ] || ip -6 route add 2001:db8:ff::11/128 encap ip6 id 100 dst 2001:db8:2::1 dev vxlan100
+                [ ${uts#S} = 2 ] || ip -6 route add 2001:db8:ff::12/128 encap ip6 id 100 dst 2001:db8:2::1 dev vxlan100
+                [ ${uts#S} = 3 ] || ip -6 route add 2001:db8:ff::13/128 encap ip6 id 100 dst 2001:db8:3::1 dev vxlan100
                 # Routes to local hosts.
-                [ ${uts#S} != 1 ] || ip -6 route add 2001:db8:ff::10/128 dev eth1
-                [ ${uts#S} != 2 ] || ip -6 route add 2001:db8:ff::11/128 dev eth1
-                [ ${uts#S} != 2 ] || ip -6 route add 2001:db8:ff::12/128 dev eth2
-                [ ${uts#S} != 3 ] || ip -6 route add 2001:db8:ff::13/128 dev eth1
+                [ ${uts#S} != 1 ] || ip -6 route add 2001:db8:ff::10/128 dev eth1.100
+                [ ${uts#S} != 2 ] || ip -6 route add 2001:db8:ff::11/128 dev eth1.100
+                [ ${uts#S} != 2 ] || ip -6 route add 2001:db8:ff::12/128 dev eth2.100
+                [ ${uts#S} != 3 ] || ip -6 route add 2001:db8:ff::13/128 dev eth1.100
                 # ND proxying for remote hosts (should use somethig like ndppd, more flexible)
-                for iface in $(sysctl -a | sed -n 's/^net\.ipv6\.conf\.\(eth[1-9]\)\.proxy_ndp = .*/\1/p'); do
-                    sysctl -qw net.ipv6.conf.$iface.proxy_ndp=1
+                for p in /proc/sys/net/ipv6/conf/eth*.100/proxy_ndp; do
+                    iface=${p%/*}
+                    iface=${iface##*/}
+                    sysctl -qw net/ipv6/conf/$iface/proxy_ndp=1
                     [ ${uts#S} = 1 ] || ip -6 neigh add proxy 2001:db8:ff::10 dev $iface
                     [ ${uts#S} = 2 ] || ip -6 neigh add proxy 2001:db8:ff::11 dev $iface
                     [ ${uts#S} = 2 ] || ip -6 neigh add proxy 2001:db8:ff::12 dev $iface
@@ -351,10 +384,10 @@ EOF
                 # arp off", but on the remote, the vxlan driver is
                 # still checking the MAC address and the IP layer will
                 # drop the packet if the MAC is not its own.
-                [ ${uts#S} = 1 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 02:00:00:00:00:01 dev vxlan0
-                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::11 lladdr 02:00:00:00:00:02 dev vxlan0
-                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 02:00:00:00:00:02 dev vxlan0
-                [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 02:00:00:00:00:03 dev vxlan0
+                [ ${uts#S} = 1 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 02:00:00:00:00:01 dev vxlan100
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::11 lladdr 02:00:00:00:00:02 dev vxlan100
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 02:00:00:00:00:02 dev vxlan100
+                [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 02:00:00:00:00:03 dev vxlan100
                 ;;
             cumulus-vxfld-*)
                 # Use of Cumulus vxfld
@@ -362,23 +395,27 @@ EOF
                     *-her)
                         # Head end replication (like unicast-static-default)
                         headrep=true
-                        ip link add vxlan0 \
-                           type vxlan \
-                           dstport 4789 \
-                           id 100 \
-                           ttl 5 \
-                           local 203.0.113.${uts#S}
+                        for vlan in 100 200; do
+                            ip link add vxlan$vlan \
+                               type vxlan \
+                               dstport 4789 \
+                               id $vlan \
+                               ttl 5 \
+                               local 203.0.113.${uts#S}
+                        done
                         ;;
                     *-snr)
                         # Service node replication (flooding done by SN* nodes)
                         headrep=false
-                        ip link add vxlan0 \
-                           type vxlan \
-                           dstport 4789 \
-                           id 100 \
-                           ttl 5 \
-                           local 203.0.113.${uts#S} \
-                           remote 203.0.113.100
+                        for vlan in 100 200; do
+                            ip link add vxlan$vlan \
+                               type vxlan \
+                               dstport 4789 \
+                               id $vlan \
+                               ttl 5 \
+                               local 203.0.113.${uts#S} \
+                               remote 203.0.113.100
+                        done
                         ;;
                 esac
                 cat <<EOF > /tmp/vxrd.conf
@@ -396,12 +433,15 @@ EOF
                 ;;
             bgp-evpn-cumulus*)
                 # Use of BGP EVPN. Learning is disabled. Not compatible with IPv6.
-                ip link add vxlan0 type vxlan \
-                   dstport 4789 \
-                   id 100 \
-                   ttl 5 \
-                   local 203.0.113.${uts#S} \
-                   nolearning
+                for vlan in 100 200; do
+                    ip link add vxlan$vlan \
+                       type vxlan \
+                       dstport 4789 \
+                       id $vlan \
+                       ttl 5 \
+                       local 203.0.113.${uts#S} \
+                       nolearning
+                done
                 service quagga
                 ;;
         esac
@@ -412,26 +452,31 @@ EOF
                 # broadcast/multicast frames for neighbors discovery
                 # (ARP/ND). Not strictly needed for unicast static L3
                 # case (but no broadcast will be possible then).
-                [ ${uts#S} = 1 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 2001:db8:1::1
-                [ ${uts#S} = 2 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 2001:db8:2::1
-                [ ${uts#S} = 3 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 2001:db8:3::1
+                [ ${uts#S} = 1 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 2001:db8:1::1
+                [ ${uts#S} = 2 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 2001:db8:2::1
+                [ ${uts#S} = 3 ] || bridge fdb append 00:00:00:00:00:00 dev vxlan100 dst 2001:db8:3::1
         esac
         case $VARIANT in
             unicast-static-l2|unicast-static-nd)
                 # We put static entries for known mac.
-                [ ${uts#S} = 1 ] || bridge fdb append 50:54:33:00:00:08 dev vxlan0 dst 2001:db8:1::1
-                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:09 dev vxlan0 dst 2001:db8:2::1
-                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:0a dev vxlan0 dst 2001:db8:2::1
-                [ ${uts#S} = 3 ] || bridge fdb append 50:54:33:00:00:0b dev vxlan0 dst 2001:db8:3::1
+                [ ${uts#S} = 1 ] || bridge fdb append 50:54:33:00:00:08 dev vxlan100 dst 2001:db8:1::1
+                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:09 dev vxlan100 dst 2001:db8:2::1
+                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:0a dev vxlan100 dst 2001:db8:2::1
+                [ ${uts#S} = 3 ] || bridge fdb append 50:54:33:00:00:0b dev vxlan100 dst 2001:db8:3::1
                 ;;
         esac
 
         [ $VARIANT = unicast-routing ] || {
-            noip vxlan0
-            noip br0
-            brctl addif br0 vxlan0
-            ip link set up dev br0
+            noip vxlan100
+            brctl addif br100 vxlan100
+            ip link set up dev br100
         }
-        ip link set up dev vxlan0
+        ip link set up dev vxlan100
+        [ ! -d /sys/class/net/vxlan200 ] || {
+            noip vxlan200
+            brctl addif br200 vxlan200
+            ip link set up dev br200
+            ip link set up dev vxlan200
+        }
         ;;
 esac

@@ -18,6 +18,11 @@ The following kernel options are needed:
     CONFIG_VXLAN=y
     CONFIG_PACKET=y
     CONFIG_LWTUNNEL=y
+    CONFIG_BRIDGE=y
+    
+Most variants are only using VLAN/VNI 100. When it makes sense, some
+of them are also using VLAN/VNI 200. Most variants are using only IPv6
+except when IPv6 is not supported. In this case, IPv4 is used.
 
 ## Multicast
 
@@ -52,6 +57,11 @@ you will use (or have a registry to update them). No amplification
 factor. No way to increase the size of a table above some limit. No
 multicast/broadcast.
 
+There is a bug in 4.11 (and less) kernels that prevent this scenario
+to work as expected when VLAN are
+bridged. A [patch](http://patchwork.ozlabs.org/patch/744963/) is
+needed to fix that.
+
 ## Unicast and route short circuit
 
 This is an optimization to avoid classic L3 routing when we can
@@ -71,7 +81,7 @@ uses this entry (and MAC).
 At the end, from `H1`, you can ping `H4`, despite the router being
 absent:
 
-    $ ping -c2 2001:db8:fe::13a
+    $ ping -c2 2001:db8:fe::13
     PING 2001:db8:fe::13(2001:db8:fe::13) 56 data bytes
     64 bytes from 2001:db8:fe::13: icmp_seq=1 ttl=64 time=0.598 ms
     64 bytes from 2001:db8:fe::13: icmp_seq=2 ttl=64 time=1.02 ms
@@ -84,8 +94,8 @@ absent:
 
 The kernel can signal missing L2 entries. We can have a controller add
 the entries when the kernel requests them. We use a simple shell
-script for this purpose. This is slow and clunky but illustrates how
-it works.
+script for this purpose. This is slow and clunky (due to buffering
+issues) but illustrates how it works.
 
 We cannot have a catch-all rule (otherwise, we won't be notified of L2
 misses). But we still need to propagate correctly propagate broadcast
@@ -174,6 +184,9 @@ which VNI are we interested in?
     Route-target: 0:100
     List of VNIs importing routes with this route-target:
       100
+    Route-target: 0:200
+    List of VNIs importing routes with this route-target:
+      200
 
 how VNI 100 is exported/imported:
 
@@ -192,76 +205,77 @@ Then, the "routes" we have:
     BGP table version is 0, local router ID is 203.0.113.1
     Status codes: s suppressed, d damped, h history, * valid, > best, i - internal
     Origin codes: i - IGP, e - EGP, ? - incomplete
+    EVPN type-2 prefix: [2]:[ESI]:[EthTag]:[MAClen]:[MAC]
+    EVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]
     
        Network          Next Hop            Metric LocPrf Weight Path
     Route Distinguisher: 203.0.113.1:100
-    *> [2]:[0]:[0]:[6]:[50:54:33:00:00:08]
+    *> [2]:[0]:[0]:[48]:[50:54:33:00:00:09]
                         203.0.113.1                        32768 i
-    *> [3]:[0]:[4]:[203.0.113.1]
+    *> [3]:[0]:[32]:[203.0.113.1]
+                        203.0.113.1                        32768 i
+    Route Distinguisher: 203.0.113.1:200
+    *> [2]:[0]:[0]:[48]:[50:54:33:00:00:09]
+                        203.0.113.1                        32768 i
+    *> [3]:[0]:[32]:[203.0.113.1]
                         203.0.113.1                        32768 i
     Route Distinguisher: 203.0.113.2:100
-    *  [2]:[0]:[0]:[6]:[50:54:33:00:00:09]
-                        203.0.113.2                            0 65003 65002 i
-    *> [2]:[0]:[0]:[6]:[50:54:33:00:00:09]
-                        203.0.113.2                            0 65002 i
-    *  [2]:[0]:[0]:[6]:[50:54:33:00:00:0a]
-                        203.0.113.2                            0 65003 65002 i
-    *> [2]:[0]:[0]:[6]:[50:54:33:00:00:0a]
-                        203.0.113.2                            0 65002 i
-    *  [3]:[0]:[4]:[203.0.113.2]
-                        203.0.113.2                            0 65003 65002 i
-    *> [3]:[0]:[4]:[203.0.113.2]
-                        203.0.113.2                            0 65002 i
+    *>i[2]:[0]:[0]:[48]:[50:54:33:00:00:0a]
+                        203.0.113.2                   100      0 i
+    *>i[2]:[0]:[0]:[48]:[50:54:33:00:00:0b]
+                        203.0.113.2                   100      0 i
+    *>i[3]:[0]:[32]:[203.0.113.2]
+                        203.0.113.2                   100      0 i
+    Route Distinguisher: 203.0.113.2:200
+    *>i[2]:[0]:[0]:[48]:[50:54:33:00:00:0a]
+                        203.0.113.2                   100      0 i
+    *>i[3]:[0]:[32]:[203.0.113.2]
+                        203.0.113.2                   100      0 i
     Route Distinguisher: 203.0.113.3:100
-    *  [2]:[0]:[0]:[6]:[50:54:33:00:00:0b]
-                        203.0.113.3                            0 65002 65003 i
-    *> [2]:[0]:[0]:[6]:[50:54:33:00:00:0b]
-                        203.0.113.3                            0 65003 i
-    *  [3]:[0]:[4]:[203.0.113.3]
-                        203.0.113.3                            0 65002 65003 i
-    *> [3]:[0]:[4]:[203.0.113.3]
-                        203.0.113.3                            0 65003 i
+    *>i[2]:[0]:[0]:[48]:[50:54:33:00:00:0c]
+                        203.0.113.3                   100      0 i
+    *>i[3]:[0]:[32]:[203.0.113.3]
+                        203.0.113.3                   100      0 i
+    Route Distinguisher: 203.0.113.3:200
+    *>i[2]:[0]:[0]:[48]:[50:54:33:00:00:0c]
+                        203.0.113.3                   100      0 i
+    *>i[3]:[0]:[32]:[203.0.113.3]
+                        203.0.113.3                   100      0 i
     
-    Displayed 12 out of 12 total prefixes
+    Displayed 13 prefixes (13 paths)
 
 For more details, specify a route distinguisher:
 
     S1# show bgp evpn route rd 203.0.113.3:100
-    BGP routing table entry for 203.0.113.3:100
-    Paths: (2 available, best #2)
-      Advertised to non peer-group peers:
-      S2(203.0.113.2) S3(203.0.113.3)
-    Route [2]:[0]:[0]:[6]:[50:54:33:00:00:0b]
-      65002 65003
-        203.0.113.3 from S2(203.0.113.2) (203.0.113.2)
-          Origin IGP, localpref 100, valid, external, bestpath-from-AS 65002
-          Extended Community: RT:65003:100
+    EVPN type-2 prefix: [2]:[ESI]:[EthTag]:[MAClen]:[MAC]
+    EVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]
+    
+    BGP routing table entry for 203.0.113.3:100:[2]:[0]:[0]:[48]:[50:54:33:00:00:0c]
+    Paths: (1 available, best #1)
+      Not advertised to any peer
+      Route [2]:[0]:[0]:[48]:[50:54:33:00:00:0c] VNI 100
+      Local
+        203.0.113.3 from 203.0.113.254 (203.0.113.3)
+          Origin IGP, localpref 100, valid, internal, bestpath-from-AS Local, best
+          Extended Community: RT:65000:100 ET:8
+          Originator: 203.0.113.3, Cluster list: 1.0.0.254
+          AddPath ID: RX 0, TX 10
+          Last update: Thu Mar 30 07:48:40 2017
+    
+    BGP routing table entry for 203.0.113.3:100:[3]:[0]:[32]:[203.0.113.3]
+    Paths: (1 available, best #1)
+      Not advertised to any peer
+      Route [3]:[0]:[32]:[203.0.113.3]
+      Local
+        203.0.113.3 from 203.0.113.254 (203.0.113.3)
+          Origin IGP, localpref 100, valid, internal, bestpath-from-AS Local, best
+          Extended Community: RT:65000:100 ET:8
+          Originator: 203.0.113.3, Cluster list: 1.0.0.254
           AddPath ID: RX 0, TX 12
-          Last update: Wed Mar 22 20:59:20 2017
+          Last update: Thu Mar 30 07:48:40 2017
     
-    Route [2]:[0]:[0]:[6]:[50:54:33:00:00:0b]
-      65003
-        203.0.113.3 from S3(203.0.113.3) (203.0.113.3)
-          Origin IGP, localpref 100, valid, external, bestpath-from-AS 65003, best
-          Extended Community: RT:65003:100
-          AddPath ID: RX 0, TX 4
-          Last update: Wed Mar 22 20:59:20 2017
     
-    Route [3]:[0]:[4]:[203.0.113.3]
-      65002 65003
-        203.0.113.3 from S2(203.0.113.2) (203.0.113.2)
-          Origin IGP, localpref 100, valid, external, bestpath-from-AS 65002
-          Extended Community: RT:65003:100
-          AddPath ID: RX 0, TX 13
-          Last update: Wed Mar 22 20:59:20 2017
-    
-    Route [3]:[0]:[4]:[203.0.113.3]
-      65003
-        203.0.113.3 from S3(203.0.113.3) (203.0.113.3)
-          Origin IGP, localpref 100, valid, external, bestpath-from-AS 65003, best
-          Extended Community: RT:65003:100
-          AddPath ID: RX 0, TX 5
-          Last update: Wed Mar 22 20:59:20 2017
+    Displayed 2 prefixes (2 paths) with this RD
 
 There are two types of routes (first digit):
 
