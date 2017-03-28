@@ -991,9 +991,11 @@ case $$,$STATE in
         udevadm settle
         log_ok_msg "udev started"
 
-        ulimit -c unlimited
-        sysctl -qw kernel.core_pattern=/tmp/core.%h.%e.%t.%p
-        sysctl -qw fs.suid_dumpable=1
+        [ ! -f /proc/sys/kernel/core_pattern ] || {
+            ulimit -c unlimited
+            sysctl -qw kernel.core_pattern=/tmp/core.%h.%e.%t.%p
+            sysctl -qw fs.suid_dumpable=1
+        }
 
         log_info_msg "Setup interfaces"
         modprobe dummy 2>/dev/null || true
