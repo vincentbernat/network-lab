@@ -51,6 +51,9 @@ noip() {
     # processing on an interface. ARP requests will still be
     # processed. Don't try to be too smart, the goal is just to avoid
     # the switches to answer to some multicast traffic.
+    #
+    # We don't want to completely disable IP processing on VXLAN
+    # interfaces since proxying needs it. So, no net/ipv6/conf/$1/disable_ipv6=1.
     iptables -I INPUT -i $1 -j DROP
     ip6tables -I INPUT -i $1 -j DROP
 }
