@@ -320,48 +320,57 @@ an [Ansible playbook][] for this.
 
 Currently, Cumulus Quagga and Junos don't agree on how to encode
 everything. However, they are both flexible enough to accept to speak
-to each other no matter what. This requires to manually configure each
-VNI on JunOS as we cannot use the `auto` directive. This means we have
-to use one virtual switch for each VNI. If the `auto` directive was
-possible, it is likely we could use a unique virtual switch: the RD is
-not important, the static `vrf-target` has to be set to something, but
-would be overrident by the `auto` directive, the `vrf-import` has to
-be more permissive (it could just be removed if we want to accept
-everything), `extended-vni-list` could be set to `all`. The
-`bridge-domains` still has to be declared, but that's how bridging
-works on the MX. The incompatibility is that Cumulus uses AS:VNI for
-the RT while JunOS uses AS:VNI' where VNI' is VNI&0x10000000.
+to each other no matter what. See configuration in commit c530b4fbb618
+for this. The incompatibility is that Cumulus uses AS:VNI for the RT
+while JunOS uses AS:VNI' where VNI' is VNI|0x10000000. The current
+configuration is done thanks to
+this [short patch for Cumulus Quagga][15] to add compatibility.
 
 Here is the output from the Juniper side:
 
-    juniper@S3> run show evpn database
-    Instance: vxlan-100
+    juniper@S3> show evpn database
+    Instance: vxlan
     VLAN  DomainId  MAC address        Active source                  Timestamp        IP address
-         100        50:54:33:00:00:0c  203.0.113.1                    Mar 27 19:48:20
-         100        50:54:33:00:00:0d  203.0.113.2                    Mar 27 19:48:20
-         100        50:54:33:00:00:0e  203.0.113.2                    Mar 27 19:48:20
-         100        50:54:33:00:00:0f  ge-0/0/1.0                     Mar 27 19:33:16
-    
-    juniper@S3> run show bridge domain
+         100        50:54:33:00:00:0c  203.0.113.1                    Mar 30 07:36:51
+         100        50:54:33:00:00:0e  203.0.113.2                    Mar 30 07:36:51
+         100        50:54:33:00:00:0f  ge-0/0/1.0                     Mar 30 07:34:00
+         200        50:54:33:00:00:0c  203.0.113.1                    Mar 30 07:35:30
+         200        50:54:33:00:00:0d  203.0.113.2                    Mar 30 07:36:46
+         200        50:54:33:00:00:0f  ge-0/0/1.0                     Mar 30 07:31:17
+
+    juniper@S3> show bridge domain
     
     Routing instance        Bridge domain            VLAN ID     Interfaces
-    vxlan-100               bd100                    100
+    vxlan                   vlan100                  100
                                                                  ge-0/0/1.0
                                                                  vtep.32769
                                                                  vtep.32770
-    
-    juniper@S3> run show bridge mac-table
+    vxlan                   vlan200                  200
+                                                                 ge-0/0/1.0
+                                                                 vtep.32769
+                                                                 vtep.32770
+
+    juniper@S3> show bridge mac-table
     
     MAC flags       (S -static MAC, D -dynamic MAC, L -locally learned, C -Control MAC
         O -OVSDB MAC, SE -Statistics enabled, NM -Non configured MAC, R -Remote PE MAC)
     
-    Routing instance : vxlan-100
-     Bridging domain : bd100, VLAN : 100
+    Routing instance : vxlan
+     Bridging domain : vlan100, VLAN : 100
        MAC                 MAC      Logical                Active
        address             flags    interface              source
-       50:54:33:00:00:0c   D        vtep.32770             203.0.113.1
-       50:54:33:00:00:0d   D        vtep.32769             203.0.113.2
-       50:54:33:00:00:0e   D        vtep.32769             203.0.113.2
+       50:54:33:00:00:0c   D        vtep.32769             203.0.113.1
+       50:54:33:00:00:0e   D        vtep.32770             203.0.113.2
+    
+    MAC flags       (S -static MAC, D -dynamic MAC, L -locally learned, C -Control MAC
+        O -OVSDB MAC, SE -Statistics enabled, NM -Non configured MAC, R -Remote PE MAC)
+    
+    Routing instance : vxlan
+     Bridging domain : vlan200, VLAN : 200
+       MAC                 MAC      Logical                Active
+       address             flags    interface              source
+       50:54:33:00:00:0c   D        vtep.32769             203.0.113.1
+       50:54:33:00:00:0d   D        vtep.32770             203.0.113.2
        50:54:33:00:00:0f   D        ge-0/0/1.0
 
 [Ansible playbook]: https://github.com/JNPRAutomate/ansible-junos-evpn-vxlan/tree/master/roles/overlay-evpn-mx-l3
@@ -372,6 +381,7 @@ Here is the output from the Juniper side:
 [5]: https://docs.cumulusnetworks.com/display/DOCS/Ethernet+Virtual+Private+Network+-+EVPN
 [7]: https://cumulusnetworks.com/learn/web-scale-networking-resources/whitepapers/Cumulus-Networks-White-Paper-EVPN.pdf
 [10]: https://www.juniper.net/techpubs/en_US/release-independent/nce/information-products/pathway-pages/nce/nce-153-vcf-evpn-vxlan-integrating.pdf
+[15]: https://github.com/CumulusNetworks/quagga/issues/28#issuecomment-290329435
 [RFC 7432]: https://tools.ietf.org/html/rfc7432
 [draft-sd-l2vpn-evpn-overlay]: https://tools.ietf.org/html/draft-ietf-bess-evpn-overlay-07
 
