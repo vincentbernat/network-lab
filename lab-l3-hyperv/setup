@@ -58,9 +58,16 @@ case $uts in
                 # This address could just be a /32 without noprefixroute.
                 # "git blame" for explanation. Needs a 4.4+ kernel.
                 ip addr add 203.0.113.254/24 dev $vmiface scope link noprefixroute
-                # For IPv6, this is not needed, but in case someone wants to
-                # configure IPv6 manually, we provide a fixed router address.
+                # For IPv6, this is not needed (clients are expected
+                # to discover the default router through ICMPv6 RA),
+                # but in case someone wants to configure IPv6
+                # manually, we provide a fixed router address.
                 ip -6 addr add 2001:db8:cb00:7100::fe/128 dev $vmiface scope link
+                # Alternatively, a link-local gateway can also be
+                # used. fe80::1 cannot collide with an
+                # EUI-64-generated IP address as it doesn't have
+                # FF:FE bytes.
+                ip -6 addr add fe80::1/128 dev $vmiface scope link
         done
 
         # IP used for ECMP routing
