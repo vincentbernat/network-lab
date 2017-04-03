@@ -160,8 +160,10 @@ You need to either install vxfld on your system or in a virtualenv
 case, put relative symbolic links in `common/bin` to the virtualenv to
 ensure the lab find them.
 
-Unfortunately, there is currently no IPv6 support, so this lab uses
-with IPv4. See this [issue](https://github.com/CumulusNetworks/vxfld/issues/4).
+Unfortunately, there is currently no IPv6 support (and no plan to add
+it as Cumulus wants to transition to BGP EVPN), so this lab uses with
+IPv4. See
+this [issue](https://github.com/CumulusNetworks/vxfld/issues/4).
 
 With a recent version of iproute,
 a [patch](https://github.com/CumulusNetworks/vxfld/pull/5) is needed.
