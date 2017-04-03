@@ -1043,44 +1043,13 @@ case $$,$STATE in
 
     1,GETTY)
         log_begin_msg "Setup terminal size"
-        # We are guaranteed to be in a tmux session, so we will get an
-        # answer to the escape code we send. Otherwise, we may just
-        # block!
-        stty -echo
-        stty raw
-        printf '[18t'
-        width=
-        height=
-        p=0
-        while true; do
-            char="$(timeout --foreground 1s dd bs=1 count=1 2> /dev/null || true)"
-            case "$p,$char" in
-                "0,;")
-                    # End of CSI
-                    p=1
-                    ;;
-                "1,;")
-                    # End of height
-                    stty rows $height
-                    p=2
-                    ;;
-                "1,"*)
-                    height="$height$char"
-                    ;;
-                "2,t"|"2,")
-                    # End of width
-                    stty columns $width
-                    p=3
-                    ;;
-                "2,"*)
-                    width="$width$char"
-                    ;;
-            esac
-            [ x"$p" != x"3" ] || break
-        done
-        stty -raw
-        stty echo
-        log_ok_msg "Terminal size is $(tput cols)x$(tput lines)"
+        previous=$(stty -g)
+        stty raw -echo min 0 time 5
+        printf '\0337\033[r\033[999;999H\033[6n\0338' > /dev/tty
+        IFS='[;R' read -r _ rows cols _ < /dev/tty || true
+        stty "$previous"
+        stty cols "$cols" rows "$rows"
+        log_ok_msg "Terminal size is $cols×$rows"
 
         log_begin_msg "Setup additional commands"
         mkdir /tmp/tools
