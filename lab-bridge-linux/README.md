@@ -31,13 +31,13 @@ One-way communication would enable the following attacks:
    possible with IPv4.
 
  - Enabling RP filtering on the bridge (`net.ipv4.conf.br0.rp_filter`,
-   `iptables -t raw -I PREROUTING -m rpfilter`).
+   `iptables -t raw -I PREROUTING -i br0 -m rpfilter -j ACCEPT`).
 
  - Using firewall rules to ensure only frames bridged are forwarded
-   (`iptables -I FORWARD -m physdev ! --physdev-is-bridged -j DROP`)
+   (`iptables -I FORWARD -m physdev ! --physdev-is-bridged -i br0 -j DROP`)
    and no local delivery is allowed (`iptables -I INPUT -i br0 -j
    DROP`).
    
  - Alternatively disable `net.bridge.bridge-nf-call-iptables` and drop
    any IP traffic. Bridged traffic won't go through Netfilter
-   (`iptables -t raw -I PREROUTING -j DROP`).
+   (`iptables -t raw -I PREROUTING -i br0 -j DROP`).
