@@ -41,3 +41,7 @@ One-way communication would enable the following attacks:
  - Alternatively disable `net.bridge.bridge-nf-call-iptables` and drop
    any IP traffic. Bridged traffic won't go through Netfilter
    (`iptables -t raw -I PREROUTING -i br0 -j DROP`).
+
+ - Additionally, ARP traffic can be disabled with `ip link set arp off
+   dev br0` (however, without an IP on the interface, Linux won't send
+   an answer).
