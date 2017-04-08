@@ -46,7 +46,7 @@ case $uts in
     C1)
         # Listen to the interface to get the MAC address (from STP
         # frames for example).
-        ip -6 route add default via fe80::5254:33ff:fe00:3
+        ip -6 route add default via fe80::5254:33ff:fe00:3 dev eth0
         echo "Try:" ping 2001:db8:b::4
         # You won't get return packets, but you can check the ICMP
         # packets go to destination. You can ping flood, synflood, or
