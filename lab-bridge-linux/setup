@@ -6,68 +6,52 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 # Which VM to spawn
-spawn vm C1 network 1
-spawn vm C2 network 2
-spawn vm S1 network 1,2,3
-spawn vm W1 network 3
+spawn vm VM1 network 1
+spawn vm VM2 network 2
+spawn vm VM3 network 3
+spawn vm H1 network 4,5,1,2,3   # Hypervisor
+spawn vm ER1 network 4,6        # Edge public router
+spawn vm IR2 network 5,6        # Internal router
 
 run
 
 # Executed on each VM
 case $uts in
-    C1)
-        ip addr add 10.234.78.66/24 dev eth0
-        ip addr add 2001:db8:a::66/64 dev eth0
+    VM*)
+        ip addr add 192.0.2.1${uts#VM}/25 dev eth0
+        ip -6 addr add 2001:db8:a::1${uts#VM}/64 dev eth0
+        # Default to ER1
+        ip route add default via 192.0.2.1
+        ip -6 route add default via 2001:db8:a::1
         ;;
-    C2)
-        ip addr add 10.234.78.67/24 dev eth0
-        ip addr add 2001:db8:a::67/64 dev eth0
-        ;;
-    S1)
+    H1)
         brctl addbr br0
-        brctl addif br0 eth0    # C1
-        brctl addif br0 eth1    # C2
+        brctl addif br0 eth0    # "Internet"
+        brctl addif br0 eth2    # VM1
+        brctl addif br0 eth3    # VM2
+        brctl addif br0 eth4    # VM3
         ip link set up dev br0
-        ip addr add 192.168.14.3/24 dev eth2
-        ip addr add 2001:db8:b::3/64 dev eth2
+        ip addr add 192.168.14.3/24 dev eth1
+        ip -6 addr add 2001:db8:b::3/64 dev eth1
+        ip route add default via 192.168.14.1
+        ip -6 route add default via 2001:db8:b::1
+        ;;
+    ER1)
         sysctl -qw net/ipv4/ip_forward=1
         sysctl -qw net/ipv6/conf/all/forwarding=1
+        ip addr add 192.0.2.1/25 dev eth0
+        ip addr add 2001:db8:a::1/64 dev eth0
+        # Internet...
+        ip addr add 203.0.113.10/24 dev eth1
         ;;
-    W1)
-        ip addr add 192.168.14.4/24 dev eth0
-        ip addr add 2001:db8:b::4/64 dev eth0
-        ;;
-esac
-
-# Q: can C1 interact with W1?
-
-# With IPv6:
-case $uts in
-    C1)
-        # Listen to the interface to get the MAC address (from STP
-        # frames for example).
-        ip -6 route add default via fe80::5254:33ff:fe00:3 dev eth0
-        echo "Try:" ping 2001:db8:b::4
-        # You won't get return packets, but you can check the ICMP
-        # packets go to destination. You can ping flood, synflood, or
-        # interact with UDP services, for example SNMP devices if the
-        # IP interface on S1 happens to be an OOB network.
-        ;;
-esac
-
-# With IPv4:
-case $uts in
-    C1)
-        # If you can guess the IP:
-        ip route add 192.168.14.3/32 dev eth0
-        ip route add default via 192.168.14.3 dev eth0
-        echo "Try:" ping 192.168.14.4
-        ;;
-    C2)
-        # If you cannot:
-        ip route add 1.2.3.4/32 dev eth0
-        ip route add default via 1.2.3.4 dev eth0
-        ip neigh add 1.2.3.4 lladdr 50:54:33:00:00:03 dev eth0
-        echo "Try:" ping 192.168.14.4
+    IR2)
+        sysctl -qw net/ipv4/ip_forward=1
+        sysctl -qw net/ipv6/conf/all/forwarding=1
+        ip addr add 192.168.14.1/24 dev eth0
+        ip addr add 2001:db8:b::1/64 dev eth0
+        iptables -t nat -I POSTROUTING -o eth1 -j MASQUERADE
+        # Internet...
+        ip addr add 203.0.113.11/24 dev eth1
+        ip route add 192.0.2.0/25 via 203.0.113.10
         ;;
 esac
