@@ -257,19 +257,12 @@ EOF
             bridge fdb append 00:00:00:00:00:00 dev vx1 dst 172.22.2.$i
         done
 
-        # Universal way to disable IP processing for bridged
-        # traffic. This rely on the fact that br_netfilter is not
-        # loaded. Otherwise, also set
-        # net.bridge.bridge-nf-call-ip{,6}tables to 0.
-        ip46tables -t raw -I PREROUTING -i br1 -j DROP
+        # Disable any local traffic on the bridge.
+        echo 1 > /sys/class/net/br1/bridge/vlan_filtering
+        bridge vlan del dev br1 vid 1 self
 
-        # To avoid ARP requests, disable ARP processing too
-        ip link set arp off dev br1
-
-        # It's also possible to disable IPv6 on all related interfaces
-        # to remove any link-local addresses. This is mostly cosmetic
-        # as bridged interfaces cannot process IP and the iptables
-        # rule above will drop any IP traffic on br1.
+        # Mostly cosmetic: disable IPv6 on all related interfaces to
+        # remove any link-local addresses.
         sysctl -qw net.ipv6.conf.br1.disable_ipv6=1
         sysctl -qw net.ipv6.conf.vx1.disable_ipv6=1
         for iface in $brifaces; do
