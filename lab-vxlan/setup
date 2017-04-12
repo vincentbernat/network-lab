@@ -14,7 +14,8 @@ LABNAME="vxlan"
 #VARIANT=cumulus-vxfld-her     # Head end replication
 #VARIANT=cumulus-vxfld-snr     # Service node replication
 #VARIANT=bgp-evpn-cumulus
-VARIANT=bgp-evpn-cumulus+junos
+#VARIANT=bgp-evpn-cumulus+junos
+VARIANT=bgp-evpn-cumulus+quaggarr
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -120,11 +121,18 @@ EOF
         ip addr add 169.254.15.254/24 dev eth0
         ip -6 addr add 2001:db8:254::1/128 dev dummy0
         service bird
-        log_begin_msg "Start gobgpd"
-        gobgpd -t yaml -f /mnt/lab/gobgpd.yaml \
-               --syslog yes --disable-stdlog &
-        sleep 1
-        log_ok_msg "gobgpd started"
+        case $VARIANT in
+            *+quaggarr)
+                service quagga
+                ;;
+            *)
+                log_begin_msg "Start gobgpd"
+                gobgpd -t yaml -f /mnt/lab/gobgpd.yaml \
+                       --syslog yes --disable-stdlog &
+                sleep 1
+                log_ok_msg "gobgpd started"
+                ;;
+        esac
         ;;
     S*)
         # Setup the "routed" underlay network
