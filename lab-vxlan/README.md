@@ -90,6 +90,11 @@ absent:
     2 packets transmitted, 2 received, 0% packet loss, time 1001ms
     rtt min/avg/max/mdev = 0.598/0.811/1.024/0.213 ms
 
+This may seem a bit odd to have two subnets in the same
+"VLAN". However, it's possible to specify a VNI in FDB
+entries. Therefore, you could use two separate VNI sharing the same
+VXLAN interface.
+
 ## Unicast and dynamic L2 entries
 
 The kernel can signal missing L2 entries. We can have a controller add
