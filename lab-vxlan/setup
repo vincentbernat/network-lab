@@ -123,7 +123,7 @@ EOF
         service bird
         case $VARIANT in
             *+quaggarr)
-                service quagga
+                bgpd_args="--no_kernel" service quagga
                 ;;
             *)
                 log_begin_msg "Start gobgpd"

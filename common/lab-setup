@@ -846,9 +846,11 @@ service () {
             chown quagga:quagga /var/log/quagga /var/run/quagga
             for svc in zebra bgpd ospfd isisd ospf6d ripd ripngd; do
                 if [ -f /mnt/lab/quagga-$svc.$uts.conf ]; then
-                    execute $svc -d -f /mnt/lab/quagga-$svc.$uts.conf -A 127.0.0.1
+                    eval set -- \$${svc}_args
+                    execute $svc -d -f /mnt/lab/quagga-$svc.$uts.conf -A 127.0.0.1 "$@"
                 elif [ -f /mnt/lab/quagga-$svc.conf ]; then
-                    execute $svc -d -f /mnt/lab/quagga-$svc.conf -A 127.0.0.1
+                    eval set -- \$${svc}_args
+                    execute $svc -d -f /mnt/lab/quagga-$svc.conf -A 127.0.0.1 "$@"
                 fi
             done
             log_ok_msg "Quagga started"
