@@ -108,6 +108,20 @@ hypervisors (or systems) won't see the link down. The route reflector
 will keep the route and distribute it. Other systems will happily use
 the route even if it's invalid.
 
+## Route reflector setup
+
+Route reflectors should be carefully configured. Notably, if the same
+route reflector is used to centralize different paths, a best path
+selection will be done before reflecting the result and therefore,
+only one path will be kept. If both paths from H1 to the route
+reflector are valid but only one path from H2 to the route reflector
+is currently working, H2 may not receive the working path to H1.
+
+This could be mitigated by using the add-path feature. However, it's
+safer to ensure that all paths are correctly reflected and the easiest
+way is to have distinct route reflectors for each path (they can be
+virtual).
+
 ## ECMP for IPv4
 
 Starting from kernel 3.6 and until kernel 4.4, ECMP for IPv4 is done
