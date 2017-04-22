@@ -176,5 +176,7 @@ of the data path. There are several reasons:
    
 However, this would be possible to only have one BGP session
 announcing everything by using an internal routing protocol like OSPF,
-using a loopback as next hop self, put BGP sessions between the
-loopbacks and tunneling data between loopbacks.
+using a loopback as next hop self and using those loopbacks for BGP
+sessions. However, there is some scalability issues with this
+solution, notably with the use of BFD (exponential number of BFD
+sessions have to be established).
