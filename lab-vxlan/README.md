@@ -265,7 +265,7 @@ For more details, specify a route distinguisher:
         203.0.113.3 from 203.0.113.254 (203.0.113.3)
           Origin IGP, localpref 100, valid, internal, bestpath-from-AS Local, best
           Extended Community: RT:65000:100 ET:8
-          Originator: 203.0.113.3, Cluster list: 1.0.0.254
+          Originator: 203.0.113.3, Cluster list: 203.0.113.254
           AddPath ID: RX 0, TX 10
           Last update: Thu Mar 30 07:48:40 2017
     
@@ -277,7 +277,7 @@ For more details, specify a route distinguisher:
         203.0.113.3 from 203.0.113.254 (203.0.113.3)
           Origin IGP, localpref 100, valid, internal, bestpath-from-AS Local, best
           Extended Community: RT:65000:100 ET:8
-          Originator: 203.0.113.3, Cluster list: 1.0.0.254
+          Originator: 203.0.113.3, Cluster list: 203.0.113.254
           AddPath ID: RX 0, TX 12
           Last update: Thu Mar 30 07:48:40 2017
     

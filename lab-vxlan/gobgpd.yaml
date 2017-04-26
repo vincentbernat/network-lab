@@ -1,7 +1,7 @@
 global:
   config:
     as: 65000
-    router-id: 1.0.0.254
+    router-id: 203.0.113.254
     local-address-list:
       - 203.0.113.254
 neighbors:
@@ -14,7 +14,7 @@ neighbors:
     route-reflector:
       config:
         route-reflector-client: true
-        route-reflector-cluster-id: 1.0.0.254
+        route-reflector-cluster-id: 203.0.113.254
   - config:
       neighbor-address: 203.0.113.2
       peer-as: 65000
@@ -24,7 +24,7 @@ neighbors:
     route-reflector:
       config:
         route-reflector-client: true
-        route-reflector-cluster-id: 1.0.0.254
+        route-reflector-cluster-id: 203.0.113.254
   - config:
       neighbor-address: 203.0.113.3
       peer-as: 65000
@@ -34,4 +34,4 @@ neighbors:
     route-reflector:
       config:
         route-reflector-client: true
-        route-reflector-cluster-id: 1.0.0.254
+        route-reflector-cluster-id: 203.0.113.254
