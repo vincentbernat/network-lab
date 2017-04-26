@@ -15,7 +15,8 @@ LABNAME="vxlan"
 #VARIANT=cumulus-vxfld-snr     # Service node replication
 #VARIANT=bgp-evpn-cumulus+rr:gobgp
 #VARIANT=bgp-evpn-cumulus+junos+rr:gobgp
-VARIANT=bgp-evpn-cumulus+rr:quagga
+#VARIANT=bgp-evpn-cumulus+rr:quagga
+VARIANT=bgp-evpn-cumulus+rr:junos
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -38,6 +39,7 @@ esac
 case $VARIANT in
     bgp-evpn*+rr:gobgp) spawn vm RR network 1 ;;
     bgp-evpn*+rr:quagga) spawn vm RR network 1 ;;
+    bgp-evpn*+rr:junos) spawn juniper-vrr RR network 1 ;;
     cumulus-vxfld-*)
         spawn vm SN1 network 1
         spawn vm SN2 network 1
