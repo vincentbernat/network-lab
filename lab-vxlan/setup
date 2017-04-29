@@ -16,7 +16,8 @@ LABNAME="vxlan"
 #VARIANT=bgp-evpn-cumulus+rr:gobgp
 #VARIANT=bgp-evpn-cumulus+junos+rr:gobgp
 #VARIANT=bgp-evpn-cumulus+rr:quagga
-VARIANT=bgp-evpn-cumulus+rr:junos
+#VARIANT=bgp-evpn-cumulus+rr:junos
+VARIANT=bgp-evpn-cumulus+junos+rr:junos
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
