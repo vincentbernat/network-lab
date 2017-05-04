@@ -28,7 +28,11 @@ This lab is also compatible with IPv6 but there are small drawbacks:
    corresponding interface state.
 
 IPv6 was broken with commit 8c14586fc320 (part of 4.7) and fixed with
-a435a07f9164 (part of 4.8).
+a435a07f9164 (part of 4.8). Other interesting commits for IPv6:
+
+ - 653437d02f1f (ipv6: Stop /128 route from disappearing after pmtu
+   update), part of 4.2. There are various companion commits to this
+   one.
 
 ## Variations
 
