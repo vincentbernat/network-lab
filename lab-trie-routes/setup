@@ -1,0 +1,70 @@
+#!/bin/sh
+
+LABNAME="trie-routes"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+MEM=512M spawn vm R1 # Lots of /32
+MEM=512M spawn vm R2 # Partial view
+
+run
+
+sysctl -qw net.ipv4.ip_forward=1
+
+# Set some output interfaces
+for i in $(seq 1 5); do
+    ip link add name out$i type dummy
+    ip link set up dev out$i
+    ip addr add 203.0.113.$((i*2))/31 dev out$i
+done
+
+# Add one path with reduced MTU
+ip link add name out6 type veth peer name in6
+ip link add name out7 type veth peer name in7
+ip link set mtu 1400 dev out7
+ip link set mtu 1400 dev in7
+ip netns add next-hop
+ip netns add next-next-hop
+ip link set netns next-hop dev in6
+ip link set netns next-hop dev out7
+ip link set netns next-next-hop dev in7
+ip link set up dev out6
+ip addr add 203.0.113.12/31 dev out6
+ip netns exec next-hop ip link set up dev in6
+ip netns exec next-hop ip link set up dev out7
+ip netns exec next-hop ip addr add 203.0.113.13/31 dev in6
+ip netns exec next-hop ip addr add 203.0.113.14/31 dev out7
+ip netns exec next-hop ip route add default via 203.0.113.15
+ip netns exec next-next-hop ip link set up dev in7
+ip netns exec next-next-hop ip addr add 203.0.113.15/31 dev in7
+ip netns exec next-next-hop ip route add default via 203.0.113.14
+ip route add 203.0.113.15 via 203.0.113.12
+
+case $uts in
+    R1)
+        # Router with many /32 routes (100k). We can't use
+        # documentation IP here. This can take a pretty long time as
+        # "ip route add" is not the most efficient way to add a lot of
+        # routes.
+        out=1
+        for k in $(seq 100 109); do
+            for j in $(seq 100 199); do
+                for i in $(seq 100 199); do
+                    ip route add 1.$i.$j.$k/32 via 203.0.113.$((out*2+1))
+                    out=$(( out % 6 + 1 ))
+                done
+            done
+        done
+        ;;
+    R2)
+        # Router with a partial full view. See README on how to get
+        # the 100k-routes file.
+        out=1
+        for prefix in $(zcat 100k-routes.gz); do
+            ip route add $prefix via 203.0.113.$((out*2+1))
+            out=$(( out % 6 + 1 ))
+        done
+        ;;
+esac
