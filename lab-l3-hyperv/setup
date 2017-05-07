@@ -218,6 +218,9 @@ EOF
         # We are a router
         sysctl -qw net.ipv4.ip_forward=1
         sysctl -qw net.ipv6.conf.all.forwarding=1
+        # IPv6 maximum number of routes is ridiculously low. We don't
+        # care for this lab, but this is important to know.
+        sysctl -qw net.ipv6.route.max_size=4194304
 
         service bird
 
