@@ -78,6 +78,9 @@ compatible with older kernels, have a look at commit 39b804c1e759. It
 uses BIRD to make copies of the device routes to the other
 tables (need BIRD 1.6.2+).
 
+If you wanted to push subnets instead of connected routes, you would
+also need a 3.15+ for the same reason.
+
 The hypervisor has a local table dedicated for its own use
 (local-out). This table is built with BIRD (need 1.6.2+, otherwise,
 use commit 28a0f7758d08). This is both to enable use of several
