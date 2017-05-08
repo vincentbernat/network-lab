@@ -68,10 +68,12 @@ def setup_logging(options):
 
 def routes(options):
     """Generate the routes to add."""
+    ip = 0
     for s in range(options.subnets):
-        ip = ((s+11) << 24)
+        ip += 1 << 24
+        ip &= 0xff << 24
         for i in xrange(options.routes / options.subnets):
-            ip += math.ceil(1/options.density * (1-random.random()))
+            ip += int(math.ceil(1/options.density * (1-random.random())))
             yield dict(family=socket.AF_INET,
                        dst="{}/32".format(socket.inet_ntoa(
                            struct.pack('!L', ip))),
