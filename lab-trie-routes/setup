@@ -49,10 +49,10 @@ case $uts in
         # "ip route add" is not the most efficient way to add a lot of
         # routes.
         out=1
-        for k in $(seq 100 109); do
+        for k in $(seq 11 20); do
             for j in $(seq 100 199); do
                 for i in $(seq 100 199); do
-                    ip route add 1.$i.$j.$k/32 via 203.0.113.$((out*2+1))
+                    ip route add $k.14.$j.$i/32 via 203.0.113.$((out*2+1))
                     out=$(( out % 6 + 1 ))
                 done
             done
