@@ -44,11 +44,8 @@ ip route add 203.0.113.15 via 203.0.113.12
 
 case $uts in
     R1)
-        # Router with many /32 routes (1M). We can't use
-        # documentation IP here. This can take a pretty long time as
-        # "ip route add" is not the most efficient way to add a lot of
-        # routes.
-        ./many-32 -n 1000000 --batch 1000 \
+        # Router with many /32 routes (1M).
+        ./many-32 -n 1000000 --density 0.05 --batch 1000 \
                   203.0.113.3 203.0.113.5  203.0.113.7 \
                   203.0.113.9 203.0.113.11 203.0.113.13
         ;;
@@ -62,3 +59,4 @@ case $uts in
         done
         ;;
 esac
+cat /proc/net/fib_triestat
