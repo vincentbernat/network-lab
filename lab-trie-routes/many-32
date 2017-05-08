@@ -1,0 +1,97 @@
+#!/usr/bin/env python
+
+"""Insert many /32 routes.
+
+Those routes are inserted using the provided next-hops (in a round
+robin fashion).
+
+"""
+
+from __future__ import print_function
+
+import sys
+import argparse
+import logging
+import socket
+import struct
+from itertools import islice
+from pyroute2 import IPRoute, IPBatch
+
+
+logger = logging.getLogger("many-32")
+
+
+def parse_args():
+    """Parse arguments."""
+    parser = argparse.ArgumentParser(
+        description=sys.modules[__name__].__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument("--debug", "-d", action="store_true",
+                        default=False,
+                        help="enable debugging")
+
+    parser.add_argument("-n", "--routes", metavar="N",
+                        default=100, type=int,
+                        help="number of routes to generate")
+    parser.add_argument("--subnets", metavar="N",
+                        default=4, type=int,
+                        help="number of /8 subnets to use")
+    parser.add_argument("--dry-run", action="store_true",
+                        default=False,
+                        help="just print inserted routes")
+    parser.add_argument("--batch", metavar="N",
+                        default=100, type=int,
+                        help="group netlink request by this number")
+
+    parser.add_argument("nexthops", metavar="IP", nargs="+",
+                        help="next-hop to use to insert routes")
+
+    return parser.parse_args()
+
+
+def setup_logging(options):
+    """Configure logging."""
+    root = logging.getLogger("")
+    root.setLevel(logging.WARNING)
+    logger.setLevel(options.debug and logging.DEBUG or logging.INFO)
+    ch = logging.StreamHandler()
+    ch.setFormatter(logging.Formatter(
+        "%(levelname)s[%(name)s] %(message)s"))
+    root.addHandler(ch)
+
+
+def routes(options):
+    """Generate the routes to add."""
+    for s in range(options.subnets):
+        for i in xrange(options.routes / options.subnets):
+            ip = ((s+11) << 24) + i
+            yield dict(family=socket.AF_INET,
+                       dst="{}/32".format(socket.inet_ntoa(
+                           struct.pack('!L', ip))),
+                       gateway=options.nexthops[i % len(options.nexthops)])
+
+
+if __name__ == "__main__":
+    options = parse_args()
+    setup_logging(options)
+
+    try:
+        nexthops = options.nexthops
+        ip = IPRoute()
+        b = IPBatch()
+
+        it = iter(routes(options))
+        for rr in iter(lambda: tuple(islice(it, options.batch)), ()):
+            for r in rr:
+                logger.debug("add %s", r)
+                b.route('add', **r)
+            logger.debug("submit batch")
+            ip.sendto(b.batch, (0, 0))
+            b.reset()
+
+        ip.close()
+
+    except Exception as e:
+        logger.exception("%s", e)
+        sys.exit(1)

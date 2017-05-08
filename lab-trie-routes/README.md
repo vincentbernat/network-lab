@@ -37,7 +37,6 @@ Here are results from `/proc/net/fib_triestat`. Note that `main` and
     Null ptrs: 67944
     Total size: 11957  kB
 
-
 ### 100k partial view
 
     $ cat /proc/net/fib_triestat

@@ -7,7 +7,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 # Which VM to spawn
 MEM=512M spawn vm R1 # Lots of /32
-MEM=512M spawn vm R2 # Partial view
+#MEM=512M spawn vm R2 # Partial view
 
 run
 
@@ -44,19 +44,13 @@ ip route add 203.0.113.15 via 203.0.113.12
 
 case $uts in
     R1)
-        # Router with many /32 routes (100k). We can't use
+        # Router with many /32 routes (1M). We can't use
         # documentation IP here. This can take a pretty long time as
         # "ip route add" is not the most efficient way to add a lot of
         # routes.
-        out=1
-        for k in $(seq 11 20); do
-            for j in $(seq 100 199); do
-                for i in $(seq 100 199); do
-                    ip route add $k.14.$j.$i/32 via 203.0.113.$((out*2+1))
-                    out=$(( out % 6 + 1 ))
-                done
-            done
-        done
+        ./many-32 -n 1000000 --batch 1000 \
+                  203.0.113.3 203.0.113.5  203.0.113.7 \
+                  203.0.113.9 203.0.113.11 203.0.113.13
         ;;
     R2)
         # Router with a partial full view. See README on how to get
