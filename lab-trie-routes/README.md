@@ -9,13 +9,6 @@ To get a MRT dump:
 
     wget http://data.ris.ripe.net/rrc00/latest-bview.gz
 
-To extract a set of 100000 routes:
-
-    mrt-print-all latest-bview.gz \
-        | sed -n '/^RIB_IPV4_UNICAST$/ { n;n;N;s/ *Prefix Length: \([0-9]*\)\n *Prefix: \([0-9.]*\)$/\2\/\1/p }' \
-        | shuf -n 100000 \
-        > 100k-routes
-
 ## Results
 
 Here are results from `/proc/net/fib_triestat`. Note that `main` and

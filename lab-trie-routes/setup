@@ -6,8 +6,8 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 # Which VM to spawn
-MEM=512M spawn vm R1 # Lots of /32
-#MEM=512M spawn vm R2 # Partial view
+#MEM=512M spawn vm R1 # Lots of /32
+MEM=512M spawn vm R2 # Partial view
 
 run
 
@@ -59,12 +59,9 @@ case $uts in
         done
         ;;
     R2)
-        # Router with a partial full view. See README on how to get
-        # the 100k-routes file.
-        out=1
-        for prefix in $(zcat 100k-routes.gz); do
-            ip route add $prefix via 203.0.113.$((out*2+1))
-            out=$(( out % 6 + 1 ))
-        done
+        # Router with a partial full view.
+        ./from-bgp -n 100000 --batch 1000 \
+          203.0.113.3 203.0.113.5  203.0.113.7 \
+          203.0.113.9 203.0.113.11 203.0.113.13
         ;;
 esac
