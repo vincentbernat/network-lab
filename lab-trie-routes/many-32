@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 """Insert many /32 routes.
 
@@ -6,8 +6,6 @@ Those routes are inserted using the provided next-hops (in a round
 robin fashion).
 
 """
-
-from __future__ import print_function
 
 import sys
 import argparse
@@ -72,7 +70,7 @@ def routes(options):
     for s in range(options.subnets):
         ip += 1 << 24
         ip &= 0xff << 24
-        for i in xrange(options.routes / options.subnets):
+        for i in range(int(options.routes / options.subnets)):
             ip += int(math.ceil(1/options.density * (1-random.random())))
             yield dict(family=socket.AF_INET,
                        dst="{}/32".format(socket.inet_ntoa(
