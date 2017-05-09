@@ -15,6 +15,14 @@ Here are results from `/proc/net/fib_triestat`. Note that `main` and
 `local` tables are merged, so they have the same stats. We only show
 `main`.
 
+Some explanations:
+
+ - A "tnode" is a non-leaf node.
+ - "Null pointers" are empty children (if there are too many, the
+   appropriate nodes need to be halved).
+ - The statistics below "Internal nodes" are the number of internal
+   nodes for a given depth.
+
 ### 100k /32
 
     $ cat /proc/net/fib_triestat
