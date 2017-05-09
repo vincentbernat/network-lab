@@ -14,6 +14,7 @@ import sys
 import argparse
 import logging
 import socket
+import gzip
 import mrtparse
 from itertools import islice
 from pyroute2 import IPRoute, IPBatch
@@ -70,10 +71,13 @@ def setup_logging(options):
 def rebuild_cache(options):
     """Rebuild the cache."""
     logger.info("rebuild cache")
-    with open(options.cache, "w") as f:
+    i = 0
+    with gzip.GzipFile(options.cache, "w") as f:
         for m in all_routes_once(options):
-            f.write(m)
-            f.write("\n")
+            f.write(m.encode("ascii"))
+            f.write(b"\n")
+            i += 1
+    logger.info("cache rebuilt with %d entries", i)
 
 
 def all_routes_once(options):
@@ -101,10 +105,9 @@ def all_routes_once_cached(options):
             rebuild_cache(options)
     except FileNotFoundError:
         rebuild_cache(options)
-    logger.debug("reading from cache")
-    with open(options.cache) as f:
+    with gzip.open(options.cache, "r") as f:
         for l in f:
-            yield l.rstrip()
+            yield l.decode('ascii').rstrip()
 
 
 def all_routes(options):
