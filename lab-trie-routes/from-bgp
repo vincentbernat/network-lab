@@ -9,6 +9,7 @@ robin fashion).
 
 from __future__ import print_function
 
+import os
 import sys
 import argparse
 import logging
@@ -18,7 +19,7 @@ from itertools import islice
 from pyroute2 import IPRoute, IPBatch
 
 
-logger = logging.getLogger("many-32")
+logger = logging.getLogger("from-bgp")
 
 
 def parse_args():
@@ -46,6 +47,8 @@ def parse_args():
     parser.add_argument("--batch", metavar="N",
                         default=100, type=int,
                         help="group netlink request by this number")
+    parser.add_argument("--cache", metavar="FILE",
+                        default="from-bgp.cache")
 
     parser.add_argument("nexthops", metavar="IP", nargs="+",
                         help="next-hop to use to insert routes")
@@ -64,27 +67,61 @@ def setup_logging(options):
     root.addHandler(ch)
 
 
+def rebuild_cache(options):
+    """Rebuild the cache."""
+    logger.info("rebuild cache")
+    with open(options.cache, "w") as f:
+        for m in all_routes_once(options):
+            f.write(m)
+            f.write("\n")
+
+
+def all_routes_once(options):
+    """Generate all routes. Only IPv4 unicast routes are yielded."""
+    r = mrtparse.Reader(options.mrt_dump)
+    for m in r:
+        m = m.mrt
+        if m.type != mrtparse.MRT_T['TABLE_DUMP_V2']:
+            continue
+        if m.subtype != mrtparse.TD_V2_ST['RIB_IPV4_UNICAST']:
+            continue
+        yield "{}/{}".format(m.rib.prefix, m.rib.plen)
+
+
+def all_routes_once_cached(options):
+    """Generate all routes, from cache."""
+    if not options.cache:
+        for r in all_routes_once(options):
+            yield r
+        return
+    try:
+        cache = os.stat(options.cache)
+        dump = os.stat(options.mrt_dump)
+        if cache.st_mtime < dump.st_mtime:
+            rebuild_cache(options)
+    except FileNotFoundError:
+        rebuild_cache(options)
+    logger.debug("reading from cache")
+    with open(options.cache) as f:
+        for l in f:
+            yield l.rstrip()
+
+
 def all_routes(options):
     """Generate all routes forever. Only IPv4 unicast routes are yielded."""
     while True:
-        r = mrtparse.Reader(options.mrt_dump)
-        for m in r:
-            m = m.mrt
-            if m.type != mrtparse.MRT_T['TABLE_DUMP_V2']:
-                continue
-            if m.subtype != mrtparse.TD_V2_ST['RIB_IPV4_UNICAST']:
-                continue
-            yield (m.rib.prefix, m.rib.plen)
+        for r in all_routes_once_cached(options):
+            yield r
 
 
 def routes(options):
     """Generate the routes to add."""
     skip = max(1, int(options.mrt_length / options.routes))
     i = 0
-    for prefix, plen in islice(all_routes(options), 0,
-                               options.routes * skip, skip):
+    for prefix in islice(all_routes(options), 0,
+                         options.routes * skip, skip):
         yield dict(family=socket.AF_INET,
-                   dst="{}/{}".format(prefix, plen),
+                   dst=prefix,
                    gateway=options.nexthops[i % len(options.nexthops)])
         i += 1
 
