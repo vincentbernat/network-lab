@@ -50,6 +50,7 @@ case $uts in
             for density in 1 0.5 0.1 0.05 0.01 0.001 0.0005; do
                 ip route flush scope global
                 sleep 1
+                log_info_msg "Benchmark /32 with $routes routes, density $density"
                 /usr/bin/time --verbose -o stats/32/time.$routes-$density \
                   ./many-32 -n $routes --density $density --batch 1000 \
                      203.0.113.3 203.0.113.5  203.0.113.7 \
@@ -60,8 +61,16 @@ case $uts in
         ;;
     R2)
         # Router with a partial full view.
-        ./from-bgp -n 1000000 --batch 1000 \
-          203.0.113.3 203.0.113.5  203.0.113.7 \
-          203.0.113.9 203.0.113.11 203.0.113.13
+        mkdir -p stats/full
+        for routes in 100 1000 10000 50000 100000 200000 500000; do
+            ip route flush scope global
+            sleep 1
+            log_info_msg "Benchmark full-view with $routes routes"
+            /usr/bin/time --verbose -o stats/full/time.$routes \
+              ./from-bgp -n $routes --batch 1000 \
+                203.0.113.3 203.0.113.5  203.0.113.7 \
+                203.0.113.9 203.0.113.11 203.0.113.13
+            cat /proc/net/fib_triestat > stats/full/stat.$routes
+        done
         ;;
 esac
