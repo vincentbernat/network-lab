@@ -56,6 +56,7 @@ case $uts in
                      203.0.113.3 203.0.113.5  203.0.113.7 \
                      203.0.113.9 203.0.113.11 203.0.113.13
                 cat /proc/net/fib_triestat > stats/32/stat.$routes-$density
+                cat /proc/net/fib_trie | gzip -c > stats/full/dump.$routes-$density
             done
         done
         ;;
@@ -71,6 +72,7 @@ case $uts in
                 203.0.113.3 203.0.113.5  203.0.113.7 \
                 203.0.113.9 203.0.113.11 203.0.113.13
             cat /proc/net/fib_triestat > stats/full/stat.$routes
+            cat /proc/net/fib_trie | gzip -c > stats/full/dump.$routes
         done
         ;;
 esac
