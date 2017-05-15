@@ -68,3 +68,27 @@ Here are some examples:
             Pointers: 274648
     Null ptrs: 133738
     Total size: 13879  kB
+
+We can also check memory usage in `/proc/slabinfo` (merging needs to
+be disabled).
+
+    ip_fib_trie        97202  97276     48   83    1 : tunables  120   60    0 : slabdata   1172   1172      0
+    ip_fib_alias      100024 100039     56   71    1 : tunables  120   60    0 : slabdata   1409   1409      0
+
+We notice that an object for `ip_fib_trie` is 48 bytes (which matches
+the info in `/proc/net/fib_triestat`) and we have 97k of them, which
+accounts for about 5MB for leaves. The non-leaves are allocated with
+either `kzalloc()` or `vzalloc()` since they are expected to be
+big. FIB aliases are equal to the number of prefixes and also
+allocated on the slab. They are also already accounted for in the
+`Total size` information.
+
+An alias is a prefix, ToS and scope. It references a `struct fib_info`
+that contains the remaining information. Those structs should be
+shared among many aliases. They are also allocated directly (with
+`kzalloc()`). The kernel keep count on how many of them they are but
+the information is not exported. The size of this structure depends on
+the number of hop (in case of a multihop route) and whenever metrics
+are stored for the given route (you can check if a route has metrics
+associated to it with `ip route get`). A hash table is also kept to be
+able to find existing structs and reuse them.
