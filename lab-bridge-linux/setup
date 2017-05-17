@@ -46,7 +46,10 @@ case $uts in
                     # We use a small trick. We have physical
                     # interfaces eth$i and we would like to simulate
                     # the use of macvtap interfaces. We use ubridge
-                    # (https://github.com/GNS3/ubridge/) for that.
+                    # (https://github.com/GNS3/ubridge/) for
+                    # that. Performance is quite bad due to design of
+                    # ubridge (blocking calls, with 10ms timeout). We
+                    # don't care.
                     tap=$(echo /sys/class/net/macvtap$i/tap*)
                     tap=${tap##*/}
                     cat <<EOF >> /tmp/ubridge.ini
