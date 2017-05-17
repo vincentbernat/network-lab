@@ -41,6 +41,12 @@ case $uts in
             macvtap)
                 modprobe tun
                 for i in 2 3 4; do
+                    # Prevent any traffic on eth$i (but pcap can still
+                    # capture traffic). Those interfaces shouldn't
+                    # exist in a real setup.
+                    tc qdisc add dev eth$i handle ffff: ingress
+                    tc filter add dev eth$i parent ffff: u32 match u8 0 0 action drop
+                    # Configure MACVTAP
                     ip link add link eth0 name macvtap$i address 50:54:33:00:00:0$((i-1)) type macvtap mode bridge
                     ip link set up dev macvtap$i
                     # We use a small trick. We have physical
