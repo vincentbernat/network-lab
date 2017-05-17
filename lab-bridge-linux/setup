@@ -2,6 +2,9 @@
 
 LABNAME="bridge-linux"
 
+#VARIANT=bridge
+VARIANT=macvtap
+
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
@@ -12,6 +15,7 @@ spawn vm VM3 network 3
 spawn vm H1 network 4,5,1,2,3   # Hypervisor
 spawn vm ER1 network 4,6        # Edge public router
 spawn vm IR2 network 5,6        # Internal router
+
 
 run
 
@@ -25,12 +29,35 @@ case $uts in
         ip -6 route add default via 2001:db8:a::1
         ;;
     H1)
-        brctl addbr br0
-        brctl addif br0 eth0    # "Internet"
-        brctl addif br0 eth2    # VM1
-        brctl addif br0 eth3    # VM2
-        brctl addif br0 eth4    # VM3
-        ip link set up dev br0
+        case $VARIANT in
+            bridge)
+                brctl addbr br0
+                brctl addif br0 eth0    # "Internet"
+                brctl addif br0 eth2    # VM1
+                brctl addif br0 eth3    # VM2
+                brctl addif br0 eth4    # VM3
+                ip link set up dev br0
+                ;;
+            macvtap)
+                modprobe tun
+                for i in 2 3 4; do
+                    ip link add link eth0 name macvtap$i address 50:54:33:00:00:0$((i-1)) type macvtap mode bridge
+                    ip link set up dev macvtap$i
+                    # We use a small trick. We have physical
+                    # interfaces eth$i and we would like to simulate
+                    # the use of macvtap interfaces. We use ubridge
+                    # (https://github.com/GNS3/ubridge/) for that.
+                    tap=$(echo /sys/class/net/macvtap$i/tap*)
+                    tap=${tap##*/}
+                    cat <<EOF >> /tmp/ubridge.ini
+[bridge$i]
+source_tap = /dev/$tap
+destination_ethernet = eth$i
+EOF
+                done
+                ubridge -f /tmp/ubridge.ini &
+                ;;
+        esac
         ip addr add 192.168.14.3/24 dev eth1
         ip -6 addr add 2001:db8:b::3/64 dev eth1
         ip route add default via 192.168.14.1
