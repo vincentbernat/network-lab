@@ -44,6 +44,9 @@ case $uts in
                 # Create bridge
                 brctl addbr br0
                 brctl stp br0 off
+                ## We could turn off learning globally this
+                ## way. Instead, we do that for each port below.
+                # brctl setageing br0 0
                 bridge vlan del dev br0 vid 1 self
                 for i in 2 3 4; do
                     # Add interface to bridge
