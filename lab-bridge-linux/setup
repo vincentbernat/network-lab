@@ -43,11 +43,17 @@ case $uts in
             restricted-bridge)
                 # Create bridge
                 brctl addbr br0
+                bridge vlan del dev br0 vid 1 self
                 # Add "Internet" port
                 brctl addif br0 eth0
+                bridge vlan del dev eth0 vid 1
                 for i in 2 3 4; do
                     # Add interface to bridge
                     brctl addif br0 eth$i
+                    # Remove VLAN 1, we don't want to use VLAN
+                    # stuff. This would double the number of FDB
+                    # entries.
+                    bridge vlan del dev eth$i vid 1
                     # Add a static FDB entry for it. We use "master"
                     # (and not "self") as we have a software
                     # bridge. We use "static" and not "permanent"
