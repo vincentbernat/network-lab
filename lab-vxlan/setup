@@ -13,11 +13,15 @@ LABNAME="vxlan"
 #VARIANT=unicast-routing
 #VARIANT=cumulus-vxfld-her     # Head end replication
 #VARIANT=cumulus-vxfld-snr     # Service node replication
-#VARIANT=bgp-evpn-cumulus+rr:gobgp
+VARIANT=bgp-evpn-cumulus+rr:gobgp
 #VARIANT=bgp-evpn-cumulus+junos+rr:gobgp
 #VARIANT=bgp-evpn-cumulus+rr:quagga
 #VARIANT=bgp-evpn-cumulus+rr:junos
-VARIANT=bgp-evpn-cumulus+junos+rr:junos
+#VARIANT=bgp-evpn-cumulus+junos+rr:junos
+
+# Restrict learning capacity of the local bridge on each
+# hypervisor. Comment out to get a regular bridge.
+RESTRICTED_BRIDGE=1
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -168,12 +172,13 @@ EOF
             esac
         done
         [ $VARIANT = unicast-routing ] || {
-            brctl addbr br100
-            brctl setfd br100 0
-            brctl addbr br200
-            brctl setfd br200 0
-            noip br100
-            noip br200
+            for v in 100 200; do
+                brctl addbr br$v
+                brctl setfd br$v 0
+                brctl stp br$v off
+                bridge vlan del dev br$v vid 1 self
+                noip br$v
+            done
             for iface in /sys/class/net/eth*; do
                 [ -d $iface ] || continue
                 iface=${iface##*/}
@@ -182,8 +187,20 @@ EOF
                     eth0) ;;
                     *)
                         brctl addif br100 $iface.100
-                        [ $uts,$iface = S2,eth2 ] || \
+                        bridge vlan del dev $iface.100 vid 1
+                        [ -z "$RESTRICTED_BRIDGE" ] || {
+                            bridge link set dev $iface.100 learning off flood off
+                            case $uts,$iface in
+                                S1,eth1) bridge fdb add 50:54:33:00:00:09 dev $iface.100 static master ;;
+                                S2,eth1) bridge fdb add 50:54:33:00:00:0a dev $iface.100 static master ;;
+                                S2,eth2) bridge fdb add 50:54:33:00:00:0b dev $iface.100 static master ;;
+                                S3,eth1) bridge fdb add 50:54:33:00:00:0c dev $iface.100 static master ;;
+                            esac
+                        }
+                        [ $uts,$iface = S2,eth2 ] || {
                             brctl addif br200 $iface.200
+                            bridge vlan del dev $iface.200 vid 1
+                        }
                         noip $iface
                         noip $iface.100
                         noip $iface.200
@@ -485,12 +502,19 @@ EOF
         [ $VARIANT = unicast-routing ] || {
             noip vxlan100
             brctl addif br100 vxlan100
+            bridge vlan del dev vxlan100 vid 1
+            [ -z "$RESTRICTED_BRIDGE" ] || {
+                bridge link set dev vxlan100 \
+                       learning off \
+                       flood on
+            }
             ip link set up dev br100
         }
         ip link set up dev vxlan100
         [ ! -d /sys/class/net/vxlan200 ] || {
             noip vxlan200
             brctl addif br200 vxlan200
+            bridge vlan del dev vxlan200 vid 1
             ip link set up dev br200
             ip link set up dev vxlan200
         }
