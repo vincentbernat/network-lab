@@ -43,6 +43,7 @@ case $uts in
             restricted-bridge)
                 # Create bridge
                 brctl addbr br0
+                brctl stp br0 off
                 bridge vlan del dev br0 vid 1 self
                 for i in 2 3 4; do
                     # Add interface to bridge
