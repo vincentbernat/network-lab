@@ -48,3 +48,8 @@ the lab, from `ER1`, you can:
     --- 192.168.14.3 ping statistics ---
     3 packets transmitted, 3 received, 0% packet loss, time 2006ms
     rtt min/avg/max/mdev = 0.332/0.538/0.659/0.146 ms
+
+## Restricted bridge
+
+This is a bridge that should work in the same way as a MACVTAP/MACVLAN
+interface (no learning) with known isolation solutions.

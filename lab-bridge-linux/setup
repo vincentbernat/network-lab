@@ -44,9 +44,6 @@ case $uts in
                 # Create bridge
                 brctl addbr br0
                 bridge vlan del dev br0 vid 1 self
-                # Add "Internet" port
-                brctl addif br0 eth0
-                bridge vlan del dev eth0 vid 1
                 for i in 2 3 4; do
                     # Add interface to bridge
                     brctl addif br0 eth$i
@@ -64,6 +61,15 @@ case $uts in
                            learning off \
                            flood off
                 done
+                # Add "Internet" port. Learning is off (we don't need
+                # that) and any "unknown" unicast is flooded to this
+                # port.
+                brctl addif br0 eth0
+                bridge vlan del dev eth0 vid 1
+                bridge link set dev eth0 \
+                       learning off \
+                       flood on
+                # Set up the bridge
                 ip link set up dev br0
                 ;;
             macvtap)
