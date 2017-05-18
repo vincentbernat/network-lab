@@ -3,7 +3,8 @@
 LABNAME="bridge-linux"
 
 #VARIANT=bridge
-VARIANT=macvtap
+VARIANT=restricted-bridge
+#VARIANT=macvtap
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -31,11 +32,32 @@ case $uts in
     H1)
         case $VARIANT in
             bridge)
+                # Classic bridge
                 brctl addbr br0
                 brctl addif br0 eth0    # "Internet"
                 brctl addif br0 eth2    # VM1
                 brctl addif br0 eth3    # VM2
                 brctl addif br0 eth4    # VM3
+                ip link set up dev br0
+                ;;
+            restricted-bridge)
+                # Create bridge
+                brctl addbr br0
+                # Add "Internet" port
+                brctl addif br0 eth0
+                for i in 2 3 4; do
+                    # Add interface to bridge
+                    brctl addif br0 eth$i
+                    # Add a static FDB entry for it. We use "master"
+                    # (and not "self") as we have a software
+                    # bridge. We use "static" and not "permanent"
+                    # because permanent means "local".
+                    bridge fdb add 50:54:33:00:00:0$((i-1)) dev eth$i static master
+                    # No learning nor flooding on this port
+                    bridge link set dev eth$i \
+                           learning off \
+                           flood off
+                done
                 ip link set up dev br0
                 ;;
             macvtap)
