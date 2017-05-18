@@ -28,6 +28,11 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 SWITCH_MON=1
 
+spawn vm H1 network 2
+spawn vm H2 network 3
+spawn vm H3 network 4
+spawn vm H4 network 5
+
 # Network 1 is the underlay network. We consider it as a routed L3
 # network, but we lie a bit.
 spawn vm S1 networks 1,2
@@ -50,11 +55,6 @@ case $VARIANT in
         spawn vm SN2 network 1
         ;;
 esac
-
-spawn vm H1 network 2
-spawn vm H2 network 3
-spawn vm H3 network 4
-spawn vm H4 network 5
 
 run
 
@@ -191,10 +191,10 @@ EOF
                         [ -z "$RESTRICTED_BRIDGE" ] || {
                             bridge link set dev $iface.100 learning off flood off
                             case $uts,$iface in
-                                S1,eth1) bridge fdb add 50:54:33:00:00:09 dev $iface.100 static master ;;
-                                S2,eth1) bridge fdb add 50:54:33:00:00:0a dev $iface.100 static master ;;
-                                S2,eth2) bridge fdb add 50:54:33:00:00:0b dev $iface.100 static master ;;
-                                S3,eth1) bridge fdb add 50:54:33:00:00:0c dev $iface.100 static master ;;
+                                S1,eth1) bridge fdb add 50:54:33:00:00:01 dev $iface.100 static master ;;
+                                S2,eth1) bridge fdb add 50:54:33:00:00:02 dev $iface.100 static master ;;
+                                S2,eth2) bridge fdb add 50:54:33:00:00:03 dev $iface.100 static master ;;
+                                S3,eth1) bridge fdb add 50:54:33:00:00:04 dev $iface.100 static master ;;
                             esac
                         }
                         [ $uts,$iface = S2,eth2 ] || {
@@ -250,10 +250,10 @@ EOF
                    proxy
 
                 # Static neighbor entries to reduce neighbors discovery.
-                [ ${uts#S} = 1 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 50:54:33:00:00:08 dev vxlan100
-                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::11 lladdr 50:54:33:00:00:09 dev vxlan100
-                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 50:54:33:00:00:0a dev vxlan100
-                [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 50:54:33:00:00:0b dev vxlan100
+                [ ${uts#S} = 1 ] || ip -6 neigh add 2001:db8:ff::10 lladdr 50:54:33:00:00:01 dev vxlan100
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::11 lladdr 50:54:33:00:00:02 dev vxlan100
+                [ ${uts#S} = 2 ] || ip -6 neigh add 2001:db8:ff::12 lladdr 50:54:33:00:00:03 dev vxlan100
+                [ ${uts#S} = 3 ] || ip -6 neigh add 2001:db8:ff::13 lladdr 50:54:33:00:00:04 dev vxlan100
                 ;;
             unicast-static-rsc)
                 # Same as unicast-static-default but we use a route
@@ -309,10 +309,10 @@ EOF
                         # some way to let VTEP share their local FDB
                         # with their peers.
                         case $mac in
-                            50:54:33:00:00:08) dst=2001:db8:1::1 ;;
-                            50:54:33:00:00:09) dst=2001:db8:2::1 ;;
-                            50:54:33:00:00:0a) dst=2001:db8:2::1 ;;
-                            50:54:33:00:00:0b) dst=2001:db8:3::1 ;;
+                            50:54:33:00:00:01) dst=2001:db8:1::1 ;;
+                            50:54:33:00:00:02) dst=2001:db8:2::1 ;;
+                            50:54:33:00:00:03) dst=2001:db8:2::1 ;;
+                            50:54:33:00:00:04) dst=2001:db8:3::1 ;;
                             *) continue ;;
                         esac
                         bridge fdb replace $mac dev vxlan100 dst $dst dynamic
@@ -341,10 +341,10 @@ EOF
                             miss,lladdr,*,STALE)
                                 mac=$z
                                 case $mac in
-                                    50:54:33:00:00:08) dst=2001:db8:1::1 ;;
-                                    50:54:33:00:00:09) dst=2001:db8:2::1 ;;
-                                    50:54:33:00:00:0a) dst=2001:db8:2::1 ;;
-                                    50:54:33:00:00:0b) dst=2001:db8:3::1 ;;
+                                    50:54:33:00:00:01) dst=2001:db8:1::1 ;;
+                                    50:54:33:00:00:02) dst=2001:db8:2::1 ;;
+                                    50:54:33:00:00:03) dst=2001:db8:2::1 ;;
+                                    50:54:33:00:00:04) dst=2001:db8:3::1 ;;
                                     *) continue ;;
                                 esac
                                 bridge fdb replace $mac dev vxlan100 dst $dst dynamic
@@ -352,10 +352,10 @@ EOF
                             miss,*,STALE,)
                                 addr=$y
                                 case $addr in
-                                    2001:db8:ff::10) dst=50:54:33:00:00:08 ;;
-                                    2001:db8:ff::11) dst=50:54:33:00:00:09 ;;
-                                    2001:db8:ff::12) dst=50:54:33:00:00:0a ;;
-                                    2001:db8:ff::13) dst=50:54:33:00:00:0b ;;
+                                    2001:db8:ff::10) dst=50:54:33:00:00:01 ;;
+                                    2001:db8:ff::11) dst=50:54:33:00:00:02 ;;
+                                    2001:db8:ff::12) dst=50:54:33:00:00:03 ;;
+                                    2001:db8:ff::13) dst=50:54:33:00:00:04 ;;
                                     *) continue ;;
                                 esac
                                 ip -6 neigh replace $addr lladdr $dst dev vxlan100 nud reachable
@@ -363,10 +363,10 @@ EOF
                             *,lladdr,*,STALE)
                                 addr=$x
                                 case $addr in
-                                    2001:db8:ff::10) dst=50:54:33:00:00:08 ;;
-                                    2001:db8:ff::11) dst=50:54:33:00:00:09 ;;
-                                    2001:db8:ff::12) dst=50:54:33:00:00:0a ;;
-                                    2001:db8:ff::13) dst=50:54:33:00:00:0b ;;
+                                    2001:db8:ff::10) dst=50:54:33:00:00:01 ;;
+                                    2001:db8:ff::11) dst=50:54:33:00:00:02 ;;
+                                    2001:db8:ff::12) dst=50:54:33:00:00:03 ;;
+                                    2001:db8:ff::13) dst=50:54:33:00:00:04 ;;
                                     *) continue ;;
                                 esac
                                 ip -6 neigh replace $addr lladdr $dst dev vxlan100 nud reachable
@@ -492,10 +492,10 @@ EOF
         case $VARIANT in
             unicast-static-l2|unicast-static-nd)
                 # We put static entries for known mac.
-                [ ${uts#S} = 1 ] || bridge fdb append 50:54:33:00:00:08 dev vxlan100 dst 2001:db8:1::1
-                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:09 dev vxlan100 dst 2001:db8:2::1
-                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:0a dev vxlan100 dst 2001:db8:2::1
-                [ ${uts#S} = 3 ] || bridge fdb append 50:54:33:00:00:0b dev vxlan100 dst 2001:db8:3::1
+                [ ${uts#S} = 1 ] || bridge fdb append 50:54:33:00:00:01 dev vxlan100 dst 2001:db8:1::1
+                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:02 dev vxlan100 dst 2001:db8:2::1
+                [ ${uts#S} = 2 ] || bridge fdb append 50:54:33:00:00:03 dev vxlan100 dst 2001:db8:2::1
+                [ ${uts#S} = 3 ] || bridge fdb append 50:54:33:00:00:04 dev vxlan100 dst 2001:db8:3::1
                 ;;
         esac
 
