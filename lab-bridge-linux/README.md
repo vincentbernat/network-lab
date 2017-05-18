@@ -25,3 +25,7 @@ In this lab, we have:
  - Additionally, ARP traffic can be disabled with `ip link set arp off
    dev br0` (however, without an IP on the interface, Linux won't send
    an answer).
+
+More information available in this [blog post][].
+
+[blog post]: https://vincent.bernat.im/en/blog/2017-linux-bridge-isolation
