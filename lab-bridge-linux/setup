@@ -77,7 +77,6 @@ case $uts in
                 ip link set up dev br0
                 ;;
             macvtap)
-                modprobe tun
                 for i in 2 3 4; do
                     # Prevent any traffic on eth$i (but pcap can still
                     # capture traffic). Those interfaces shouldn't
