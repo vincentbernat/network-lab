@@ -24,6 +24,11 @@ Most variants are only using VLAN/VNI 100. When it makes sense, some
 of them are also using VLAN/VNI 200. Most variants are using only IPv6
 except when IPv6 is not supported. In this case, IPv4 is used.
 
+More details are available those two blog posts:
+
+ - [VXLAN & Linux][blog1]
+ - [VXLAN: BGP EVPN with Cumulus Quagga][blog2]
+
 ## Multicast
 
 This simply uses multicast to discover neighbors and send BUM
@@ -178,7 +183,7 @@ a [patch](https://github.com/CumulusNetworks/vxfld/pull/5) is needed.
 There is currently two major solutions on Linux for that:
 
  - [BaGPipe BGP][] (see also this [article][3]), [adopted by OpenStack][4]
- - [Cumulus Quagga][] (see also this [article][5] and this [one][7])
+ - [Cumulus Quagga][] (see also this [article][5], this [one][7] and this [one][blog2])
  
 See also [RFC 7432][]. We use the second solution. Unfortunately,
 VXLAN handling is not compatible with IPv6 yet, so we use
@@ -391,6 +396,8 @@ Here is the output from the Juniper side:
 [15]: https://github.com/CumulusNetworks/quagga/issues/28#issuecomment-290329435
 [RFC 7432]: https://tools.ietf.org/html/rfc7432
 [draft-sd-l2vpn-evpn-overlay]: https://tools.ietf.org/html/draft-ietf-bess-evpn-overlay-07
+[blog1]: https://vincent.bernat.im/en/blog/2017-vxlan-linux
+[blog2]: https://vincent.bernat.im/en/blog/2017-vxlan-bgp-evpn
 
 # Other considerations
 
