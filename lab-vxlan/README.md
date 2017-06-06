@@ -189,6 +189,12 @@ See also [RFC 7432][]. We use the second solution. Unfortunately,
 VXLAN handling is not compatible with IPv6 yet, so we use
 IPv4.
 
+For Quagga, the minimal kernel version is 3.14 (due to the way bridge
+ports are detected). For older kernel,
+this
+[patch](https://github.com/exoscale/pkg-quagga/blob/fdf7c79ec0cd02a2a439b2c40a3c46cbc35d07c7/debian/patches/0001-zebra-on-old-kernel-alternate-way-to-check-a-bridge-.patch) may
+help.
+
 Here are some commands to observe the adjacencies from `vtysh`. First,
 which VNI are we interested in?
 
