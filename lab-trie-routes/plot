@@ -73,6 +73,9 @@ def plot(ax, facet, linreg=True):
     """Plot a given facet on the provided axes."""
     xmaxmax = -np.inf
     xminmin = np.inf
+    if not callable(facet):
+        ofacet = facet
+        facet = lambda x: x[ofacet]
 
     # /32 with density
     radians = np.linspace(0, 2*np.pi, len(thirtytwo))
@@ -81,7 +84,7 @@ def plot(ax, facet, linreg=True):
                              colors,
                              sorted(thirtytwo.keys())):
         x = np.array(sorted(thirtytwo[density].keys()))
-        y = np.array([thirtytwo[density][k][facet] for k in x])
+        y = np.array([facet(thirtytwo[density][k]) for k in x])
         xmax = np.log10(np.max(x))
         ymax = np.max(y)
         xminmin = min(np.min(x), xminmin)
@@ -92,7 +95,7 @@ def plot(ax, facet, linreg=True):
 
     # Full view
     x = np.array(sorted(full.keys()))
-    y = np.array([full[k][facet] for k in x])
+    y = np.array([facet(full[k]) for k in x])
     slope, intercept, _, _, _ = stats.linregress(x, y)
     ax.scatter(x, y, color='b')
 
@@ -133,8 +136,9 @@ with plt.style.context(['ggplot', {'xtick.direction': 'in',
     ax.set_title("pointers")
 
     ax = fig.add_subplot(2, 3, 5)
-    plot(ax, 'nullptrs')
-    ax.set_title("null pointers")
+    plot(ax, lambda x: x['nullptrs']*100/x['pointers'], linreg=False)
+    ax.set_title("null pointers ratio")
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d%%"))
 
     ax = fig.add_subplot(2, 3, 6)
     plot(ax, 'stime')
