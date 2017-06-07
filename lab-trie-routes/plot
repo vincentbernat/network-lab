@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+
+"""Plot results from the lab."""
+
+import os
+import glob
+import re
+import collections
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import ticker
+from scipy import stats
+
+STATRE = re.compile(r"""Main:
+\s+ Aver\ depth:     \s+ (?P<avgdepth>[\d.]+)
+\s+ Max\ depth:      \s+ (?P<maxdepth>\d+)
+\s+ Leaves:          \s+ (?P<leaves>\d+)
+\s+ Prefixes:        \s+ (?P<prefixes>\d+)
+\s+ Internal\ nodes: \s+ (?P<tnodes>\d+)
+\s+ (?P<details>[\d:\s]+)
+\s+ Pointers:        \s+ (?P<pointers>\d+)
+\s+ Null\ ptrs:      \s+ (?P<nullptrs>\d+)
+\s+ Total\ size:     \s+ (?P<size>\d+) \s+ kB
+        """, re.VERBOSE)
+
+
+def extract_stats(t1, t2):
+    """Extract stats from time dump (t1) and triestat file (t2)."""
+    stats = {}
+    with open(t1) as f:
+        time = dict(l.lstrip().split(": ", 1) for l in f.readlines())
+        stats['utime'] = float(time["User time (seconds)"])
+        stats['stime'] = float(time["System time (seconds)"])
+    with open(t2) as f:
+        mo = STATRE.search(f.read())
+        if mo:
+            stats['avgdepth'] = float(mo.group('avgdepth'))
+            stats['maxdepth'] = int(mo.group('maxdepth'))
+            stats['leaves'] = int(mo.group('leaves'))
+            stats['prefixes'] = int(mo.group('prefixes'))
+            stats['tnodes'] = int(mo.group('tnodes'))
+            stats['pointers'] = int(mo.group('pointers'))
+            stats['nullptrs'] = int(mo.group('nullptrs'))
+            stats['size'] = int(mo.group('size'))
+            details = mo.group('details').strip()
+            details = (i.split(": ", 1)
+                       for i in details.split("  "))
+            stats['tnodes_details'] = {int(k): int(v)
+                                       for k, v in details}
+    return stats
+
+
+# Full view stats
+full = {}
+for t1 in glob.glob("stats/full/time.*"):
+    _, count = os.path.splitext(t1)
+    count = int(count[1:])
+    t2 = "stats/full/stat.{}".format(count)
+    full[count] = extract_stats(t1, t2)
+
+# /32 stats
+thirtytwo = collections.defaultdict(dict)
+for t1 in glob.glob("stats/32/time.*"):
+    ext = t1[len("stats/32/time."):]
+    count, density = ext.split("-")
+    count = int(count)
+    density = float(density)
+    t2 = "stats/32/stat.{}".format(ext)
+    thirtytwo[density][count] = extract_stats(t1, t2)
+
+
+def plot(ax, facet, linreg=True):
+    """Plot a given facet on the provided axes."""
+    xmaxmax = -np.inf
+    xminmin = np.inf
+
+    # /32 with density
+    radians = np.linspace(0, 2*np.pi, len(thirtytwo))
+    colors = plt.cm.Reds(np.linspace(0.2, 1, len(thirtytwo)))
+    for r, c, density in zip(radians,
+                             colors,
+                             sorted(thirtytwo.keys())):
+        x = np.array(sorted(thirtytwo[density].keys()))
+        y = np.array([thirtytwo[density][k][facet] for k in x])
+        xmax = np.log10(np.max(x))
+        ymax = np.max(y)
+        xminmin = min(np.min(x), xminmin)
+        xmaxmax = max(np.max(x), xmaxmax)
+        ax.scatter(x * 10**(xmax/50*np.cos(r)),
+                   y + ymax/50*np.sin(r),
+                   color=c)
+
+    # Full view
+    x = np.array(sorted(full.keys()))
+    y = np.array([full[k][facet] for k in x])
+    slope, intercept, _, _, _ = stats.linregress(x, y)
+    ax.scatter(x, y, color='b')
+
+    # Linreg
+    if linreg:
+        x = np.linspace(xminmin, xmaxmax, 1000)
+        ax.plot(x, slope*x,     # assume intercept =~ 0
+                color='blue', lw=1, zorder=-1, alpha=0.2)
+
+    # Misc
+    ax.set_xscale("log")
+    ax.get_yaxis().set_major_formatter(
+        ticker.EngFormatter())
+
+
+with plt.style.context(['ggplot', {'xtick.direction': 'in',
+                                   'axes.titleweight': 'light',
+                                   'axes.titlesize': 'large'}]):
+    fig = plt.figure()
+
+    ax = fig.add_subplot(2, 3, 1)
+    plot(ax, 'maxdepth', linreg=False)
+    ax.set_title("maximum depth")
+
+    ax = fig.add_subplot(2, 3, 2)
+    plot(ax, 'size')
+    ax.set_title("memory usage")
+    ax.get_yaxis().set_major_locator(ticker.MultipleLocator(base=1024*64))
+    ax.get_yaxis().set_major_formatter(
+        ticker.FuncFormatter(lambda y, _: "%d MiB" % (y/1024)))
+
+    ax = fig.add_subplot(2, 3, 3)
+    plot(ax, 'tnodes')
+    ax.set_title("internal nodes")
+
+    ax = fig.add_subplot(2, 3, 4)
+    plot(ax, 'pointers')
+    ax.set_title("pointers")
+
+    ax = fig.add_subplot(2, 3, 5)
+    plot(ax, 'nullptrs')
+    ax.set_title("null pointers")
+
+    ax = fig.add_subplot(2, 3, 6)
+    plot(ax, 'stime')
+    ax.set_title("insertion time")
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d s"))
+
+plt.show()

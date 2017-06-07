@@ -7,8 +7,8 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 # Which VM to spawn
 KERNELPARAMS=slab_nomerge
-#MEM=512M spawn vm R1 # Lots of /32
-MEM=512M spawn vm R2 # Partial view
+MEM=512M spawn vm R1 # Lots of /32
+#MEM=512M spawn vm R2 # Partial view
 
 run
 
@@ -47,7 +47,7 @@ case $uts in
     R1)
         # Benchmark many /32
         mkdir -p stats/32
-        for routes in 100 1000 10000 50000 100000 200000 500000 1000000 2000000; do
+        for routes in 100 1000 10000 20000 50000 100000 200000 500000 1000000 2000000; do
             for density in 1 0.5 0.1 0.05 0.01 0.001 0.0005; do
                 ip route flush scope global
                 sleep 1
@@ -65,7 +65,7 @@ case $uts in
     R2)
         # Router with a partial full view.
         mkdir -p stats/full
-        for routes in 100 1000 10000 50000 100000 200000 500000; do
+        for routes in 100 1000 10000 20000 50000 100000 200000 500000; do
             ip route flush scope global
             sleep 1
             log_info_msg "Benchmark full-view with $routes routes"
