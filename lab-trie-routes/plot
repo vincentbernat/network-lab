@@ -98,7 +98,7 @@ def plot(ax, facet, linreg=True):
     x = np.array(sorted(full.keys()))
     y = np.array([facet(full[k]) for k in x])
     slope, intercept, _, _, _ = stats.linregress(x, y)
-    ax.scatter(x, y, color='b', label="From full view")
+    ax.scatter(x, y, color='b', label="from full view")
 
     # Linreg
     if linreg:
@@ -115,40 +115,49 @@ def plot(ax, facet, linreg=True):
 
 
 with plt.style.context([
-        'fivethirtyeight', {'axes.labelweight': 'light',
-                            'axes.titleweight': 'light',
-                            'axes.titlesize': 'x-large',
-                            'font.weight': 'light'}]):
+        'fivethirtyeight', {'axes.labelsize': 'small',
+                            'axes.titleweight': 'bold',
+                            'axes.titlesize': 'large',
+                            'axes.facecolor': 'white',
+                            'axes.linewidth': 0.0,
+                            'font.size': 9.0,
+                            'grid.linewidth': 0.75,
+                            'font.weight': 'medium'}]):
     fig = plt.figure()
 
-    ax = fig.add_subplot(2, 3, 1)
+    ax = fig.add_subplot(321)
     plot(ax, 'maxdepth', linreg=False)
     ax.set_title("maximum depth")
+    ax.legend(loc='upper left',
+              bbox_to_anchor=(1.1, 1),
+              borderaxespad=0.,
+              frameon=False)
 
-    ax = fig.add_subplot(2, 3, 2)
+    ax = fig.add_subplot(323)
     plot(ax, 'size')
     ax.set_title("memory usage")
     ax.get_yaxis().set_major_locator(ticker.MultipleLocator(base=1024*64))
     ax.get_yaxis().set_major_formatter(
         ticker.FuncFormatter(lambda y, _: "%d MiB" % (y/1024)))
 
-    ax = fig.add_subplot(2, 3, 4)
-    plot(ax, 'tnodes')
-    ax.set_title("internal nodes")
-
-    ax = fig.add_subplot(2, 3, 5)
-    plot(ax, lambda x: x['nullptrs']*100/x['pointers'], linreg=False)
-    ax.set_title("null pointers ratio")
-    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d%%"))
-    ax.set_ylim(bottom=1)
-    ax.legend(loc='upper left',
-              bbox_to_anchor=(1.1, 1),
-              borderaxespad=0.,
-              frameon=False)
-
-    ax = fig.add_subplot(2, 3, 3)
+    ax = fig.add_subplot(324)
     plot(ax, 'stime')
     ax.set_title("insertion time")
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d s"))
 
-plt.show()
+    ax = fig.add_subplot(325)
+    plot(ax, 'tnodes')
+    ax.set_title("internal nodes")
+
+    ax = fig.add_subplot(326)
+    plot(ax, lambda x: x['nullptrs']*100/x['pointers'], linreg=False)
+    ax.set_title("null pointers ratio")
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d%%"))
+    ax.set_ylim(bottom=1)
+
+fig.set_size_inches(7, 9)
+fig.savefig("stats/stats.svg",
+            dpi=96,
+            bbox_inches='tight')
+
+# plt.show()
