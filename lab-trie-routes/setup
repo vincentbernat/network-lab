@@ -39,8 +39,9 @@ ip netns exec next-hop ip addr add 203.0.113.14/31 dev out7
 ip netns exec next-hop ip route add default via 203.0.113.15
 ip netns exec next-next-hop ip link set up dev in7
 ip netns exec next-next-hop ip addr add 203.0.113.15/31 dev in7
+ip netns exec next-next-hop ip addr add 203.0.113.50/32 dev in7
 ip netns exec next-next-hop ip route add default via 203.0.113.14
-ip route add 203.0.113.15 via 203.0.113.13
+ip route add 203.0.113.48/29 via 203.0.113.13
 
 # Add additional (non-working) paths
 ip route add default via 203.0.113.5
@@ -52,7 +53,7 @@ ip route add 192.0.2.48/32 via 203.0.113.9
 ip route add 192.0.2.49/32 via 203.0.113.9
 ip route add 192.0.2.50/32 via 203.0.113.9
 
-ping -M do -s 1472 -c 2 203.0.113.15 || true
+ping -M do -s 1472 -c 2 203.0.113.50 || true
 # Check cache with:
 # $ ip route get 203.0.113.15
 # 203.0.113.15 via 203.0.113.13 dev out6  src 203.0.113.12
