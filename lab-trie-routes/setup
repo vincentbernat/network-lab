@@ -40,4 +40,10 @@ ip netns exec next-hop ip route add default via 203.0.113.15
 ip netns exec next-next-hop ip link set up dev in7
 ip netns exec next-next-hop ip addr add 203.0.113.15/31 dev in7
 ip netns exec next-next-hop ip route add default via 203.0.113.14
-ip route add 203.0.113.15 via 203.0.113.12
+ip route add 203.0.113.15 via 203.0.113.13
+
+ping -M do -s 1472 -c 2 203.0.113.15
+# Check cache with:
+# $ ip route get 203.0.113.15
+# 203.0.113.15 via 203.0.113.13 dev out6  src 203.0.113.12
+#     cache  expires 536sec mtu 1400
