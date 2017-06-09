@@ -180,10 +180,11 @@ a [patch](https://github.com/CumulusNetworks/vxfld/pull/5) is needed.
 
 ## BGP EVPN
 
-There is currently two major solutions on Linux for that:
+There is currently three major solutions on Linux for that:
 
  - [BaGPipe BGP][] (see also this [article][3]), [adopted by OpenStack][4]
  - [Cumulus Quagga][] (see also this [article][5], this [one][7] and this [one][blog2])
+ - [frr][] (currently, needs [PR #619](https://github.com/FRRouting/frr/pull/619))
  
 See also [RFC 7432][]. We use the second solution. Unfortunately,
 VXLAN handling is not compatible with IPv6 yet, so we use
@@ -303,6 +304,15 @@ There are two types of routes (first digit):
  - type 3 (multicast Ethernet routes): they are here to make
    broadcast, unknown unicast and multicast traffic.
 
+To get a *frr* compatible with *Cumulus Quagga*, use the following
+`./configure` line:
+
+    ../configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var/run \
+                 --enable-user=quagga --enable-group=quagga --enable-vty-group=quaggavty \
+                 --enable-oldvpn-commands --disable-bgp-vnc
+
+However, a small modification is still needed in `bgpd` configuration.
+
 ### Interoperability
 
 As for interoperability, the biggest problem is how RD and RT are
@@ -404,6 +414,7 @@ Here is the output from the Juniper side:
 [draft-sd-l2vpn-evpn-overlay]: https://tools.ietf.org/html/draft-ietf-bess-evpn-overlay-07
 [blog1]: https://vincent.bernat.im/en/blog/2017-vxlan-linux
 [blog2]: https://vincent.bernat.im/en/blog/2017-vxlan-bgp-evpn
+[frr]: https://github.com/FRRouting/frr/
 
 # Other considerations
 
