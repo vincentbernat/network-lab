@@ -92,3 +92,19 @@ the number of hop (in case of a multihop route) and whenever metrics
 are stored for the given route (you can check if a route has metrics
 associated to it with `ip route get`). A hash table is also kept to be
 able to find existing structs and reuse them.
+
+# References
+
+ - https://www.kernel.org/doc/Documentation/networking/fib_trie.txt
+ - http://www.drdobbs.com/cpp/fast-ip-routing-with-lc-tries/184410638
+ - https://people.netfilter.org/pablo/netdev0.1/papers/Picking-the-low-hanging-fruit-from-the-FIB-tree.pdf
+ - http://www.netdevconf.org/1.1/proceedings/slides/kubecek-ipv6-route-lookup-performance-scaling.pdf
+ - https://git.kernel.org/pub/scm/linux/kernel/git/davem/net_test_tools.git/tree/
+ - https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git/commit/?id=5e9965c15ba88319500284e590733f4a4629a288
+ - https://www.nada.kth.se/~snilsson/publications/IP-address-lookup-using-LC-tries/
+ - http://www.csc.kth.se/~snilsson/software/dyntrie2/
+
+Not read yet:
+
+ - https://arxiv.org/pdf/1402.1194.pdf
+
