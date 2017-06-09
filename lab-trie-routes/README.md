@@ -9,6 +9,19 @@ To get a MRT dump:
 
     wget http://data.ris.ripe.net/rrc00/latest-bview.gz
 
+## Microbenchmark
+
+The microbenchmark uses a small kernel module to run a benchmark. It
+works only on x86-64. To compile it, use the following command:
+
+    make kbench_mod.ko
+
+Use `modinfo` to get parameters to use it. Load it to run the
+benchmark. It will fail with `ENODEV`, this is expected. The result is
+displayed in `dmesg`:
+
+    kbench: fib_lookup: min=96 max=152 average=98 50th=96 90th=100 95th=100
+
 ## Results
 
 When looking at a dump of the tree (from `/proc/net/fib_trie`), there
