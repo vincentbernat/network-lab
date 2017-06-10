@@ -16,11 +16,11 @@ works only on x86-64. To compile it, use the following command:
 
     make kbench_mod.ko
 
-Use `modinfo` to get parameters to use it. Load it to run the
-benchmark. It will fail with `ENODEV`, this is expected. The result is
-displayed in `dmesg`:
+Load it with `insmod`. You'll get a `/sys/kernel/kbench`
+directory. There are various parameters tweakable. To run the
+benchmark, tun `cat /sys/kernel/kbench/run`:
 
-    kbench: fib_lookup: min=96 max=152 average=98 50th=96 90th=100 95th=100
+    min=76 max=760 average=95 50th=100 90th=112 95th=112
 
 The results are the number of cycles. To make sense of the results,
 let's assume a 2 GHz clock. This means a lookup takes 50 ns. This

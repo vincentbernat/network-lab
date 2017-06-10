@@ -1,6 +1,12 @@
-/* Run a micro benchmark on fib_lookup(). This is heavily derived from
- * kbench_mod.c from
- * https://git.kernel.org/pub/scm/linux/kernel/git/davem/net_test_tools.git/. */
+/* -*- mode: c; c-file-style: "linux" -*- */
+/* Run a micro benchmark on fib_lookup().
+ *
+ * It creates a /sys/kernel/kbench directory.
+ *
+ * The module doesn't perform any kind of locking. It is not safe to
+ * modify a setting while running the benchmark. Moreover, it only
+ * acts on the initial network namespace.
+ */
 
 #define pr_fmt(fmt) "kbench: " fmt
 
@@ -8,73 +14,32 @@
 #include <linux/module.h>
 #include <linux/inet.h>
 #include <linux/sort.h>
+#include <linux/netdevice.h>
 
 #include <net/route.h>
 #include <net/ip_fib.h>
 
 #include <linux/timex.h>
 
-#define DEFAULT_WARMUP_COUNT 100000
-#define DEFAULT_COUNT 100
-
-#define DEFAULT_DST_IP_ADDR	0x4a800001
-#define DEFAULT_SRC_IP_ADDR	0x00000000
+#define DEFAULT_WARMUP_COUNT	100000
+#define DEFAULT_LOOP_COUNT	1000
 #define DEFAULT_OIF		0
 #define DEFAULT_IIF		0
 #define DEFAULT_MARK		0x00000000
 #define DEFAULT_TOS		0x00
+#define DEFAULT_DST_IPADDR	0x4a800001
+#define DEFAULT_SRC_IPADDR	0x00000000
 
-static int flow_oif = DEFAULT_OIF;
-static int flow_iif = DEFAULT_IIF;
-static u32 flow_mark = DEFAULT_MARK;
-static u32 flow_dst_ip_addr = DEFAULT_DST_IP_ADDR;
-static u32 flow_src_ip_addr = DEFAULT_SRC_IP_ADDR;
-static int flow_tos = DEFAULT_TOS;
+static unsigned long	warmup_count	= DEFAULT_WARMUP_COUNT;
+static unsigned long	loop_count	= DEFAULT_LOOP_COUNT;
+static int		flow_oif	= DEFAULT_OIF;
+static int		flow_iif	= DEFAULT_IIF;
+static u8		flow_tos	= DEFAULT_TOS;
+static u32		flow_mark	= DEFAULT_MARK;
+static u32		flow_dst_ipaddr = DEFAULT_DST_IPADDR;
+static u32		flow_src_ipaddr = DEFAULT_SRC_IPADDR;
 
-static char dst_string[64];
-static char src_string[64];
-
-module_param_string(dst, dst_string, sizeof(dst_string), 0);
-MODULE_PARM_DESC(dst, "Destination IP address");
-module_param_string(src, src_string, sizeof(src_string), 0);
-MODULE_PARM_DESC(src, "Source IP address");
-
-static void __init flow_setup(void)
-{
-	if (dst_string[0])
-		flow_dst_ip_addr = in_aton(dst_string);
-	if (src_string[0])
-		flow_src_ip_addr = in_aton(src_string);
-}
-
-module_param_named(oif, flow_oif, int, 0);
-MODULE_PARM_DESC(oif, "Output interface index");
-module_param_named(iif, flow_iif, int, 0);
-MODULE_PARM_DESC(iif, "Input interface index");
-module_param_named(mark, flow_mark, uint, 0);
-MODULE_PARM_DESC(mark, "Firewall mark");
-module_param_named(tos, flow_tos, int, 0);
-MODULE_PARM_DESC(tos, "TOS field");
-
-static int warmup_count = DEFAULT_WARMUP_COUNT;
-module_param_named(warmup, warmup_count, int, 0);
-MODULE_PARM_DESC(warmup, "Warmup iterations before benchmark");
-
-static int count = DEFAULT_COUNT;
-module_param_named(count, count, int, 0);
-MODULE_PARM_DESC(count, "Benchmark iterations");
-
-
-static void flow_init(struct flowi4 *fl4)
-{
-	memset(fl4, 0, sizeof(*fl4));
-	fl4->flowi4_oif = flow_oif;
-	fl4->flowi4_iif = flow_iif;
-	fl4->flowi4_mark = flow_mark;
-	fl4->flowi4_tos = flow_tos;
-	fl4->daddr = flow_dst_ip_addr;
-	fl4->saddr = flow_src_ip_addr;
-}
+/* Benchmark */
 
 static int compare(const void *lhs, const void *rhs) {
     unsigned long long lhs_integer = *(const unsigned long long *)(lhs);
@@ -100,31 +65,37 @@ static unsigned long long percentile(int p,
 	return (sorted[index] + sorted[index+1]) / 2;
 }
 
-static void do_bench(void)
+static int do_bench(char *buf)
 {
 	unsigned long long *results;
 	unsigned long long t1, t2, average;
 	struct fib_result res;
 	struct flowi4 fl4;
-	int err, i;
+	int err, l;
+	unsigned long i;
 
-	if (count < 1) count = 1;
-	results = kmalloc(sizeof(*results) * count, GFP_KERNEL);
+	results = kmalloc(sizeof(*results) * loop_count, GFP_KERNEL);
 	if (!results)
-		return;
+		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
 
-	flow_init(&fl4);
+	memset(&fl4, 0, sizeof(fl4));
+	fl4.flowi4_oif = flow_oif;
+	fl4.flowi4_iif = flow_iif;
+	fl4.flowi4_tos = flow_tos;
+	fl4.flowi4_mark = flow_mark;
+	fl4.daddr = flow_dst_ipaddr;
+	fl4.saddr = flow_src_ipaddr;
 
 	for (i = 0; i < warmup_count; i++) {
 		err = fib_lookup(&init_net, &fl4, &res, 0);
 		if (err) {
-			pr_info("fib_lookup: err=%d\n", err);
-			return;
+			kfree(results);
+			return scnprintf(buf, PAGE_SIZE, "err=%d msg=\"lookup error\"\n", err);
 		}
 	}
 
 	average = 0;
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < loop_count; i++) {
 		t1 = get_cycles();
 		err = fib_lookup(&init_net, &fl4, &res, 0);
 		t2 = get_cycles();
@@ -133,42 +104,238 @@ static void do_bench(void)
 	}
 
 	/* Compute percentiles */
-	sort(results, count, sizeof(*results), compare, NULL);
-	pr_info("fib_lookup: min=%llu max=%llu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
-		results[0],
-		results[count - 1],
-		average/count,
-		percentile(50, results, count),
-		percentile(90, results, count),
-		percentile(95, results, count));
+	sort(results, loop_count, sizeof(*results), compare, NULL);
+	l = scnprintf(buf, PAGE_SIZE,
+		      "min=%llu max=%llu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
+		      results[0],
+		      results[loop_count - 1],
+		      average/loop_count,
+		      percentile(50, results, loop_count),
+		      percentile(90, results, loop_count),
+		      percentile(95, results, loop_count));
+	kfree(results);
+	return l;
 }
 
-static int __init kbench_init(void)
+/* Sysfs attributes */
+
+static ssize_t warmup_count_show(struct kobject *kobj, struct kobj_attribute *attr,
+				 char *buf)
 {
-	flow_setup();
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", warmup_count);
+}
 
-	pr_info("flow [IIF(%d),OIF(%d),MARK(0x%08x),D(%pI4),S(%pI4),TOS(0x%02x)]\n",
-		flow_iif, flow_oif, flow_mark,
-		&flow_dst_ip_addr,
-		&flow_src_ip_addr, flow_tos);
-
-#if defined(CONFIG_X86)
-	if (!boot_cpu_has(X86_FEATURE_TSC)) {
-		pr_err("X86 TSC is required, but is unavailable.\n");
+static ssize_t warmup_count_store(struct kobject *kobj, struct kobj_attribute *attr,
+				  const char *buf, size_t count)
+{
+	unsigned long val;
+	int err = kstrtoul(buf, 0, &val);
+	if (err < 0)
+		return err;
+	if (val < 1)
 		return -EINVAL;
-	}
-#endif
-
-	do_bench();
-
-	return -ENODEV;
+	warmup_count = val;
+	return count;
 }
 
-static void __exit kbench_exit(void)
+static ssize_t loop_count_show(struct kobject *kobj, struct kobj_attribute *attr,
+			       char *buf)
 {
+	return scnprintf(buf, PAGE_SIZE, "%lu\n", loop_count);
 }
 
-module_init(kbench_init);
-module_exit(kbench_exit);
+static ssize_t loop_count_store(struct kobject *kobj, struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	unsigned long val;
+	int err = kstrtoul(buf, 0, &val);
+	if (err < 0)
+		return err;
+	if (val < 1)
+		return -EINVAL;
+	loop_count = val;
+	return count;
+}
+
+static ssize_t flow_oif_show(struct kobject *kobj, struct kobj_attribute *attr,
+			     char *buf)
+{
+	struct net_device *dev = dev_get_by_index(&init_net, flow_oif);
+	if (!dev)
+		return scnprintf(buf, PAGE_SIZE, "%d\n", flow_oif);
+	return scnprintf(buf, PAGE_SIZE, "%s\n", dev->name);
+}
+
+static ssize_t flow_oif_store(struct kobject *kobj, struct kobj_attribute *attr,
+			      const char *buf, size_t count)
+{
+	int val;
+	int err = kstrtoint(buf, 0, &val);
+	if (err < 0) {
+		struct net_device *dev;
+		char ifname[IFNAMSIZ] = {0, };
+		sscanf(buf, "%15s", ifname);
+		dev = dev_get_by_name(&init_net, ifname);
+		if (!dev)
+			return -ENODEV;
+		flow_oif = dev->ifindex;
+		return count;
+	}
+	if (val < 0)
+		return -EINVAL;
+	flow_oif = val;
+	return count;
+}
+
+static ssize_t flow_iif_show(struct kobject *kobj, struct kobj_attribute *attr,
+			     char *buf)
+{
+	struct net_device *dev = dev_get_by_index(&init_net, flow_iif);
+	if (!dev)
+		return scnprintf(buf, PAGE_SIZE, "%d\n", flow_iif);
+	return scnprintf(buf, PAGE_SIZE, "%s\n", dev->name);
+}
+
+static ssize_t flow_iif_store(struct kobject *kobj, struct kobj_attribute *attr,
+			      const char *buf, size_t count)
+{
+	int val;
+	int err = kstrtoint(buf, 0, &val);
+	if (err < 0) {
+		struct net_device *dev;
+		char ifname[IFNAMSIZ] = {0, };
+		sscanf(buf, "%15s", ifname);
+		dev = dev_get_by_name(&init_net, ifname);
+		if (!dev)
+			return -ENODEV;
+		flow_iif = dev->ifindex;
+		return count;
+	}
+	if (val < 0)
+		return -EINVAL;
+	flow_iif = val;
+	return count;
+}
+
+static ssize_t flow_tos_show(struct kobject *kobj, struct kobj_attribute *attr,
+			     char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "0x%02x\n", (u32)flow_tos);
+}
+
+static ssize_t flow_tos_store(struct kobject *kobj, struct kobj_attribute *attr,
+			      const char *buf, size_t count)
+{
+	unsigned int val;
+	int err = kstrtouint(buf, 0, &val);
+	if (err < 0)
+		return err;
+	if (val < 0 || val > 255)
+		return -EINVAL;
+	flow_tos = val;
+	return count;
+}
+
+static ssize_t flow_mark_show(struct kobject *kobj, struct kobj_attribute *attr,
+			      char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "0x%08x\n", flow_mark);
+}
+
+static ssize_t flow_mark_store(struct kobject *kobj, struct kobj_attribute *attr,
+			       const char *buf, size_t count)
+{
+	u32 val;
+	int err = kstrtou32(buf, 0, &val);
+	if (err < 0)
+		return err;
+	flow_mark = val;
+	return count;
+}
+
+static ssize_t flow_dst_ipaddr_show(struct kobject *kobj, struct kobj_attribute *attr,
+				    char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_dst_ipaddr);
+}
+
+static ssize_t flow_dst_ipaddr_store(struct kobject *kobj, struct kobj_attribute *attr,
+				     const char *buf, size_t count)
+{
+	flow_dst_ipaddr = in_aton(buf);
+	return count;
+}
+
+static ssize_t flow_src_ipaddr_show(struct kobject *kobj, struct kobj_attribute *attr,
+				    char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_src_ipaddr);
+}
+
+static ssize_t flow_src_ipaddr_store(struct kobject *kobj, struct kobj_attribute *attr,
+				     const char *buf, size_t count)
+{
+	flow_src_ipaddr = in_aton(buf);
+	return count;
+}
+
+static ssize_t run_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf)
+{
+	return do_bench(buf);
+}
+
+
+static struct kobj_attribute	warmup_count_attr    = __ATTR_RW(warmup_count);
+static struct kobj_attribute	loop_count_attr	     = __ATTR_RW(loop_count);
+static struct kobj_attribute	flow_oif_attr	     = __ATTR_RW(flow_oif);
+static struct kobj_attribute	flow_iif_attr	     = __ATTR_RW(flow_iif);
+static struct kobj_attribute	flow_tos_attr	     = __ATTR_RW(flow_tos);
+static struct kobj_attribute	flow_mark_attr	     = __ATTR_RW(flow_mark);
+static struct kobj_attribute	flow_dst_ipaddr_attr = __ATTR_RW(flow_dst_ipaddr);
+static struct kobj_attribute	flow_src_ipaddr_attr = __ATTR_RW(flow_src_ipaddr);
+static struct kobj_attribute	run_attr	     = __ATTR_RO(run);
+
+static struct attribute *bench_attributes[] = {
+	&warmup_count_attr.attr,
+	&loop_count_attr.attr,
+	&flow_oif_attr.attr,
+	&flow_iif_attr.attr,
+	&flow_tos_attr.attr,
+	&flow_mark_attr.attr,
+	&flow_dst_ipaddr_attr.attr,
+	&flow_src_ipaddr_attr.attr,
+	&run_attr.attr,
+	NULL
+};
+
+static struct attribute_group bench_attr_group = {
+	.attrs = bench_attributes,
+};
+
+static struct kobject *bench_kobj;
+
+int init_module(void)
+{
+	int rc;
+	bench_kobj = kobject_create_and_add("kbench", kernel_kobj);
+	if (!bench_kobj)
+		return -ENOMEM;
+
+	rc = sysfs_create_group(bench_kobj, &bench_attr_group);
+	if (rc) {
+		kobject_put(bench_kobj);
+		return rc;
+	}
+
+	return 0;
+}
+
+void cleanup_module(void)
+{
+	sysfs_remove_group(bench_kobj, &bench_attr_group);
+	kobject_put(bench_kobj);
+}
+
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Micro-benchmark for fib_lookup()");
