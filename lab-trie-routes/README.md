@@ -23,11 +23,16 @@ benchmark, tun `cat /sys/kernel/kbench/run`:
     min=76 max=760 average=95 50th=100 90th=112 95th=112
 
 The results are the number of cycles. To make sense of the results,
-let's assume a 2 GHz clock. This means a lookup takes 50 ns. This
-happens to be about the time a 10 Gbps interface takes to send a 64
-bytes packet. Of course, the kernel doesn't do only a route
-lookup. Also, route lookup is done using RCU and therefore scales well
-with the number of cores.
+let's assume a 2 GHz clock (use `cpupower frequency-info` to get the
+information). This means a lookup takes 50 ns. This happens to be
+about the time a 10 Gbps interface takes to send a 64 bytes packet. Of
+course, the kernel doesn't do only a route lookup. Also, route lookup
+is done using RCU and therefore scales well with the number of cores.
+
+The benchmark is highly sensitive to timing. Be sure to disable any
+power saving settings:
+
+    cpupower frequency-set -g performance
 
 ## Results
 
