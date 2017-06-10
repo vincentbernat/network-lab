@@ -1,9 +1,9 @@
 /* -*- mode: c; c-file-style: "linux" -*- */
 /* Run a micro benchmark on fib_lookup().
  *
- * It creates a /sys/kernel/kbench directory. When the destination IP
- * address is 0, a scan is done from 0.0.0.0 to 223.255.255.255
- * (considered as a linear space).
+ * It creates a /sys/kernel/kbench directory. By default, a scan is
+ * done from 0.0.0.0 to 223.255.255.255 (considered as a linear
+ * space).
  *
  * The module doesn't perform any kind of locking. It is not safe to
  * modify a setting while running the benchmark. Moreover, it only
@@ -29,9 +29,9 @@
 #define DEFAULT_IIF		0
 #define DEFAULT_MARK		0x00000000
 #define DEFAULT_TOS		0x00
-#define DEFAULT_DST_IPADDR	0x00000000
+#define DEFAULT_DST_IPADDR_S	0x00000000
+#define DEFAULT_DST_IPADDR_E	0xdfffffff
 #define DEFAULT_SRC_IPADDR	0x00000000
-#define MAX_IPADDR		0xdfffffff
 
 static unsigned long	warmup_count	= DEFAULT_WARMUP_COUNT;
 static unsigned long	loop_count	= DEFAULT_LOOP_COUNT;
@@ -39,7 +39,8 @@ static int		flow_oif	= DEFAULT_OIF;
 static int		flow_iif	= DEFAULT_IIF;
 static u8		flow_tos	= DEFAULT_TOS;
 static u32		flow_mark	= DEFAULT_MARK;
-static u32		flow_dst_ipaddr = DEFAULT_DST_IPADDR;
+static u32		flow_dst_ipaddr_s = DEFAULT_DST_IPADDR_S;
+static u32		flow_dst_ipaddr_e = DEFAULT_DST_IPADDR_E;
 static u32		flow_src_ipaddr = DEFAULT_SRC_IPADDR;
 static bool		filter_unreach	= true;
 
@@ -76,7 +77,7 @@ static int do_bench(char *buf)
 	struct fib_result res;
 	struct flowi4 fl4;
 	int err, l;
-	unsigned long i, total;
+	unsigned long i, total, delta = 0;
 	bool scan;
 
 	results = kmalloc(sizeof(*results) * loop_count, GFP_KERNEL);
@@ -88,9 +89,12 @@ static int do_bench(char *buf)
 	fl4.flowi4_iif = flow_iif;
 	fl4.flowi4_tos = flow_tos;
 	fl4.flowi4_mark = flow_mark;
-	fl4.daddr = flow_dst_ipaddr;
+	fl4.daddr = flow_dst_ipaddr_s;
 	fl4.saddr = flow_src_ipaddr;
-	scan = (fl4.daddr == 0);
+	if (ntohl(flow_dst_ipaddr_s) < ntohl(flow_dst_ipaddr_e)) {
+		scan = true;
+		delta = ntohl(flow_dst_ipaddr_e) - ntohl(flow_dst_ipaddr_s);
+	}
 
 	for (i = 0; i < warmup_count; i++) {
 		err = fib_lookup(&init_net, &fl4, &res, 0);
@@ -103,7 +107,10 @@ static int do_bench(char *buf)
 	average = 0;
 	for (i = total = 0; i < loop_count; i++) {
 		if (scan) {
-			fl4.daddr = htonl((MAX_IPADDR / loop_count) * i);
+			if (delta < loop_count)
+				fl4.daddr = htonl(ntohl(flow_dst_ipaddr_s) + (i % delta));
+			else
+				fl4.daddr = htonl(ntohl(flow_dst_ipaddr_s) + delta / loop_count * i);
 			if (ipv4_is_loopback(fl4.daddr))
 				continue;
 		}
@@ -272,16 +279,29 @@ static ssize_t flow_mark_store(struct kobject *kobj, struct kobj_attribute *attr
 	return count;
 }
 
-static ssize_t flow_dst_ipaddr_show(struct kobject *kobj, struct kobj_attribute *attr,
-				    char *buf)
+static ssize_t flow_dst_ipaddr_s_show(struct kobject *kobj, struct kobj_attribute *attr,
+				      char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_dst_ipaddr);
+	return scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_dst_ipaddr_s);
 }
 
-static ssize_t flow_dst_ipaddr_store(struct kobject *kobj, struct kobj_attribute *attr,
-				     const char *buf, size_t count)
+static ssize_t flow_dst_ipaddr_s_store(struct kobject *kobj, struct kobj_attribute *attr,
+				       const char *buf, size_t count)
 {
-	flow_dst_ipaddr = in_aton(buf);
+	flow_dst_ipaddr_s = in_aton(buf);
+	return count;
+}
+
+static ssize_t flow_dst_ipaddr_e_show(struct kobject *kobj, struct kobj_attribute *attr,
+				      char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_dst_ipaddr_e);
+}
+
+static ssize_t flow_dst_ipaddr_e_store(struct kobject *kobj, struct kobj_attribute *attr,
+				       const char *buf, size_t count)
+{
+	flow_dst_ipaddr_e = in_aton(buf);
 	return count;
 }
 
@@ -324,16 +344,17 @@ static ssize_t run_show(struct kobject *kobj, struct kobj_attribute *attr,
 }
 
 
-static struct kobj_attribute	warmup_count_attr    = __ATTR_RW(warmup_count);
-static struct kobj_attribute	loop_count_attr	     = __ATTR_RW(loop_count);
-static struct kobj_attribute	flow_oif_attr	     = __ATTR_RW(flow_oif);
-static struct kobj_attribute	flow_iif_attr	     = __ATTR_RW(flow_iif);
-static struct kobj_attribute	flow_tos_attr	     = __ATTR_RW(flow_tos);
-static struct kobj_attribute	flow_mark_attr	     = __ATTR_RW(flow_mark);
-static struct kobj_attribute	flow_dst_ipaddr_attr = __ATTR_RW(flow_dst_ipaddr);
-static struct kobj_attribute	flow_src_ipaddr_attr = __ATTR_RW(flow_src_ipaddr);
-static struct kobj_attribute	filter_unreach_attr  = __ATTR_RW(filter_unreach);
-static struct kobj_attribute	run_attr	     = __ATTR_RO(run);
+static struct kobj_attribute	warmup_count_attr      = __ATTR_RW(warmup_count);
+static struct kobj_attribute	loop_count_attr	       = __ATTR_RW(loop_count);
+static struct kobj_attribute	flow_oif_attr	       = __ATTR_RW(flow_oif);
+static struct kobj_attribute	flow_iif_attr	       = __ATTR_RW(flow_iif);
+static struct kobj_attribute	flow_tos_attr	       = __ATTR_RW(flow_tos);
+static struct kobj_attribute	flow_mark_attr	       = __ATTR_RW(flow_mark);
+static struct kobj_attribute	flow_dst_ipaddr_s_attr = __ATTR_RW(flow_dst_ipaddr_s);
+static struct kobj_attribute	flow_dst_ipaddr_e_attr = __ATTR_RW(flow_dst_ipaddr_e);
+static struct kobj_attribute	flow_src_ipaddr_attr   = __ATTR_RW(flow_src_ipaddr);
+static struct kobj_attribute	filter_unreach_attr    = __ATTR_RW(filter_unreach);
+static struct kobj_attribute	run_attr	       = __ATTR_RO(run);
 
 static struct attribute *bench_attributes[] = {
 	&warmup_count_attr.attr,
@@ -342,7 +363,8 @@ static struct attribute *bench_attributes[] = {
 	&flow_iif_attr.attr,
 	&flow_tos_attr.attr,
 	&flow_mark_attr.attr,
-	&flow_dst_ipaddr_attr.attr,
+	&flow_dst_ipaddr_s_attr.attr,
+	&flow_dst_ipaddr_e_attr.attr,
 	&flow_src_ipaddr_attr.attr,
 	&filter_unreach_attr.attr,
 	&run_attr.attr,
