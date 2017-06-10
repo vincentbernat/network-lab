@@ -153,13 +153,10 @@ with plt.style.context([
                             'font.family': ['Roboto', 'sans-serif'],
                             'font.weight': 'light'}]):
     fig = plt.figure()
-    ax = fig.add_subplot(221)
+    ax = fig.add_subplot(131)
     plot(ax, 'maxdepth', linreg=False)
     ax.set_title("maximum depth")
-    ax = fig.add_subplot(222)
-    plot(ax, 'avgdepth', linreg=False)
-    ax.set_title("average depth")
-    ax = fig.add_subplot(223)
+    ax = fig.add_subplot(132)
     plot(ax,
          lambda x: x['kbench-50th']/FREQ,
          linreg=False)
