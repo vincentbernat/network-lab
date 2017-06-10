@@ -1,5 +1,6 @@
 #!/bin/sh
 
+[ -d /sys/kernel/kbench ] && rmmod kbench_mod
 [ -d /sys/kernel/kbench ] || insmod ./kbench_mod.ko
 mkdir -p stats/full
 for routes in 100 1000 10000 20000 50000 100000 200000 500000; do
@@ -12,5 +13,8 @@ for routes in 100 1000 10000 20000 50000 100000 200000 500000; do
     cat /proc/net/fib_triestat > stats/full/stat.$routes
     cat /proc/net/fib_trie | gzip -c > stats/full/dump.$routes
     grep '^ip_fib' /proc/slabinfo > stats/full/slab.$routes
-    [ -d /sys/kernel/kbench ] && cat /sys/kernel/kbench/run > stats/full/kbench.$routes
+    [ -d /sys/kernel/kbench ] && {
+        echo 50000 > /sys/kernel/kbench/loop_count
+        cat /sys/kernel/kbench/run > stats/full/kbench.$routes
+    }
 done
