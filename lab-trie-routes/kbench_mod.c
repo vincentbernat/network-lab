@@ -41,6 +41,7 @@ static u8		flow_tos	= DEFAULT_TOS;
 static u32		flow_mark	= DEFAULT_MARK;
 static u32		flow_dst_ipaddr = DEFAULT_DST_IPADDR;
 static u32		flow_src_ipaddr = DEFAULT_SRC_IPADDR;
+static bool		filter_unreach	= true;
 
 /* Benchmark */
 
@@ -75,7 +76,7 @@ static int do_bench(char *buf)
 	struct fib_result res;
 	struct flowi4 fl4;
 	int err, l;
-	unsigned long i;
+	unsigned long i, total;
 	bool scan;
 
 	results = kmalloc(sizeof(*results) * loop_count, GFP_KERNEL);
@@ -100,26 +101,37 @@ static int do_bench(char *buf)
 	}
 
 	average = 0;
-	for (i = 0; i < loop_count; i++) {
-		if (scan)
+	for (i = total = 0; i < loop_count; i++) {
+		if (scan) {
 			fl4.daddr = htonl((MAX_IPADDR / loop_count) * i);
+			if (ipv4_is_loopback(fl4.daddr))
+				continue;
+		}
 		t1 = get_cycles();
 		err = fib_lookup(&init_net, &fl4, &res, 0);
 		t2 = get_cycles();
-		results[i] = t2 - t1;
-		average += results[i];
+		if (err == -ENETUNREACH)
+			continue;
+		results[total] = t2 - t1;
+		average += results[total];
+		total++;
 	}
 
 	/* Compute percentiles */
-	sort(results, loop_count, sizeof(*results), compare, NULL);
-	l = scnprintf(buf, PAGE_SIZE,
-		      "min=%llu max=%llu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
-		      results[0],
-		      results[loop_count - 1],
-		      average/loop_count,
-		      percentile(50, results, loop_count),
-		      percentile(90, results, loop_count),
-		      percentile(95, results, loop_count));
+	sort(results, total, sizeof(*results), compare, NULL);
+	if (total == 0) {
+		l = scnprintf(buf, PAGE_SIZE, "msg=\"no match\"\n");
+	} else {
+		l = scnprintf(buf, PAGE_SIZE,
+			      "min=%llu max=%llu count=%lu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
+			      results[0],
+			      results[total - 1],
+			      total,
+			      average/total,
+			      percentile(50, results, total),
+			      percentile(90, results, total),
+			      percentile(95, results, total));
+	}
 	kfree(results);
 	return l;
 }
@@ -286,6 +298,25 @@ static ssize_t flow_src_ipaddr_store(struct kobject *kobj, struct kobj_attribute
 	return count;
 }
 
+static ssize_t filter_unreach_show(struct kobject *kobj, struct kobj_attribute *attr,
+				   char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", (int)filter_unreach);
+}
+
+static ssize_t filter_unreach_store(struct kobject *kobj, struct kobj_attribute *attr,
+				     const char *buf, size_t count)
+{
+	unsigned int val;
+	int err = kstrtouint(buf, 0, &val);
+	if (err < 0)
+		return err;
+	if (val < 0 || val > 1)
+		return -EINVAL;
+	filter_unreach = val;
+	return count;
+}
+
 static ssize_t run_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buf)
 {
@@ -301,6 +332,7 @@ static struct kobj_attribute	flow_tos_attr	     = __ATTR_RW(flow_tos);
 static struct kobj_attribute	flow_mark_attr	     = __ATTR_RW(flow_mark);
 static struct kobj_attribute	flow_dst_ipaddr_attr = __ATTR_RW(flow_dst_ipaddr);
 static struct kobj_attribute	flow_src_ipaddr_attr = __ATTR_RW(flow_src_ipaddr);
+static struct kobj_attribute	filter_unreach_attr  = __ATTR_RW(filter_unreach);
 static struct kobj_attribute	run_attr	     = __ATTR_RO(run);
 
 static struct attribute *bench_attributes[] = {
@@ -312,6 +344,7 @@ static struct attribute *bench_attributes[] = {
 	&flow_mark_attr.attr,
 	&flow_dst_ipaddr_attr.attr,
 	&flow_src_ipaddr_attr.attr,
+	&filter_unreach_attr.attr,
 	&run_attr.attr,
 	NULL
 };
