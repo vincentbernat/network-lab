@@ -88,7 +88,7 @@ static int do_bench(char *buf)
 
 	for (i = 0; i < warmup_count; i++) {
 		err = fib_lookup(&init_net, &fl4, &res, 0);
-		if (err) {
+		if (err && err != -ENETUNREACH) {
 			kfree(results);
 			return scnprintf(buf, PAGE_SIZE, "err=%d msg=\"lookup error\"\n", err);
 		}
