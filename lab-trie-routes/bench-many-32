@@ -1,17 +1,26 @@
 #!/bin/sh
 
+[ -d /sys/kernel/kbench ] || insmod ./kbench_mod.ko
 mkdir -p stats/32
 for routes in 100 1000 10000 20000 50000 100000 200000 500000 1000000 2000000; do
     for density in 1 0.5 0.1 0.05 0.01 0.001 0.0005; do
         ip route flush scope global
         sleep 1
-        log_info_msg "Benchmark /32 with $routes routes, density $density"
         /usr/bin/time --verbose -o stats/32/time.$routes-$density \
                       ./many-32 -n $routes --density $density --batch 1000 \
                       203.0.113.3 203.0.113.5  203.0.113.7 \
                       203.0.113.9 203.0.113.11 203.0.113.13
         cat /proc/net/fib_triestat > stats/32/stat.$routes-$density
-        cat /proc/net/fib_trie | gzip -c > stats/32/dump.$routes-$density
-        grep '^ip_fib' /proc/slabinfo > stats/32/slab.$routes
+        [ $routes -gt 500000 ] || \
+          cat /proc/net/fib_trie | gzip -c > stats/32/dump.$routes-$density
+        grep '^ip_fib' /proc/slabinfo > stats/32/slab.$routes-$density
+        [ -d /sys/kernel/kbench ] && {
+            # We want to hit a real route, it can be difficult on low
+            # density. The lowest density is one route out of 2000.
+            echo 2.0.0.0 > /sys/kernel/kbench/flow_dst_ipaddr_s
+            echo 2.0.16.0 > /sys/kernel/kbench/flow_dst_ipaddr_e
+            echo 100000 > /sys/kernel/kbench/loop_count
+            cat /sys/kernel/kbench/run > stats/32/kbench.$routes-$density
+        }
     done
 done

@@ -1,10 +1,10 @@
 #!/bin/sh
 
+[ -d /sys/kernel/kbench ] || insmod ./kbench_mod.ko
 mkdir -p stats/full
 for routes in 100 1000 10000 20000 50000 100000 200000 500000; do
     ip route flush scope global
     sleep 1
-    log_info_msg "Benchmark full-view with $routes routes"
     /usr/bin/time --verbose -o stats/full/time.$routes \
                   ./from-bgp -n $routes --batch 1000 \
                   203.0.113.3 203.0.113.5  203.0.113.7 \
@@ -12,4 +12,5 @@ for routes in 100 1000 10000 20000 50000 100000 200000 500000; do
     cat /proc/net/fib_triestat > stats/full/stat.$routes
     cat /proc/net/fib_trie | gzip -c > stats/full/dump.$routes
     grep '^ip_fib' /proc/slabinfo > stats/full/slab.$routes
+    [ -d /sys/kernel/kbench ] && cat /sys/kernel/kbench/run > stats/full/kbench.$routes
 done

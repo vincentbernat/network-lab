@@ -24,7 +24,7 @@
 #include <linux/timex.h>
 
 #define DEFAULT_WARMUP_COUNT	100000
-#define DEFAULT_LOOP_COUNT	1000
+#define DEFAULT_LOOP_COUNT	5000
 #define DEFAULT_OIF		0
 #define DEFAULT_IIF		0
 #define DEFAULT_MARK		0x00000000
