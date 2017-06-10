@@ -24,8 +24,9 @@ STATRE = re.compile(r"""Main:
         """, re.VERBOSE)
 
 
-def extract_stats(t1, t2):
-    """Extract stats from time dump (t1) and triestat file (t2)."""
+def extract_stats(t1, t2, t3):
+    """Extract stats from time dump (t1), triestat file (t2) and kbench
+    output (t3)."""
     stats = {}
     with open(t1) as f:
         time = dict(l.lstrip().split(": ", 1) for l in f.readlines())
@@ -47,6 +48,10 @@ def extract_stats(t1, t2):
                        for i in details.split("  "))
             stats['tnodes_details'] = {int(k): int(v)
                                        for k, v in details}
+    with open(t3) as f:
+        fields = f.read().strip().split(" ")
+        stats.update({"kbench-{}".format(f[0]): int(f[1])
+                      for f in (f.split("=", 1) for f in fields)})
     return stats
 
 
@@ -56,7 +61,8 @@ for t1 in glob.glob("stats/full/time.*"):
     _, count = os.path.splitext(t1)
     count = int(count[1:])
     t2 = "stats/full/stat.{}".format(count)
-    full[count] = extract_stats(t1, t2)
+    t3 = "stats/full/kbench.{}".format(count)
+    full[count] = extract_stats(t1, t2, t3)
 
 # /32 stats
 thirtytwo = collections.defaultdict(dict)
@@ -66,7 +72,8 @@ for t1 in glob.glob("stats/32/time.*"):
     count = int(count)
     density = float(density)
     t2 = "stats/32/stat.{}".format(ext)
-    thirtytwo[density][count] = extract_stats(t1, t2)
+    t3 = "stats/32/kbench.{}".format(ext)
+    thirtytwo[density][count] = extract_stats(t1, t2, t3)
 
 
 def plot(ax, facet, linreg=True):
@@ -114,6 +121,18 @@ def plot(ax, facet, linreg=True):
         ticker.EngFormatter())
 
 
+def save(fig, ax, name):
+    """Save a figure after adding the legend."""
+    ax.legend(loc='upper left',
+              bbox_to_anchor=(1.1, 1),
+              borderaxespad=0.,
+              frameon=False)
+    fig.set_size_inches(len(fig.axes)*4 + 3, 3)
+    fig.savefig("stats/stats-{}.svg".format(name),
+                dpi=96,
+                bbox_inches='tight')
+
+
 with plt.style.context([
         'fivethirtyeight', {'axes.labelsize': 'small',
                             'axes.titleweight': 'bold',
@@ -124,40 +143,39 @@ with plt.style.context([
                             'grid.linewidth': 0.75,
                             'font.weight': 'medium'}]):
     fig = plt.figure()
-
-    ax = fig.add_subplot(321)
+    ax = fig.add_subplot(131)
     plot(ax, 'maxdepth', linreg=False)
     ax.set_title("maximum depth")
-    ax.legend(loc='upper left',
-              bbox_to_anchor=(1.1, 1),
-              borderaxespad=0.,
-              frameon=False)
+    ax = fig.add_subplot(132)
+    plot(ax, 'kbench-50th', linreg=False)
+    ax.set_title("lookup cycles")
+    save(fig, ax, "maxdepth")
 
-    ax = fig.add_subplot(323)
+    fig = plt.figure()
+    ax = fig.add_subplot(121)
     plot(ax, 'size')
     ax.set_title("memory usage")
     ax.get_yaxis().set_major_locator(ticker.MultipleLocator(base=1024*64))
     ax.get_yaxis().set_major_formatter(
         ticker.FuncFormatter(lambda y, _: "%d MiB" % (y/1024)))
+    save(fig, ax, "memory")
 
-    ax = fig.add_subplot(324)
+    fig = plt.figure()
+    ax = fig.add_subplot(121)
     plot(ax, 'stime')
     ax.set_title("insertion time")
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d s"))
+    save(fig, ax, "time")
 
-    ax = fig.add_subplot(325)
+    fig = plt.figure()
+    ax = fig.add_subplot(131)
     plot(ax, 'tnodes')
     ax.set_title("internal nodes")
-
-    ax = fig.add_subplot(326)
+    ax = fig.add_subplot(132)
     plot(ax, lambda x: x['nullptrs']*100/x['pointers'], linreg=False)
     ax.set_title("null pointers ratio")
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d%%"))
     ax.set_ylim(bottom=1)
-
-fig.set_size_inches(7, 9)
-fig.savefig("stats/stats.svg",
-            dpi=96,
-            bbox_inches='tight')
+    save(fig, ax, "nodes")
 
 # plt.show()
