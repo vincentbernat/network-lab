@@ -1,7 +1,9 @@
 /* -*- mode: c; c-file-style: "linux" -*- */
 /* Run a micro benchmark on fib_lookup().
  *
- * It creates a /sys/kernel/kbench directory.
+ * It creates a /sys/kernel/kbench directory. When the destination IP
+ * address is 0, a scan is done from 0.0.0.0 to 223.255.255.255
+ * (considered as a linear space).
  *
  * The module doesn't perform any kind of locking. It is not safe to
  * modify a setting while running the benchmark. Moreover, it only
@@ -27,8 +29,9 @@
 #define DEFAULT_IIF		0
 #define DEFAULT_MARK		0x00000000
 #define DEFAULT_TOS		0x00
-#define DEFAULT_DST_IPADDR	0x4a800001
+#define DEFAULT_DST_IPADDR	0x00000000
 #define DEFAULT_SRC_IPADDR	0x00000000
+#define MAX_IPADDR		0xdfffffff
 
 static unsigned long	warmup_count	= DEFAULT_WARMUP_COUNT;
 static unsigned long	loop_count	= DEFAULT_LOOP_COUNT;
@@ -73,6 +76,7 @@ static int do_bench(char *buf)
 	struct flowi4 fl4;
 	int err, l;
 	unsigned long i;
+	bool scan;
 
 	results = kmalloc(sizeof(*results) * loop_count, GFP_KERNEL);
 	if (!results)
@@ -85,6 +89,7 @@ static int do_bench(char *buf)
 	fl4.flowi4_mark = flow_mark;
 	fl4.daddr = flow_dst_ipaddr;
 	fl4.saddr = flow_src_ipaddr;
+	scan = (fl4.daddr == 0);
 
 	for (i = 0; i < warmup_count; i++) {
 		err = fib_lookup(&init_net, &fl4, &res, 0);
@@ -96,6 +101,8 @@ static int do_bench(char *buf)
 
 	average = 0;
 	for (i = 0; i < loop_count; i++) {
+		if (scan)
+			fl4.daddr = htonl((MAX_IPADDR / loop_count) * i);
 		t1 = get_cycles();
 		err = fib_lookup(&init_net, &fl4, &res, 0);
 		t2 = get_cycles();
