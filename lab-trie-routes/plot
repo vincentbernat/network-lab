@@ -129,19 +129,21 @@ def save(fig, ax, name):
               frameon=False)
     fig.set_size_inches(len(fig.axes)*4 + 3, 3)
     fig.savefig("stats/stats-{}.svg".format(name),
+                facecolor='white',
                 dpi=96,
                 bbox_inches='tight')
 
 
 with plt.style.context([
         'fivethirtyeight', {'axes.labelsize': 'small',
-                            'axes.titleweight': 'bold',
+                            'axes.titleweight': 'medium',
                             'axes.titlesize': 'large',
                             'axes.facecolor': 'white',
                             'axes.linewidth': 0.0,
-                            'font.size': 9.0,
+                            'font.size': 10.0,
                             'grid.linewidth': 0.75,
-                            'font.weight': 'medium'}]):
+                            'font.family': ['Roboto', 'sans-serif'],
+                            'font.weight': 'light'}]):
     fig = plt.figure()
     ax = fig.add_subplot(131)
     plot(ax, 'maxdepth', linreg=False)
