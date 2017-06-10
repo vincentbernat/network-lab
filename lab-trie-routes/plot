@@ -23,6 +23,8 @@ STATRE = re.compile(r"""Main:
 \s+ Total\ size:     \s+ (?P<size>\d+) \s+ kB
         """, re.VERBOSE)
 
+FREQ = 3.7  # GHz (frequency of CPU while the tests were run)
+
 
 def extract_stats(t1, t2, t3):
     """Extract stats from time dump (t1), triestat file (t2) and kbench
@@ -149,8 +151,11 @@ with plt.style.context([
     plot(ax, 'maxdepth', linreg=False)
     ax.set_title("maximum depth")
     ax = fig.add_subplot(132)
-    plot(ax, 'kbench-50th', linreg=False)
-    ax.set_title("lookup cycles")
+    plot(ax,
+         lambda x: x['kbench-50th']/FREQ,
+         linreg=False)
+    ax.set_title("lookup time")
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
     save(fig, ax, "maxdepth")
 
     fig = plt.figure()
