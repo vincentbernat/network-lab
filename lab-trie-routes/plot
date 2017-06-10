@@ -125,11 +125,17 @@ def plot(ax, facet, linreg=True):
 
 def save(fig, ax, name):
     """Save a figure after adding the legend."""
-    ax.legend(loc='upper left',
-              bbox_to_anchor=(1.1, 1),
-              borderaxespad=0.,
-              frameon=False)
-    fig.set_size_inches(len(fig.axes)*4 + 3, 3)
+    axes = fig.get_axes()
+    cols = max(a.colNum + 1 for a in axes)
+    rows = max(a.rowNum + 1 for a in axes)
+    axes[-1].legend(loc='upper left',
+                    bbox_to_anchor=(1.1, 1),
+                    borderaxespad=0.,
+                    frameon=False)
+    xin, yin = cols*4, rows*3
+    if len(axes) == 1 or len(axes) % 2 == 0:
+        xin += 3
+    fig.set_size_inches(xin, yin)
     fig.savefig("stats/stats-{}.svg".format(name),
                 facecolor='white',
                 dpi=96,
@@ -147,10 +153,13 @@ with plt.style.context([
                             'font.family': ['Roboto', 'sans-serif'],
                             'font.weight': 'light'}]):
     fig = plt.figure()
-    ax = fig.add_subplot(131)
+    ax = fig.add_subplot(221)
     plot(ax, 'maxdepth', linreg=False)
     ax.set_title("maximum depth")
-    ax = fig.add_subplot(132)
+    ax = fig.add_subplot(222)
+    plot(ax, 'avgdepth', linreg=False)
+    ax.set_title("average depth")
+    ax = fig.add_subplot(223)
     plot(ax,
          lambda x: x['kbench-50th']/FREQ,
          linreg=False)
