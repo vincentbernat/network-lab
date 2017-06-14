@@ -123,6 +123,9 @@ tcp_port () {
     echo $tcp_counter
 }
 
+# $1 == hostname
+# $2 == local port
+# $3 == username
 add_ssh_config () {
     [ -f $TMP/id_rsa ] || ssh-keygen -q -t rsa -N "" -f $TMP/id_rsa
     cat <<EOF >> $TMP/ssh_config
@@ -237,6 +240,9 @@ spawn () {
             ;;
         juniper-firefly)
             start_juniper_firefly
+            ;;
+        cumulus-vx)
+            start_cumulus_vx
             ;;
         *)
             log_error_msg "Unknown kind of VM \`$kind'"
@@ -781,6 +787,79 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -net nic,model=e1000,macaddr=$(mac_address),vlan=4095 \
      -net user,vlan=4095,tftp=$TMP/tftp,hostname=$name \
+     $netargs
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    chmod +x "$TMP/vm-$name.exec"
+    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set -w -t $name force-width 80
+    tmux set -w -t $name force-height 24
+}
+
+start_cumulus_vx () {
+    name=$NAME
+    log_info_msg "Start Cumulus VX $name"
+    netargs=""
+    ssh=$(tcp_port)
+    netargs="$netargs -net nic,model=virtio,macaddr=$oobmac,vlan=4090"
+    netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    add_ssh_config $NAME $ssh cumulus
+    for net in $NET; do
+        mac=$(mac_address)
+        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+    done
+
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+qemu-img create -q -f qcow2 -b $PWD/../images/cumulus-vx.img $TMP/cumulus-$name.img
+truncate -s 10M $TMP/metadata-$name.img
+mkfs.vfat $TMP/metadata-$name.img
+
+cat <<END > $TMP/ztp-$name
+#!/bin/sh
+# CUMULUS-AUTOPROVISIONING
+
+echo 127.0.1.1 $name > /etc/hosts
+echo $name > /etc/hostname
+hostname -F /etc/hostname
+
+install -d -o cumulus -g cumulus -m 0700 /home/cumulus/.ssh
+echo $(cat $TMP/id_rsa.pub) >> /home/cumulus/.ssh/authorized_keys
+chown cumulus:cumulus /home/cumulus/.ssh/authorized_keys
+chmod 600 /home/cumulus/.ssh/authorized_keys
+
+sed -i 's/^\(%sudo.*\)ALL$/\1NOPASSWD: ALL/' /etc/sudoers
+
+END
+
+[ ! -d $PWD/$name ] || {
+  echo "base64 -d <<'END' | tar --no-same-owner -C / -zxf -" >> $TMP/ztp-$name
+  tar -C $PWD/$name --exclude=./run -hzcf - . | base64 >> $TMP/ztp-$name
+  echo END >> $TMP/ztp-$name
+}
+
+[ ! -f $PWD/$name/run ] || cat $PWD/$name/run >> $TMP/ztp-$name
+
+mcopy -i $TMP/metadata-$name.img $TMP/ztp-$name ::/cumulus-ztp
+
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+     --start --startas $(which qemu-system-x86_64) -- \
+     -enable-kvm \
+     -nodefconfig -nodefaults \
+     -display none \
+     -m ${MEM:-512M} \
+     \
+     -boot c \
+     -drive file=$TMP/cumulus-$name.img,if=ide,media=disk \
+     -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
+     \
+     -chardev stdio,id=charserial0,signal=off \
+     -device isa-serial,chardev=charserial0,id=serial0 \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -mon chardev=con0,mode=readline \
+     \
      $netargs
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"

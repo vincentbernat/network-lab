@@ -1,0 +1,55 @@
+#!/bin/sh
+
+LABNAME="generic"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Using the following topology:
+#  https://github.com/CumulusNetworks/cldemo-config-mlag
+
+# Which VM to spawn
+spawn cumulus-vx leaf01 networks 1,3,9,10,13,14
+spawn cumulus-vx leaf02 networks 2,4,9,10,15,16
+spawn cumulus-vx leaf03 networks 5,7,11,12,17,18
+spawn cumulus-vx leaf04 networks 6,8,11,12,19,20
+spawn cumulus-vx spine01 networks 13,15,17,19
+spawn cumulus-vx spine02 networks 14,16,18,20
+
+spawn vm server01 networks oob,1,2
+spawn vm server02 networks oob,3,4
+spawn vm server03 networks oob,5,6
+spawn vm server04 networks oob,7,8
+
+run
+
+modprobe bonding
+echo 802.3ad > /sys/class/net/bond0/bonding/mode
+echo 100 > /sys/class/net/bond0/bonding/miimon
+echo 1 > /sys/class/net/bond0/bonding/lacp_rate
+echo layer3+4 > /sys/class/net/bond0/bonding/xmit_hash_policy
+ifenslave bond0 eth1 eth2
+ip link set up dev bond0
+
+case $uts in
+    server01)
+        ip addr add 172.16.1.101/24 dev bond0
+        ip route add 172.16.0.0/16 via 172.16.1.1
+        ip route add 10.0.0.0/8 via 172.16.1.1
+        ;;
+    server02)
+        ip addr add 172.16.1.102/24 dev bond0
+        ip route add 172.16.0.0/16 via 172.16.1.1
+        ip route add 10.0.0.0/8 via 172.16.1.1
+        ;;
+    server03)
+        ip addr add 172.16.2.101/24 dev bond0
+        ip route add 172.16.0.0/16 via 172.16.2.1
+        ip route add 10.0.0.0/8 via 172.16.2.1
+        ;;
+    server04)
+        ip addr add 172.16.2.102/24 dev bond0
+        ip route add 172.16.0.0/16 via 172.16.2.1
+        ip route add 10.0.0.0/8 via 172.16.2.1
+        ;;
+esac

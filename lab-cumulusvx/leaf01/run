@@ -1,0 +1,2 @@
+ifreload -a
+service quagga restart
