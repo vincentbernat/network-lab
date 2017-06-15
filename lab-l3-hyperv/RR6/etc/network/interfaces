@@ -1,0 +1,28 @@
+auto lo
+iface lo inet loopback
+    address 10.0.0.11/32
+
+auto eth0
+iface eth0 inet dhcp
+
+auto public
+iface public
+    vrf-table auto
+
+auto private
+iface private
+    vrf-table auto
+
+auto swp1.90
+iface swp1.90
+    vrf public
+    address 198.51.100.226/25
+    address 2001:db8:c633:6401::26/120
+    up sysctl -qw net/ipv4/conf/$IFACE/forwarding=0
+    up sysctl -qw net/ipv6/conf/$IFACE/forwarding=0
+
+auto swp1.20
+iface swp1.20
+    vrf private
+    address 172.22.15.226/25
+    up sysctl -qw net/ipv4/conf/$IFACE/forwarding=0
