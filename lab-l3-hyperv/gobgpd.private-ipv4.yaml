@@ -11,7 +11,6 @@ neighbors:
   - config:
       neighbor-address: 172.22.15.201
       peer-as: 65000
-      auth-password: Akeezool6ni4EiLagu4o
     route-reflector:
       config:
         route-reflector-client: true
@@ -23,7 +22,6 @@ neighbors:
   - config:
       neighbor-address: 172.22.15.202
       peer-as: 65000
-      auth-password: Akeezool6ni4EiLagu4o
     route-reflector:
       config:
         route-reflector-client: true
@@ -35,7 +33,6 @@ neighbors:
   - config:
       neighbor-address: 172.22.15.203
       peer-as: 65000
-      auth-password: Akeezool6ni4EiLagu4o
     route-reflector:
       config:
         route-reflector-client: true

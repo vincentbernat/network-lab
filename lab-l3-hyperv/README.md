@@ -129,6 +129,12 @@ safer to ensure that all paths are correctly reflected and the easiest
 way is to have distinct route reflectors for each path (they can be
 virtual).
 
+Also, some BGP implementations enable to specify a range for the
+accepted peers. This is convenient but incompatible with TCP MD5
+security (as this feature requires to know all possible sources
+beforehand). Therefore, this lab doesn't use TCP MD5. See commit
+c8c3fde5918d for a version using TCP MD5.
+
 ## ECMP for IPv4
 
 Starting from kernel 3.6 and until kernel 4.4, ECMP for IPv4 is done
