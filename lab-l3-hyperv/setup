@@ -24,7 +24,7 @@ spawn vm RR1 network 8
 # spawn juniper-vrr RR6 networks 9  # Route reflector using Juniper vRR (w/o logical systems)
 # spawn vm RR4 network 9            # Route reflector using Quagga
 # spawn vm RR5 network 9            # Route reflector using GoBGP
-spawn cumulus-vx RR6 network 9      # Route reflector using Cumulus VX
+spawn cumulus-vx RR7 network 9      # Route reflector using Cumulus VX
 
 run
 
