@@ -161,8 +161,6 @@ EOF
         done
 
         # We do ARP proxying
-        sysctl -qw net.ipv4.conf.eth0/public.proxy_arp=1
-        sysctl -qw net.ipv4.conf.eth1/public.proxy_arp=1
         for vmiface in $vmifaces; do
                 sysctl -qw net.ipv4.conf.$vmiface.proxy_arp=1
                 sysctl -qw net.ipv4.neigh.$vmiface.proxy_delay=0
