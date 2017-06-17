@@ -53,6 +53,16 @@ ip route add 192.0.2.48/32 via 203.0.113.9
 ip route add 192.0.2.49/32 via 203.0.113.9
 ip route add 192.0.2.50/32 via 203.0.113.9
 
+# Same paths alone in a table
+ip route add default via 203.0.113.5 table 100
+ip route add 192.0.2.0/25 table 100 \
+   nexthop via 203.0.113.7 \
+   nexthop via 203.0.113.9
+ip route add 192.0.2.47/32 via 203.0.113.9 table 100
+ip route add 192.0.2.48/32 via 203.0.113.9 table 100
+ip route add 192.0.2.49/32 via 203.0.113.9 table 100
+ip route add 192.0.2.50/32 via 203.0.113.9 table 100
+
 ping -M do -s 1472 -c 2 203.0.113.50 || true
 # Check cache with:
 # $ ip route get 203.0.113.15
