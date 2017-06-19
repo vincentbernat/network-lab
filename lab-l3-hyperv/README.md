@@ -67,6 +67,11 @@ There are various iterations of this lab:
    "internal" requests. Regular reverse path filtering wouldn't work
    either (but we used the one based on Netfilter).
 
+ - 1a6db390c6ca uses specific IP rules to blackhole non-matching
+   traffic. This is safer as not many things could remove those rules
+   but this is less efficient than using a blackhole route in the
+   routing table, like what is actually done.
+
 The current iteration uses multiple routing tables and "ip rules". The
 scalability issues are avoided by specifying "ip rules" for private
 traffic (there should be less of them), local traffic and have a catch

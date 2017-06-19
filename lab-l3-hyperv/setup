@@ -19,12 +19,12 @@ spawn vm internet networks 8,9
 
 spawn vm RR1 network 8
 # Choose one of the following:
-# spawn vm RR2 network 9            # Route reflector using BIRD
+spawn vm RR2 network 9              # Route reflector using BIRD
 # spawn juniper-vrr RR3 networks 9  # Route reflector using Juniper vRR
 # spawn juniper-vrr RR6 networks 9  # Route reflector using Juniper vRR (w/o logical systems)
 # spawn vm RR4 network 9            # Route reflector using Quagga
 # spawn vm RR5 network 9            # Route reflector using GoBGP
-spawn cumulus-vx RR7 network 9      # Route reflector using Cumulus VX
+# spawn cumulus-vx RR7 network 9    # Route reflector using Cumulus VX
 
 run
 
@@ -78,6 +78,12 @@ case $uts in
         ip addr add 172.22.15.20${uts#HV}/25 dev eth1.private
         ip -6 addr add 2001:db8:c633:6400::${uts#HV}/120 dev eth0.public
         ip -6 addr add 2001:db8:c633:6401::${uts#HV}/120 dev eth1.public
+
+        # Blackhole default route for private, public and local-out
+        ip route add blackhole default metric 4294967294 table public
+        ip route add blackhole default metric 4294967294 table private
+        ip route add unreachable default metric 4294967294 table local-out
+        ip -6 route add blackhole default metric 4294967294 table public
 
         # Own IP for private purpose (not really used)
         ip addr add 172.22.2.${uts#HV}/32 dev dummy0
@@ -173,23 +179,17 @@ EOF
         # Local lookups
         ip rule add iif lo lookup main      priority 21
         ip rule add iif lo lookup local-out priority 22 # mostly local-out = private + public
-        ip rule add iif lo unreachable      priority 23
         # Private lookups
         ip rule add iif eth0.private lookup private priority 26
-        ip rule add iif eth0.private blackhole      priority 27
         ip rule add iif eth1.private lookup private priority 28
-        ip rule add iif eth1.private blackhole      priority 29
         # Public lookups (the remaining)
         ip rule add lookup public priority 99
-        ip rule add blackhole     priority 100
 
         # For IPv6, we don't have private stuff. So, simpler
         # rules. Also, route lookup is a bit different in IPv6. Routes
         # to next-hop need to be looked up as well.
         ip -6 rule add lookup main   priority 51
         ip -6 rule add lookup public priority 53 # Last: has a default
-        ip -6 rule add iif lo unreachable priority 99
-        ip -6 rule add blackhole          priority 100
 
         # Add routes to VM. Of course, it should be done by some kind
         # of automatic registration process.
@@ -344,12 +344,8 @@ EOF
         # Routing
         ip rule add lookup main   priority 51
         ip rule add lookup public priority 53 # Last: has a default
-        ip rule add iif lo unreachable priority 99
-        ip rule add blackhole          priority 100
         ip -6 rule add lookup main   priority 51
         ip -6 rule add lookup public priority 53 # Last: has a default
-        ip -6 rule add iif lo unreachable priority 99
-        ip -6 rule add blackhole          priority 100
 
         # We are a router
         sysctl -qw net.ipv4.ip_forward=1
