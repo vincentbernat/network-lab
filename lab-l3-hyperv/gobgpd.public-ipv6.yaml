@@ -7,9 +7,9 @@ global:
     router-id: 1.0.0.2
     local-address-list:
       - 2001:db8:c633:6401::26
-neighbors:
+peer-groups:
   - config:
-      neighbor-address: 2001:db8:c633:6401::1
+      peer-group-name: rr-client
       peer-as: 65000
     route-reflector:
       config:
@@ -19,36 +19,7 @@ neighbors:
       config:
         receive: true
         send-max: 8
+dynamic-neighbors:
   - config:
-      neighbor-address: 2001:db8:c633:6401::2
-      peer-as: 65000
-    route-reflector:
-      config:
-        route-reflector-client: true
-        route-reflector-cluster-id: 198.51.100.226
-    add-paths:
-      config:
-        receive: true
-        send-max: 8
-  - config:
-      neighbor-address: 2001:db8:c633:6401::3
-      peer-as: 65000
-    route-reflector:
-      config:
-        route-reflector-client: true
-        route-reflector-cluster-id: 198.51.100.226
-    add-paths:
-      config:
-        receive: true
-        send-max: 8
-  - config:
-      neighbor-address: 2001:db8:c633:6401::ff
-      peer-as: 65000
-    route-reflector:
-      config:
-        route-reflector-client: true
-        route-reflector-cluster-id: 198.51.100.226
-    add-paths:
-      config:
-        receive: true
-        send-max: 8
+      peer-group: rr-client
+      prefix: 2001:db8:c633:6401::/64

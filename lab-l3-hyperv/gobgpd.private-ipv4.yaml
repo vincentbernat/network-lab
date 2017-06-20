@@ -7,9 +7,9 @@ global:
     router-id: 2.0.0.2
     local-address-list:
       - 172.22.15.226
-neighbors:
+peer-groups:
   - config:
-      neighbor-address: 172.22.15.201
+      peer-group-name: rr-client
       peer-as: 65000
     route-reflector:
       config:
@@ -19,25 +19,7 @@ neighbors:
       config:
         receive: true
         send-max: 8
+dynamic-neighbors:
   - config:
-      neighbor-address: 172.22.15.202
-      peer-as: 65000
-    route-reflector:
-      config:
-        route-reflector-client: true
-        route-reflector-cluster-id: 172.22.15.226
-    add-paths:
-      config:
-        receive: true
-        send-max: 8
-  - config:
-      neighbor-address: 172.22.15.203
-      peer-as: 65000
-    route-reflector:
-      config:
-        route-reflector-client: true
-        route-reflector-cluster-id: 172.22.15.226
-    add-paths:
-      config:
-        receive: true
-        send-max: 8
+      peer-group: rr-client
+      prefix: 172.22.15.128/25
