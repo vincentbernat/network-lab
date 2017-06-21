@@ -30,30 +30,33 @@ def extract_stats(t1, t2, t3):
     """Extract stats from time dump (t1), triestat file (t2) and kbench
     output (t3)."""
     stats = {}
-    with open(t1) as f:
-        time = dict(l.lstrip().split(": ", 1) for l in f.readlines())
-        stats['utime'] = float(time["User time (seconds)"])
-        stats['stime'] = float(time["System time (seconds)"])
-    with open(t2) as f:
-        mo = STATRE.search(f.read())
-        if mo:
-            stats['avgdepth'] = float(mo.group('avgdepth'))
-            stats['maxdepth'] = int(mo.group('maxdepth'))
-            stats['leaves'] = int(mo.group('leaves'))
-            stats['prefixes'] = int(mo.group('prefixes'))
-            stats['tnodes'] = int(mo.group('tnodes'))
-            stats['pointers'] = int(mo.group('pointers'))
-            stats['nullptrs'] = int(mo.group('nullptrs'))
-            stats['size'] = int(mo.group('size'))
-            details = mo.group('details').strip()
-            details = (i.split(": ", 1)
-                       for i in details.split("  "))
-            stats['tnodes_details'] = {int(k): int(v)
-                                       for k, v in details}
-    with open(t3) as f:
-        fields = f.read().strip().split(" ")
-        stats.update({"kbench-{}".format(f[0]): int(f[1])
-                      for f in (f.split("=", 1) for f in fields)})
+    if t1 is not None:
+        with open(t1) as f:
+            time = dict(l.lstrip().split(": ", 1) for l in f.readlines())
+            stats['utime'] = float(time["User time (seconds)"])
+            stats['stime'] = float(time["System time (seconds)"])
+    if t2 is not None:
+        with open(t2) as f:
+            mo = STATRE.search(f.read())
+            if mo:
+                stats['avgdepth'] = float(mo.group('avgdepth'))
+                stats['maxdepth'] = int(mo.group('maxdepth'))
+                stats['leaves'] = int(mo.group('leaves'))
+                stats['prefixes'] = int(mo.group('prefixes'))
+                stats['tnodes'] = int(mo.group('tnodes'))
+                stats['pointers'] = int(mo.group('pointers'))
+                stats['nullptrs'] = int(mo.group('nullptrs'))
+                stats['size'] = int(mo.group('size'))
+                details = mo.group('details').strip()
+                details = (i.split(": ", 1)
+                           for i in details.split("  "))
+                stats['tnodes_details'] = {int(k): int(v)
+                                           for k, v in details}
+    if t3 is not None:
+        with open(t3) as f:
+            fields = f.read().strip().split(" ")
+            stats.update({"kbench-{}".format(f[0]): int(f[1])
+                          for f in (f.split("=", 1) for f in fields)})
     return stats
 
 
@@ -77,6 +80,13 @@ for t1 in glob.glob("stats/32/time.*"):
     t3 = "stats/32/kbench.{}".format(ext)
     thirtytwo[density][count] = extract_stats(t1, t2, t3)
 
+# IP rules
+iprules = {}
+for t3 in glob.glob("stats/iprules/kbench.*"):
+    _, count = os.path.splitext(t3)
+    count = int(count[1:])
+    iprules[count] = extract_stats(None, None, t3)
+
 
 def plot(ax, facet, linreg=True):
     """Plot a given facet on the provided axes."""
@@ -87,21 +97,22 @@ def plot(ax, facet, linreg=True):
         facet = lambda x: x[ofacet]
 
     # /32 with density
-    radians = np.linspace(0, 2*np.pi, len(thirtytwo))
-    colors = plt.cm.Reds(np.linspace(0.2, 1, len(thirtytwo)))
-    for r, c, density in zip(radians,
-                             colors,
-                             sorted(thirtytwo.keys())):
-        x = np.array(sorted(thirtytwo[density].keys()))
-        y = np.array([facet(thirtytwo[density][k]) for k in x])
-        xmax = np.log10(np.max(x))
-        ymax = np.max(y)
-        xminmin = min(np.min(x), xminmin)
-        xmaxmax = max(np.max(x), xmaxmax)
-        ax.scatter(x * 10**(xmax/50*np.cos(r)),
-                   y + ymax/50*np.sin(r),
-                   color=c,
-                   label="/32, density {}".format(density))
+    if thirtytwo is not None:
+        radians = np.linspace(0, 2*np.pi, len(thirtytwo))
+        colors = plt.cm.Reds(np.linspace(0.2, 1, len(thirtytwo)))
+        for r, c, density in zip(radians,
+                                 colors,
+                                 sorted(thirtytwo.keys())):
+            x = np.array(sorted(thirtytwo[density].keys()))
+            y = np.array([facet(thirtytwo[density][k]) for k in x])
+            xmax = np.log10(np.max(x))
+            ymax = np.max(y)
+            xminmin = min(np.min(x), xminmin)
+            xmaxmax = max(np.max(x), xmaxmax)
+            ax.scatter(x * 10**(xmax/50*np.cos(r)),
+                       y + ymax/50*np.sin(r),
+                       color=c,
+                       label="/32, density {}".format(density))
 
     # Full view
     x = np.array(sorted(full.keys()))
@@ -123,18 +134,20 @@ def plot(ax, facet, linreg=True):
         ticker.EngFormatter())
 
 
-def save(fig, ax, name):
+def save(fig, ax, name, legend=True):
     """Save a figure after adding the legend."""
     axes = fig.get_axes()
     cols = max(a.colNum + 1 for a in axes)
     rows = max(a.rowNum + 1 for a in axes)
-    axes[0].legend(loc='upper left',
-                   bbox_to_anchor=(1.1, 1),
-                   borderaxespad=0.,
-                   frameon=False)
+    if legend:
+        axes[0].legend(loc='upper left',
+                       bbox_to_anchor=(1.1, 1),
+                       borderaxespad=0.,
+                       frameon=False)
     xin, yin = cols*4, rows*3
     if len(axes) == 1 or len(axes) % 2 == 0:
-        xin += 3
+        if legend:
+            xin += 3
     fig.set_size_inches(xin, yin)
     fig.savefig("stats/stats-{}.svg".format(name),
                 facecolor='white',
@@ -190,5 +203,23 @@ with plt.style.context([
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d%%"))
     ax.set_ylim(bottom=1)
     save(fig, ax, "nodes")
+
+    full = iprules
+    del full[0]
+    thirtytwo = None
+    fig = plt.figure()
+    ax = fig.add_subplot(121)
+    plot(ax, lambda x: x['kbench-50th']/FREQ,
+         linreg=False)
+    ax.set_title("lookup time")
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
+    ax = fig.add_subplot(122)
+    full = {k: full[k] for k in full if k < 100}
+    plot(ax, lambda x: x['kbench-50th']/FREQ,
+         linreg=False)
+    ax.set_title("lookup time")
+    ax.set_xscale("linear")
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
+    save(fig, ax, "iprules", legend=False)
 
 # plt.show()
