@@ -1093,7 +1093,11 @@ case $$,$STATE in
         sysctl -qw net/ipv6/conf/default/accept_dad=0
 
         log_info_msg "Start syslog"
-        rsyslogd
+        cat <<EOF > /tmp/rsyslogd.conf
+module(load="imuxsock")
+*.*   -/var/log/syslog
+EOF
+        rsyslogd -f /tmp/rsyslogd.conf
 
         for intf in /sys/class/net/*; do
             case $(cat $intf/address) in
