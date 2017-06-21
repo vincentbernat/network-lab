@@ -193,7 +193,10 @@ EOF
         ip -6 rule add lookup public priority 53 # Last: has a default
 
         # Add routes to VM. Of course, it should be done by some kind
-        # of automatic registration process.
+        # of automatic registration process. The "via" routes only
+        # work because the gateway is in the same prefix as the
+        # address on the interface. This is the case because we used
+        # "noprefixroute". So, it needs a 4.4+ kernel.
         case ${uts#HV} in
             1)
                     ip route add 203.0.113.1/32 dev eth2 table public metric 10
