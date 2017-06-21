@@ -184,6 +184,7 @@ EOF
         ip rule add iif eth1.private lookup private priority 28
         # Public lookups (the remaining)
         ip rule add lookup public priority 99
+        ip rule add blackhole priority 100
 
         # For IPv6, we don't have private stuff. So, simpler
         # rules. Also, route lookup is a bit different in IPv6. Routes
