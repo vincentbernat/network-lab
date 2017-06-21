@@ -117,6 +117,8 @@ def plot(ax, facet, linreg=True):
     # Full view
     x = np.array(sorted(full.keys()))
     y = np.array([facet(full[k]) for k in x])
+    xminmin = min(np.min(x), xminmin)
+    xmaxmax = max(np.max(x), xmaxmax)
     slope, intercept, _, _, _ = stats.linregress(x, y)
     ax.scatter(x, y, color='b', label="from full view")
 
@@ -204,21 +206,20 @@ with plt.style.context([
     ax.set_ylim(bottom=1)
     save(fig, ax, "nodes")
 
-    full = iprules
-    del full[0]
+    full = {k: iprules[k] for k in iprules if k != 0}
     thirtytwo = None
     fig = plt.figure()
     ax = fig.add_subplot(121)
-    plot(ax, lambda x: x['kbench-50th']/FREQ,
-         linreg=False)
+    plot(ax, lambda x: x['kbench-50th']/FREQ)
     ax.set_title("lookup time")
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
     ax = fig.add_subplot(122)
-    full = {k: full[k] for k in full if k < 100}
+    full = {k: iprules[k] for k in iprules if k < 100}
     plot(ax, lambda x: x['kbench-50th']/FREQ,
          linreg=False)
     ax.set_title("lookup time")
     ax.set_xscale("linear")
+    ax.set_ylim(bottom=0)
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
     save(fig, ax, "iprules", legend=False)
 
