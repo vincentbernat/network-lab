@@ -58,11 +58,14 @@ case $uts in
         for vmiface in $vmifaces; do
                 # This address could just be a /32 without
                 # noprefixroute.  "git blame" for explanation. Needs a
-                # 4.4+ kernel. There is a downside of using
-                # "noprefixroute" instead of /32, in the sense
-                # additional IP will become secondary IP. You cannot
-                # remove the primary IP.
+                # 4.4+ kernel.
                 ip addr add 203.0.113.254/24 dev $vmiface scope link noprefixroute
+                # The above address is not special. We could add more
+                # addresses and they should be all treated as
+                # equal. However, Linux will designate the first as
+                # primary and the other as secondaries. If the first
+                # disappear, another one should be promoted.
+                sysctl -qw net.ipv4.conf.$vmiface.promote_secondaries = 1
                 # For IPv6, this is not needed (clients are expected
                 # to discover the default router through ICMPv6 RA),
                 # but in case someone wants to configure IPv6
