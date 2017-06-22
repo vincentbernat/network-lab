@@ -56,8 +56,12 @@ case $uts in
 
         # Fake router IP for VM
         for vmiface in $vmifaces; do
-                # This address could just be a /32 without noprefixroute.
-                # "git blame" for explanation. Needs a 4.4+ kernel.
+                # This address could just be a /32 without
+                # noprefixroute.  "git blame" for explanation. Needs a
+                # 4.4+ kernel. There is a downside of using
+                # "noprefixroute" instead of /32, in the sense
+                # additional IP will become secondary IP. You cannot
+                # remove the primary IP.
                 ip addr add 203.0.113.254/24 dev $vmiface scope link noprefixroute
                 # For IPv6, this is not needed (clients are expected
                 # to discover the default router through ICMPv6 RA),
