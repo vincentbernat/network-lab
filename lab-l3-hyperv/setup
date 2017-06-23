@@ -64,8 +64,15 @@ case $uts in
                 # addresses and they should be all treated as
                 # equal. However, Linux will designate the first as
                 # primary and the other as secondaries. If the first
-                # disappear, another one should be promoted.
+                # disappear, another one should be promoted. A
+                # drawback of using promotion is that Linux will
+                # remove existing routes and add them back (to update
+                # prefsrc). However, routes are only added back if
+                # there is still an address. This means if you remove
+                # all gateways, then add them back, routes will
+                # disappear.
                 sysctl -qw net.ipv4.conf.$vmiface.promote_secondaries = 1
+
                 # For IPv6, this is not needed (clients are expected
                 # to discover the default router through ICMPv6 RA),
                 # but in case someone wants to configure IPv6
