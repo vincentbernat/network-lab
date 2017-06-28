@@ -19,11 +19,11 @@ spawn vm internet networks 8,9
 
 spawn vm RR1 network 8
 # Choose one of the following:
-# spawn vm RR2 network 9              # Route reflector using BIRD
+spawn vm RR2 network 9              # Route reflector using BIRD
 # spawn juniper-vrr RR3 networks 9  # Route reflector using Juniper vRR
 # spawn juniper-vrr RR6 networks 9  # Route reflector using Juniper vRR (w/o logical systems)
 # spawn vm RR4 network 9            # Route reflector using Quagga
-spawn vm RR5 network 9            # Route reflector using GoBGP
+# spawn vm RR5 network 9            # Route reflector using GoBGP
 # spawn cumulus-vx RR7 network 9    # Route reflector using Cumulus VX
 
 run
@@ -56,22 +56,7 @@ case $uts in
 
         # Fake router IP for VM
         for vmiface in $vmifaces; do
-                # This address could just be a /32 without
-                # noprefixroute.  "git blame" for explanation. Needs a
-                # 4.4+ kernel.
-                ip addr add 203.0.113.254/24 dev $vmiface scope link noprefixroute
-                # The above address is not special. We could add more
-                # addresses and they should be all treated as
-                # equal. However, Linux will designate the first as
-                # primary and the other as secondaries. If the first
-                # disappear, another one should be promoted. A
-                # drawback of using promotion is that Linux will
-                # remove existing routes and add them back (to update
-                # prefsrc). However, routes are only added back if
-                # there is still an address. This means if you remove
-                # all gateways, then add them back, routes will
-                # disappear.
-                sysctl -qw net.ipv4.conf.$vmiface.promote_secondaries = 1
+                ip addr add 203.0.113.254/32 dev $vmiface scope link
 
                 # For IPv6, this is not needed (clients are expected
                 # to discover the default router through ICMPv6 RA),
@@ -207,24 +192,34 @@ EOF
         ip -6 rule add lookup public priority 53 # Last: has a default
 
         # Add routes to VM. Of course, it should be done by some kind
-        # of automatic registration process. The "via" routes only
-        # work because the gateway is in the same prefix as the
-        # address on the interface. This is the case because we used
-        # "noprefixroute". So, it needs a 4.4+ kernel.
+        # of automatic registration process. Note the use of "onlink"
+        # for "via" routes. This is needed for BIRD to advertise the
+        # address.
         case ${uts#HV} in
             1)
+                    # Use a /32. If you need a /24, look at
+                    # "noprefixroute" and commit
+                    # f311a9e12540f45db7a497ba9561484bd2b04fa5
                     ip route add 203.0.113.1/32 dev eth2 table public metric 10
-                    ip route add 203.0.113.10/32 via 203.0.113.1 table public metric 10
+                    ip route add 203.0.113.10/32 \
+                       via 203.0.113.1 dev eth2 onlink \
+                       table public metric 10
                     ip route add 203.0.113.2/32 dev eth3 table public metric 10
                     ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:7/128 dev eth2 table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 via 2001:db8:cb00:7100:5254:33ff:fe00:7 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 \
+                       via 2001:db8:cb00:7100:5254:33ff:fe00:7 dev eth2 onlink \
+                       table public metric 10
                     ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:9/128 dev eth3 table public metric 10
                     ;;
             2)
                     ip route add 203.0.113.3/32 dev eth2 table public metric 10
-                    ip route add 203.0.113.10/32 via 203.0.113.3 table public metric 10
+                    ip route add 203.0.113.10/32 \
+                       via 203.0.113.3 dev eth2 onlink \
+                       table public metric 10
                     ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:f/128 dev eth2 table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 via 2001:db8:cb00:7100:5254:33ff:fe00:f table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 \
+                       via 2001:db8:cb00:7100:5254:33ff:fe00:f dev eth2 onlink \
+                       table public metric 10
                     ;;
             3)
                     ip route add 203.0.113.4/32 dev eth2 table public metric 10
