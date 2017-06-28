@@ -626,6 +626,11 @@ interfaces {
     family inet dhcp;
   }
 }
+chassis {
+  fpc 0 {
+    lite-mode;
+  }
+}
 END
 cat <<END > $TMP/metadata-$name/boot/loader.conf
 vmtype="0"
