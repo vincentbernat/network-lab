@@ -205,25 +205,27 @@ EOF
                        via 203.0.113.1 dev eth2 onlink \
                        table public metric 10
                     ip route add 203.0.113.2/32 dev eth3 table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:7/128 dev eth2 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:7/128 \
+                       via fe80::5254:33ff:fe00:7 dev eth2 table public metric 10
                     ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 \
-                       via 2001:db8:cb00:7100:5254:33ff:fe00:7 dev eth2 onlink \
-                       table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:9/128 dev eth3 table public metric 10
+                       via fe80::5254:33ff:fe00:7 dev eth2 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:9/128 \
+                       via fe80::5254:33ff:fe00:9 dev eth3 table public metric 10
                     ;;
             2)
                     ip route add 203.0.113.3/32 dev eth2 table public metric 10
                     ip route add 203.0.113.10/32 \
                        via 203.0.113.3 dev eth2 onlink \
                        table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:f/128 dev eth2 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:f/128 \
+                       via fe80::5254:33ff:fe00:f dev eth2 table public metric 10
                     ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 \
-                       via 2001:db8:cb00:7100:5254:33ff:fe00:f dev eth2 onlink \
-                       table public metric 10
+                       via fe80::5254:33ff:fe00:f dev eth2 table public metric 10
                     ;;
             3)
                     ip route add 203.0.113.4/32 dev eth2 table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:15/128 dev eth2 table public metric 10
+                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:15/128 \
+                       via fe80::5254:33ff:fe00:15 dev eth2 table public metric 10
                     ;;
         esac
 
