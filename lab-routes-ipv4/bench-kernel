@@ -1,27 +1,16 @@
 #!/bin/sh
 
-# WIP, incomplete.
-
 # Run a quick bench on a given kernel. This script will boot a kernel
 # from a given directory, setup the routes execute the bench and
 # retrieve the results.
 
-# The bootable kernel should be provided as first argument. It is
-# expected it contains the ability to boot an initrd and talk on the
-# serial console without additional modules. The dummy network module
-# will be retrieved automatically in a nearby directory.
+# The first argument is a directory to a kernel tree source (for
+# example, a git tree at the right version). A minimal .config file
+# will be generated and the kernel will be compiled with it.  For
+# kernel before 3.3, you need to add "EXPORT_SYMBOL(fib_lookup)" in
+# net/ipv4/fib_rules.c.
 
-# Old kernels can be retrieved from:
-#  - http://snapshot.debian.org/package/linux-2.6/
-#  - http://snapshot.debian.org/package/linux/
-#  - http://snapshot.debian.org/package/linux-kbuild-2.6/
-# You need those packages:
-#  - linux-headers-X-common_Y.deb
-#  - linux-headers-X-amd64_Y.deb
-#  - linux-image-X-amd64_Y.deb
-#  - linux-kbuild-X_Y.deb
-
-# As a second argument, we should have the output of "ip route save"
+# As additional arguments, we should have the output of "ip route save"
 # that will be used to restore the same routes. This only works if the
 # interfaces are the same than the ones in this script. The interfaces
 # in this script are lo (index 1), dummy0 (index 2), out1 to out5
@@ -38,63 +27,110 @@
 
 set -e
 
-KERNEL=$1
-[ -f "$KERNEL" ] || {
-    >&2 echo "$KERNEL not found"
+TREE=$1
+shift
+[ -f "$TREE"/Makefile ] || {
+    >&2 echo "$TREE is not a kernel tree"
     exit 1
 }
-VERSION=$(file "$KERNEL" | sed -n 's/.*, version \([^ ]*\).*/\1/p')
+VERSION=$(make --no-print-directory -C "$TREE" kernelversion)
 [ -n "$VERSION" ] || {
-    >&2 echo "Cannot found version for $KERNEL"
-    exit 1
-}
-RTDUMP=$2
-[ -f "$RTDUMP" ] || {
-    >&2 echo "$RTDUMP not found"
+    >&2 echo "Cannot found version for $TREE"
     exit 1
 }
 
-TMP=$(mktemp -d)
-trap "rm -rf $TMP" EXIT
+# Not too old, not too recent
+CC=${CC:-gcc-4.8}
 
-for dir in "$(dirname $KERNEL)/../lib/modules/$VERSION" "$(dirname $KERNEL)/lib/modules/$VERSION" "/lib/modules/$VERSION"; do
-    [ -d $dir ] || continue
-    MODULES="$dir"
-    break
-done
-[ -n "$MODULES" ] || {
-    >&2 echo "Cannot find modules for $KERNEL"
-    exit 1
-}
-for dir in "$MODULE/build" "$(dirname $KERNEL)/../usr/src/linux-headers-$VERSION"  "/usr/src/linux-headers-$VERSION"; do
-    [ -f $dir/Makefile ] || continue
-    KDIR="$dir"
-    break
-done
-[ -n "$KDIR" ] || {
-    >&2 echo "Cannot find headers for $KERNEL"
-    exit 1
-}
+TMP=$(mktemp -d /tmp/bench-kernel.XXXXXXXX)
+#trap "rm -rf $TMP" EXIT
 
-# kbench compilation
+# Generate a minimal .config and compile the kernel
+mkdir -p ${TMP}/kernel
+cat <<EOF > ${TMP}/kernel/.config
+CONFIG_SHMEM=y
+CONFIG_SYSFS=y
+CONFIG_PROC_FS=y
+CONFIG_BLK_DEV_INITRD=y
+CONFIG_RD_GZIP=y
+CONFIG_ISA=y
+CONFIG_PRINTK=y
+CONFIG_EARLY_PRINTK=y
+CONFIG_BINFMT_SCRIPT=y
+CONFIG_64BIT=y
+CONFIG_x86_64=y
+CONFIG_UNIX=y
+CONFIG_MAGIC_SYSRQ=y
+CONFIG_FUTEX=y
+CONFIG_MULTIUSER=y
+CONFIG_FILE_LOCKING=y
+CONFIG_VIRTIO_CONSOLE=y
+CONFIG_POSIX_TIMERS=y
+CONFIG_MODULES=y
+CONFIG_NET=y
+CONFIG_NET_CORE=y
+CONFIG_NETDEVICES=y
+CONFIG_INET=y
+CONFIG_BLOCK=y
+CONFIG_BLK_DEV=y
+CONFIG_TTY=y
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_BINFMT_ELF=y
+CONFIG_DEBUG_KERNEL=y
+CONFIG_VIRTUALIZATION=y
+CONFIG_HYPERVISOR_GUEST=y
+CONFIG_KVM_GUEST=y
+CONFIG_IP_ADVANCED_ROUTER=y
+CONFIG_IP_MULTIPLE_TABLES=y
+CONFIG_IP_ROUTE_MULTIPATH=y
+CONFIG_FIB_RULES=y
+CONFIG_IPV6=y
+CONFIG_IPV6_MULTIPLE_TABLES=y
+CONFIG_IPV6_SIT=n
+CONFIG_DUMMY=y
+EOF
+yes "" | make -C "$TREE" O=${TMP}/kernel CC=${CC} oldconfig
+make -C "$TREE" O=${TMP}/kernel CC=${CC}
+make -C "$TREE" O=${TMP}/kernel CC=${CC} INSTALL_PATH=${TMP} install
+
+# Compile the benchmark module
 rm -f kbench_mod.ko
-make KDIR=${KDIR}
+make KDIR=${TMP}/kernel O=${TMP}/kernel CC=${CC}
 
 # init script
-cat <<EOF > ${TMP}/init
+cat <<EOF'' > ${TMP}/init
 #!/bin/sh
+set -e
 export PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/local/sbin:/usr/sbin
-. /modules
 mount -n -t proc  proc /proc
+mount -n -t sysfs sys /sys
 mknod /dev/null c 1 3
 mknod /dev/ttyS1 c 4 65
 for i in 1 2 3 4 5; do
-    ip link add name out\$i type dummy
-    ip link set up dev out\$i
-    ip addr add 203.0.113.\$((i*2))/31 dev out\$i
+    ip link add name out$i type dummy
+    ip link set up dev out$i
+    ip addr add 203.0.113.$((i*2))/31 dev out$i
 done
-ip route restore < /rtdump || sh
-echo hello > /dev/ttyS1
+set -x
+insmod /kbench_mod.ko
+echo 100000 > /sys/kernel/kbench/loop_count
+cat /proc/version | tee /dev/ttyS1
+ip a l
+ip route flush scope global
+for f in /rtdump*; do
+  ip route restore < $f || sh
+  if [ $(ip route show | grep -c '^2\.0\.[0-9]*\.[0-9]* via') -gt 100 ]; then
+    # Assume we only have /32
+    echo 2.0.0.0  > /sys/kernel/kbench/flow_dst_ipaddr_s
+    echo 2.0.16.0 > /sys/kernel/kbench/flow_dst_ipaddr_e
+  else
+    # Assume it's a full view
+    echo 0.0.0.0         > /sys/kernel/kbench/flow_dst_ipaddr_s
+    echo 223.255.255.255 > /sys/kernel/kbench/flow_dst_ipaddr_s
+  fi
+  cat /sys/kernel/kbench/run | tee /dev/ttyS1
+done
 echo b > /proc/sysrq-trigger
 EOF
 
@@ -116,28 +152,15 @@ done
 for applet in $(${DESTDIR}/bin/busybox --list); do
     [ -f ${DESTDIR}/bin/${applet} ] || ln -s busybox ${DESTDIR}/bin/${applet}
 done
-modules="dummy ./kbench_mod.ko"
-for mod in $modules; do
-    base="${MODULES}"/../../..
-    cmd="modprobe --all --set-version=${VERSION} -d ${base} --ignore-install --quiet --show-depends $mod"
-    $cmd > /dev/null || {
-        depmod -b ${base} ${VERSION} 2> /dev/null && $cmd > /dev/null || {
-                >&2 echo "Module $mod is missing"
-                exit 1
-            }
-    }
-    $cmd | while read prefix kmod options ; do
-        [ "${prefix}" = "insmod" ] || continue
-        grep -qFw "$kmod" ${DESTDIR}/modules 2> /dev/null || {
-            install -D "$kmod" "${DESTDIR}/${kmod}"
-            echo $prefix $kmod $options >> ${DESTDIR}/modules
-        }
-    done
-done
 
+cp kbench_mod.ko ${DESTDIR}/kbench_mod.ko
 cp ${TMP}/init ${DESTDIR}/init && chmod +x ${DESTDIR}/init
-cp "${RTDUMP}" ${DESTDIR}/rtdump
-mkdir -p ${DESTDIR}/proc ${DESTDIR}/dev
+i=0
+for f in "$@"; do
+    i=$((i+1))
+    cp "$f" ${DESTDIR}/rtdump$i
+done
+mkdir -p ${DESTDIR}/proc ${DESTDIR}/dev ${DESTDIR}/sys
 (cd "${DESTDIR}" && find . | cpio --quiet -R 0:0 -o -H newc) | gzip > $TMP/initrd.gz
 
 # Boot
@@ -145,12 +168,13 @@ qemu-system-$(uname -m) \
             -enable-kvm \
             -nodefconfig -nodefaults \
             -display none \
+            -m 512 \
             -chardev stdio,id=charserial0,signal=off \
             -device isa-serial,chardev=charserial0,id=serial0 \
             -chardev file,id=charserial1,path=${TMP}/output \
             -device isa-serial,chardev=charserial1,id=serial1 \
             -no-reboot \
-            -kernel $KERNEL \
+            -kernel $TMP/vmlinuz* \
             -initrd $TMP/initrd.gz \
             -append "console=ttyS0 panic=1 8250.nr_uarts=4" || :
 
