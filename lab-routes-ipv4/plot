@@ -87,6 +87,19 @@ for t3 in glob.glob("stats/iprules/kbench.*"):
     count = int(count[1:])
     iprules[count] = extract_stats(None, None, t3)
 
+# Kernel variations
+kernel_bgp = {}
+kernel_many = {}
+for t in glob.glob("stats/kernel/*"):
+    version = os.path.basename(t)
+    with open(t) as f:
+        b, m = [{f[0]: int(f[1])
+                 for f in (f.split("=", 1)
+                           for f in l.strip().split(" "))}
+                for l in f
+                if l.startswith("min=")]
+        kernel_bgp[version] = b
+        kernel_many[version] = m
 
 def plot(ax, facet, linreg=True):
     """Plot a given facet on the provided axes."""
@@ -136,7 +149,7 @@ def plot(ax, facet, linreg=True):
         ticker.EngFormatter())
 
 
-def save(fig, ax, name, legend=True):
+def save(fig, ax, name, legend=True, mxin=1):
     """Save a figure after adding the legend."""
     axes = fig.get_axes()
     cols = max(a.colNum + 1 for a in axes)
@@ -147,6 +160,7 @@ def save(fig, ax, name, legend=True):
                        borderaxespad=0.,
                        frameon=False)
     xin, yin = cols*4, rows*3
+    xin *= mxin
     if len(axes) == 1 or len(axes) % 2 == 0:
         if legend:
             xin += 3
@@ -155,6 +169,10 @@ def save(fig, ax, name, legend=True):
                 facecolor='white',
                 dpi=96,
                 bbox_inches='tight')
+
+
+def versionize(x):
+    return [int(y) for y in x.split(".")]
 
 
 with plt.style.context([
@@ -167,6 +185,34 @@ with plt.style.context([
                             'grid.linewidth': 0.75,
                             'font.family': ['Roboto', 'sans-serif'],
                             'font.weight': 'light'}]):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    x = sorted(kernel_bgp.keys(), key=versionize)
+    y1 = [kernel_bgp[k]["50th"]/FREQ for k in x]
+    ax.plot(range(len(x)), y1,
+            'o-',
+            lw=1, ms=4,
+            label="from full view",
+            color="blue")
+    y2 = [kernel_many[k]["50th"]/FREQ for k in x]
+    ax.plot(range(len(x)), y2,
+            'o-',
+            lw=1, ms=4,
+            label="/32, density 1",
+            color=plt.cm.Reds(0.8))
+    ax.set_title("lookup time")
+
+    ax.set_xticks(range(len(x)))
+    ax.set_xticklabels(x, rotation=60, ha='right')
+    ax.get_xticklabels()[7].set_weight('bold')  # 3.6
+    ax.get_xgridlines()[7].set_color('black')
+    ax.get_xticklabels()[21].set_weight('bold')  # 4.0
+    ax.get_xgridlines()[21].set_color('black')
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
+    ax.set_ylim(bottom=0)
+    ax.legend(loc='upper right')
+    save(fig, ax, "kernels", legend=False, mxin=1.7)
+
     fig = plt.figure()
     ax = fig.add_subplot(221)
     plot(ax, 'maxdepth', linreg=False)
