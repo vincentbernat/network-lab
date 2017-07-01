@@ -50,7 +50,7 @@ VERSION=$(make --no-print-directory -C "$TREE" kernelversion)
 }
 
 # Not too old, not too recent
-CC=${CC:-gcc-4.8}
+CC=${CC:-gcc-4.9}
 
 TMP=$(mktemp -d /tmp/bench-kernel.XXXXXXXX)
 trap "rm -rf $TMP" EXIT
