@@ -32,7 +32,7 @@
 #     ip route flush scope global
 #     ./from-bgp -n 10000 --batch 1000 \
 #          203.0.113.3 203.0.113.5  203.0.113.7 \
-#          203.0.113.9 203.0.113.11 203.0.113.13
+#          203.0.113.9 203.0.113.11
 #     ip route save scope global > stats/bgp-10000
 
 set -e
@@ -53,11 +53,12 @@ VERSION=$(make --no-print-directory -C "$TREE" kernelversion)
 CC=${CC:-gcc-4.8}
 
 TMP=$(mktemp -d /tmp/bench-kernel.XXXXXXXX)
-#trap "rm -rf $TMP" EXIT
+trap "rm -rf $TMP" EXIT
 
 # Generate a minimal .config and compile the kernel
 mkdir -p ${TMP}/kernel
 cat <<EOF > ${TMP}/kernel/.config
+CONFIG_SMP=y
 CONFIG_SHMEM=y
 CONFIG_SYSFS=y
 CONFIG_PROC_FS=y
@@ -127,10 +128,10 @@ insmod /kbench_mod.ko
 echo 100000 > /sys/kernel/kbench/loop_count
 cat /proc/version | tee /dev/ttyS1
 ip a l
-ip route flush scope global
 for f in /rtdump*; do
-  ip route restore < $f || sh
-  if [ $(ip route show | grep -c '^2\.0\.[0-9]*\.[0-9]* via') -gt 100 ]; then
+  ip route flush scope global
+  ip route restore < $f
+  if [ $(ip route show | grep '^2\.0\.[0-9]*\.[0-9]* via' | head -100 | wc -l) -ge 100 ]; then
     # Assume we only have /32
     echo 2.0.0.0  > /sys/kernel/kbench/flow_dst_ipaddr_s
     echo 2.0.16.0 > /sys/kernel/kbench/flow_dst_ipaddr_e
@@ -139,6 +140,8 @@ for f in /rtdump*; do
     echo 0.0.0.0         > /sys/kernel/kbench/flow_dst_ipaddr_s
     echo 223.255.255.255 > /sys/kernel/kbench/flow_dst_ipaddr_s
   fi
+  ip route show | wc -l | tee /dev/ttyS1
+  sleep 2
   cat /sys/kernel/kbench/run | tee /dev/ttyS1
 done
 echo b > /proc/sysrq-trigger
