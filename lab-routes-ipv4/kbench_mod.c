@@ -13,6 +13,7 @@
 #define pr_fmt(fmt) "kbench: " fmt
 
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/inet.h>
 #include <linux/sort.h>
@@ -43,6 +44,24 @@ static u32		flow_dst_ipaddr_s = DEFAULT_DST_IPADDR_S;
 static u32		flow_dst_ipaddr_e = DEFAULT_DST_IPADDR_E;
 static u32		flow_src_ipaddr = DEFAULT_SRC_IPADDR;
 static bool		filter_unreach	= true;
+
+/* Compatibility with older kernel versions */
+#ifndef __ATTR_RW
+# define __ATTR_RW(_name) __ATTR(_name,				\
+				(S_IWUSR | S_IRUGO),		\
+				_name##_show, _name##_store)
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,2,0)
+# define my_fib_lookup(f, r) fib_lookup(&init_net, f, r)
+#else
+# define my_fib_lookup(f, r) fib_lookup(&init_net, f, r, 0)
+#endif
+
+/* We require flowi4 from 2.6.39 but also the kstrto* functions */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
+# error Require a 2.6.39 kernel
+#endif
 
 /* Benchmark */
 
@@ -97,7 +116,7 @@ static int do_bench(char *buf)
 	}
 
 	for (i = 0; i < warmup_count; i++) {
-		err = fib_lookup(&init_net, &fl4, &res, 0);
+		err = my_fib_lookup(&fl4, &res);
 		if (err && err != -ENETUNREACH) {
 			kfree(results);
 			return scnprintf(buf, PAGE_SIZE, "err=%d msg=\"lookup error\"\n", err);
@@ -115,7 +134,7 @@ static int do_bench(char *buf)
 				continue;
 		}
 		t1 = get_cycles();
-		err = fib_lookup(&init_net, &fl4, &res, 0);
+		err = my_fib_lookup(&fl4, &res);
 		t2 = get_cycles();
 		if (err == -ENETUNREACH)
 			continue;
