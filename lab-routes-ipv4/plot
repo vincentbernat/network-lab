@@ -230,7 +230,7 @@ with plt.style.context([
     for idx in range(len(x))[1:]:
         r1 = kernel_bgp[x[idx]]["50th"]/kernel_bgp[x[idx-1]]["50th"]
         r2 = kernel_many[x[idx]]["50th"]/kernel_many[x[idx-1]]["50th"]
-        if r1 < 0.85 or r2 < 0.85:
+        if (r1 < 0.9 and r2 < 0.9) or (r1 < 0.5 or r2 < 0.5):
             ax.get_xticklabels()[idx].set_weight('bold')
             ax.get_xgridlines()[idx].set_color('black')
     # We want to remove the outlier
