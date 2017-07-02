@@ -58,9 +58,11 @@ static bool		filter_unreach	= true;
 # define my_fib_lookup(f, r) fib_lookup(&init_net, f, r, 0)
 #endif
 
-/* We require flowi4 from 2.6.39 but also the kstrto* functions */
+/* We require flowi4 from 2.6.39 but also the kstrto* functions. We
+ * assume the later have been backported. They are commit
+ * 33ee3b2e2eb9. */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
-# error Require a 2.6.39 kernel
+# define flowi4 flowi
 #endif
 
 /* Benchmark */
@@ -94,22 +96,36 @@ static int do_bench(char *buf)
 	unsigned long long *results;
 	unsigned long long t1, t2, average;
 	struct fib_result res;
-	struct flowi4 fl4;
 	int err, l;
 	unsigned long i, total, delta = 0;
 	bool scan;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
+	struct flowi fl4;
+#else
+	struct flowi4 fl4;
+#endif
 
 	results = kmalloc(sizeof(*results) * loop_count, GFP_KERNEL);
 	if (!results)
 		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
+	memset(&fl4, 0, sizeof(fl4));
+	fl4.oif = flow_oif;
+	fl4.iif = flow_iif;
+	fl4.mark = flow_mark;
+	fl4.fl4_tos = flow_tos;
+	fl4.fl4_dst = flow_dst_ipaddr_s;
+	fl4.fl4_src = flow_src_ipaddr;
+#else
 	memset(&fl4, 0, sizeof(fl4));
 	fl4.flowi4_oif = flow_oif;
 	fl4.flowi4_iif = flow_iif;
-	fl4.flowi4_tos = flow_tos;
 	fl4.flowi4_mark = flow_mark;
+	fl4.flowi4_tos = flow_tos;
 	fl4.daddr = flow_dst_ipaddr_s;
 	fl4.saddr = flow_src_ipaddr;
+#endif
 	if (ntohl(flow_dst_ipaddr_s) < ntohl(flow_dst_ipaddr_e)) {
 		scan = true;
 		delta = ntohl(flow_dst_ipaddr_e) - ntohl(flow_dst_ipaddr_s);
@@ -126,12 +142,18 @@ static int do_bench(char *buf)
 	average = 0;
 	for (i = total = 0; i < loop_count; i++) {
 		if (scan) {
+			__be32 daddr;
 			if (delta < loop_count)
-				fl4.daddr = htonl(ntohl(flow_dst_ipaddr_s) + (i % delta));
+				daddr = htonl(ntohl(flow_dst_ipaddr_s) + (i % delta));
 			else
-				fl4.daddr = htonl(ntohl(flow_dst_ipaddr_s) + delta / loop_count * i);
-			if (ipv4_is_loopback(fl4.daddr))
+				daddr = htonl(ntohl(flow_dst_ipaddr_s) + delta / loop_count * i);
+			if (ipv4_is_loopback(daddr))
 				continue;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
+			fl4.fl4_dst = daddr;
+#else
+			fl4.daddr = daddr;
+#endif
 		}
 		t1 = get_cycles();
 		err = my_fib_lookup(&fl4, &res);
