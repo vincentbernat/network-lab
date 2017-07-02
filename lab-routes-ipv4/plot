@@ -204,10 +204,12 @@ with plt.style.context([
 
     ax.set_xticks(range(len(x)))
     ax.set_xticklabels(x, rotation=60, ha='right')
-    ax.get_xticklabels()[7].set_weight('bold')  # 3.6
-    ax.get_xgridlines()[7].set_color('black')
-    ax.get_xticklabels()[21].set_weight('bold')  # 4.0
-    ax.get_xgridlines()[21].set_color('black')
+
+    for idx in range(len(x))[1:]:
+        if kernel_bgp[x[idx]]["50th"]/kernel_bgp[x[idx-1]]["50th"] < 0.8 or \
+           kernel_many[x[idx]]["50th"]/kernel_many[x[idx-1]]["50th"] < 0.8:
+            ax.get_xticklabels()[idx].set_weight('bold')
+            ax.get_xgridlines()[idx].set_color('black')
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
     ax.set_ylim(bottom=0)
     ax.legend(loc='upper right')
