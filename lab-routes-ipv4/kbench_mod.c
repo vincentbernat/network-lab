@@ -51,7 +51,6 @@ static u32		flow_mark	= DEFAULT_MARK;
 static u32		flow_dst_ipaddr_s = DEFAULT_DST_IPADDR_S;
 static u32		flow_dst_ipaddr_e = DEFAULT_DST_IPADDR_E;
 static u32		flow_src_ipaddr = DEFAULT_SRC_IPADDR;
-static bool		filter_unreach	= true;
 
 /* Compatibility with older kernel versions */
 #ifndef __ATTR_RW
@@ -367,25 +366,6 @@ static ssize_t flow_src_ipaddr_store(struct kobject *kobj, struct kobj_attribute
 	return count;
 }
 
-static ssize_t filter_unreach_show(struct kobject *kobj, struct kobj_attribute *attr,
-				   char *buf)
-{
-	return scnprintf(buf, PAGE_SIZE, "%d\n", (int)filter_unreach);
-}
-
-static ssize_t filter_unreach_store(struct kobject *kobj, struct kobj_attribute *attr,
-				     const char *buf, size_t count)
-{
-	unsigned int val;
-	int err = kstrtouint(buf, 0, &val);
-	if (err < 0)
-		return err;
-	if (val < 0 || val > 1)
-		return -EINVAL;
-	filter_unreach = val;
-	return count;
-}
-
 static ssize_t run_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buf)
 {
@@ -402,7 +382,6 @@ static struct kobj_attribute	flow_mark_attr	       = __ATTR_RW(flow_mark);
 static struct kobj_attribute	flow_dst_ipaddr_s_attr = __ATTR_RW(flow_dst_ipaddr_s);
 static struct kobj_attribute	flow_dst_ipaddr_e_attr = __ATTR_RW(flow_dst_ipaddr_e);
 static struct kobj_attribute	flow_src_ipaddr_attr   = __ATTR_RW(flow_src_ipaddr);
-static struct kobj_attribute	filter_unreach_attr    = __ATTR_RW(filter_unreach);
 static struct kobj_attribute	run_attr	       = __ATTR_RO(run);
 
 static struct attribute *bench_attributes[] = {
@@ -415,7 +394,6 @@ static struct attribute *bench_attributes[] = {
 	&flow_dst_ipaddr_s_attr.attr,
 	&flow_dst_ipaddr_e_attr.attr,
 	&flow_src_ipaddr_attr.attr,
-	&filter_unreach_attr.attr,
 	&run_attr.attr,
 	NULL
 };
