@@ -8,6 +8,14 @@
  * The module doesn't perform any kind of locking. It is not safe to
  * modify a setting while running the benchmark. Moreover, it only
  * acts on the initial network namespace.
+ *
+ * Copyright (C) 2017 Vincent Bernat
+ * Based on https://git.kernel.org/pub/scm/linux/kernel/git/davem/net_test_tools.git/tree/kbench_mod.c
+ *
+ *      This program is free software; you can redistribute it and/or
+ *      modify it under the terms of the GNU General Public License
+ *      as published by the Free Software Foundation; either version
+ *      2 of the License, or (at your option) any later version.
  */
 
 #define pr_fmt(fmt) "kbench: " fmt
