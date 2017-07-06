@@ -5,9 +5,7 @@
  * done from 0.0.0.0 to 223.255.255.255 (considered as a linear
  * space).
  *
- * The module doesn't perform any kind of locking. It is not safe to
- * modify a setting while running the benchmark. Moreover, it only
- * acts on the initial network namespace.
+ * The module only acts on the initial network namespace.
  *
  * Copyright (C) 2017 Vincent Bernat
  * Based on https://git.kernel.org/pub/scm/linux/kernel/git/davem/net_test_tools.git/tree/kbench_mod.c
@@ -26,6 +24,7 @@
 #include <linux/inet.h>
 #include <linux/sort.h>
 #include <linux/netdevice.h>
+#include <linux/mutex.h>
 
 #include <net/route.h>
 #include <net/ip_fib.h>
@@ -51,6 +50,8 @@ static u32		flow_mark	= DEFAULT_MARK;
 static u32		flow_dst_ipaddr_s = DEFAULT_DST_IPADDR_S;
 static u32		flow_dst_ipaddr_e = DEFAULT_DST_IPADDR_E;
 static u32		flow_src_ipaddr = DEFAULT_SRC_IPADDR;
+
+static DEFINE_MUTEX(kb_lock);
 
 /* Compatibility with older kernel versions */
 #ifndef __ATTR_RW
@@ -116,6 +117,7 @@ static int do_bench(char *buf)
 	if (!results)
 		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
 
+	mutex_lock(&kb_lock);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
 	memset(&fl4, 0, sizeof(fl4));
 	fl4.oif = flow_oif;
@@ -171,6 +173,7 @@ static int do_bench(char *buf)
 		average += results[total];
 		total++;
 	}
+	mutex_unlock(&kb_lock);
 
 	/* Compute percentiles */
 	sort(results, total, sizeof(*results), compare, NULL);
@@ -187,6 +190,7 @@ static int do_bench(char *buf)
 			      percentile(90, results, total),
 			      percentile(95, results, total));
 	}
+
 	kfree(results);
 	return l;
 }
@@ -196,7 +200,11 @@ static int do_bench(char *buf)
 static ssize_t warmup_count_show(struct kobject *kobj, struct kobj_attribute *attr,
 				 char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%lu\n", warmup_count);
+	ssize_t res;
+	mutex_lock(&kb_lock);
+	res = scnprintf(buf, PAGE_SIZE, "%lu\n", warmup_count);
+	mutex_unlock(&kb_lock);
+	return res;
 }
 
 static ssize_t warmup_count_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -208,14 +216,20 @@ static ssize_t warmup_count_store(struct kobject *kobj, struct kobj_attribute *a
 		return err;
 	if (val < 1)
 		return -EINVAL;
+	mutex_lock(&kb_lock);
 	warmup_count = val;
+	mutex_unlock(&kb_lock);
 	return count;
 }
 
 static ssize_t loop_count_show(struct kobject *kobj, struct kobj_attribute *attr,
 			       char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%lu\n", loop_count);
+	ssize_t res;
+	mutex_lock(&kb_lock);
+	res = scnprintf(buf, PAGE_SIZE, "%lu\n", loop_count);
+	mutex_unlock(&kb_lock);
+	return res;
 }
 
 static ssize_t loop_count_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -227,17 +241,25 @@ static ssize_t loop_count_store(struct kobject *kobj, struct kobj_attribute *att
 		return err;
 	if (val < 1)
 		return -EINVAL;
+	mutex_lock(&kb_lock);
 	loop_count = val;
+	mutex_unlock(&kb_lock);
 	return count;
 }
 
 static ssize_t flow_oif_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
 {
-	struct net_device *dev = dev_get_by_index(&init_net, flow_oif);
+	ssize_t res;
+	struct net_device *dev;
+	mutex_lock(&kb_lock);
+	dev = dev_get_by_index(&init_net, flow_oif);
 	if (!dev)
-		return scnprintf(buf, PAGE_SIZE, "%d\n", flow_oif);
-	return scnprintf(buf, PAGE_SIZE, "%s\n", dev->name);
+		res = scnprintf(buf, PAGE_SIZE, "%d\n", flow_oif);
+	else
+		res = scnprintf(buf, PAGE_SIZE, "%s\n", dev->name);
+	mutex_unlock(&kb_lock);
+	return res;
 }
 
 static ssize_t flow_oif_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -252,22 +274,32 @@ static ssize_t flow_oif_store(struct kobject *kobj, struct kobj_attribute *attr,
 		dev = dev_get_by_name(&init_net, ifname);
 		if (!dev)
 			return -ENODEV;
+		mutex_lock(&kb_lock);
 		flow_oif = dev->ifindex;
+		mutex_unlock(&kb_lock);
 		return count;
 	}
 	if (val < 0)
 		return -EINVAL;
+	mutex_lock(&kb_lock);
 	flow_oif = val;
+	mutex_unlock(&kb_lock);
 	return count;
 }
 
 static ssize_t flow_iif_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
 {
-	struct net_device *dev = dev_get_by_index(&init_net, flow_iif);
+	ssize_t res;
+	struct net_device *dev;
+	mutex_lock(&kb_lock);
+	dev = dev_get_by_index(&init_net, flow_iif);
 	if (!dev)
-		return scnprintf(buf, PAGE_SIZE, "%d\n", flow_iif);
-	return scnprintf(buf, PAGE_SIZE, "%s\n", dev->name);
+		res = scnprintf(buf, PAGE_SIZE, "%d\n", flow_iif);
+	else
+		res = scnprintf(buf, PAGE_SIZE, "%s\n", dev->name);
+	mutex_unlock(&kb_lock);
+	return res;
 }
 
 static ssize_t flow_iif_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -282,19 +314,27 @@ static ssize_t flow_iif_store(struct kobject *kobj, struct kobj_attribute *attr,
 		dev = dev_get_by_name(&init_net, ifname);
 		if (!dev)
 			return -ENODEV;
+		mutex_lock(&kb_lock);
 		flow_iif = dev->ifindex;
+		mutex_unlock(&kb_lock);
 		return count;
 	}
 	if (val < 0)
 		return -EINVAL;
+	mutex_lock(&kb_lock);
 	flow_iif = val;
+	mutex_unlock(&kb_lock);
 	return count;
 }
 
 static ssize_t flow_tos_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "0x%02x\n", (u32)flow_tos);
+	ssize_t res;
+	mutex_lock(&kb_lock);
+	res = scnprintf(buf, PAGE_SIZE, "0x%02x\n", (u32)flow_tos);
+	mutex_unlock(&kb_lock);
+	return res;
 }
 
 static ssize_t flow_tos_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -306,14 +346,20 @@ static ssize_t flow_tos_store(struct kobject *kobj, struct kobj_attribute *attr,
 		return err;
 	if (val < 0 || val > 255)
 		return -EINVAL;
+	mutex_lock(&kb_lock);
 	flow_tos = val;
+	mutex_unlock(&kb_lock);
 	return count;
 }
 
 static ssize_t flow_mark_show(struct kobject *kobj, struct kobj_attribute *attr,
 			      char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "0x%08x\n", flow_mark);
+	ssize_t res;
+	mutex_lock(&kb_lock);
+	res = scnprintf(buf, PAGE_SIZE, "0x%08x\n", flow_mark);
+	mutex_unlock(&kb_lock);
+	return res;
 }
 
 static ssize_t flow_mark_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -323,46 +369,66 @@ static ssize_t flow_mark_store(struct kobject *kobj, struct kobj_attribute *attr
 	int err = kstrtou32(buf, 0, &val);
 	if (err < 0)
 		return err;
+	mutex_lock(&kb_lock);
 	flow_mark = val;
+	mutex_unlock(&kb_lock);
 	return count;
 }
 
 static ssize_t flow_dst_ipaddr_s_show(struct kobject *kobj, struct kobj_attribute *attr,
 				      char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_dst_ipaddr_s);
+	ssize_t res;
+	mutex_lock(&kb_lock);
+	res = scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_dst_ipaddr_s);
+	mutex_unlock(&kb_lock);
+	return res;
 }
 
 static ssize_t flow_dst_ipaddr_s_store(struct kobject *kobj, struct kobj_attribute *attr,
 				       const char *buf, size_t count)
 {
+	mutex_lock(&kb_lock);
 	flow_dst_ipaddr_s = in_aton(buf);
+	mutex_unlock(&kb_lock);
 	return count;
 }
 
 static ssize_t flow_dst_ipaddr_e_show(struct kobject *kobj, struct kobj_attribute *attr,
 				      char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_dst_ipaddr_e);
+	ssize_t res;
+	mutex_lock(&kb_lock);
+	res = scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_dst_ipaddr_e);
+	mutex_unlock(&kb_lock);
+	return res;
 }
 
 static ssize_t flow_dst_ipaddr_e_store(struct kobject *kobj, struct kobj_attribute *attr,
 				       const char *buf, size_t count)
 {
+	mutex_lock(&kb_lock);
 	flow_dst_ipaddr_e = in_aton(buf);
+	mutex_unlock(&kb_lock);
 	return count;
 }
 
 static ssize_t flow_src_ipaddr_show(struct kobject *kobj, struct kobj_attribute *attr,
 				    char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_src_ipaddr);
+	ssize_t res;
+	mutex_lock(&kb_lock);
+	res = scnprintf(buf, PAGE_SIZE, "%pI4\n", &flow_src_ipaddr);
+	mutex_unlock(&kb_lock);
+	return res;
 }
 
 static ssize_t flow_src_ipaddr_store(struct kobject *kobj, struct kobj_attribute *attr,
 				     const char *buf, size_t count)
 {
+	mutex_lock(&kb_lock);
 	flow_src_ipaddr = in_aton(buf);
+	mutex_unlock(&kb_lock);
 	return count;
 }
 
