@@ -1,0 +1,11 @@
+#!/bin/sh
+
+LABNAME="generic"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn cumulus-vx cumulus networks 1,2,3,4
+
+run
