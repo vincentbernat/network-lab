@@ -452,7 +452,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -kernel $KERNEL \
      -no-reboot \
      -initrd $TMP/initrd.gz \
-     -append "uts=$name console=ttyS0 panic=1 TERM=$TERM quiet net.ifnames=0 $KERNELPARAMS" \
+     -append "uts=$name console=ttyS0 panic=1 TERM=$TERM quiet net.ifnames=0 nokaslr $KERNELPARAMS" \
      $netargs
 EOF
     log_info_msg "GDB server listening on $TMP/vm-$name-gdb.pipe"
