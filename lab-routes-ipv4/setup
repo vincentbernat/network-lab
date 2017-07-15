@@ -1,6 +1,6 @@
 #!/bin/sh
 
-LABNAME="trie-routes"
+LABNAME="routes-ipv4"
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
@@ -46,8 +46,8 @@ done
 
     ping -M do -s 1472 -c 2 203.0.113.50 || true
     # Check cache with:
-    # $ ip route get 203.0.113.15
-    # 203.0.113.15 via 203.0.113.13 dev out6  src 203.0.113.12
+    # $ ip route get 203.0.113.50
+    # 203.0.113.50 via 203.0.113.13 dev out6  src 203.0.113.12
     #     cache  expires 536sec mtu 1400
 }
 
