@@ -32,19 +32,19 @@ done
     ip link set netns next-hop dev out7
     ip link set netns next-next-hop dev in7
     ip link set up dev out6
-    ip addr add 2001:db8:1::15/126 dev out6
+    ip addr add 2001:db8:1::12/127 dev out6
     ip netns exec next-hop ip link set up dev in6
     ip netns exec next-hop ip link set up dev out7
-    ip netns exec next-hop ip addr add 2001:db8:1::16/126 dev in6
-    ip netns exec next-hop ip addr add 2001:db8:1::19/126 dev out7
-    ip netns exec next-hop ip route add default via 2001:db8:1::1a
+    ip netns exec next-hop ip addr add 2001:db8:1::13/127 dev in6
+    ip netns exec next-hop ip addr add 2001:db8:1::14/127 dev out7
+    ip netns exec next-hop ip route add default via 2001:db8:1::15
     ip netns exec next-hop sysctl -qw net.ipv6.conf.all.forwarding=1
     ip netns exec next-next-hop ip link set up dev in7
-    ip netns exec next-next-hop ip addr add 2001:db8:1::1a/126 dev in7
+    ip netns exec next-next-hop ip addr add 2001:db8:1::15/127 dev in7
     ip netns exec next-next-hop ip addr add 2001:db8:1::50/128 dev in7
-    ip netns exec next-next-hop ip route add default via 2001:db8:1::19
+    ip netns exec next-next-hop ip route add default via 2001:db8:1::14
     ip netns exec next-next-hop sysctl -qw net.ipv6.conf.all.forwarding=1
-    ip route add 2001:db8:1::48/123 via 2001:db8:1::16
+    ip route add 2001:db8:1::48/123 via 2001:db8:1::13
 
     ping -M do -s 1452 -c 2 2001:db8:1::50 || true
     # Check cache with:
