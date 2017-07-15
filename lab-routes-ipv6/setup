@@ -1,0 +1,74 @@
+#!/bin/sh
+
+LABNAME="routes-ipv6"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+KERNELPARAMS=slab_nomerge
+MEM=512M spawn vm R1
+
+run
+
+sysctl -qw net.ipv6.conf.all.forwarding=1
+
+# Set some output interfaces
+for i in $(seq 1 5); do
+    ip link add name out$i type dummy
+    ip link set up dev out$i
+    ip addr add 2001:db8:1::$((i*2))/127 dev out$i
+done
+
+# Add one path with reduced MTU
+[ ! -d /proc/self/ns ] || {
+    ip link add name out6 type veth peer name in6
+    ip link add name out7 type veth peer name in7
+    ip link set mtu 1400 dev out7
+    ip link set mtu 1400 dev in7
+    ip netns add next-hop
+    ip netns add next-next-hop
+    ip link set netns next-hop dev in6
+    ip link set netns next-hop dev out7
+    ip link set netns next-next-hop dev in7
+    ip link set up dev out6
+    ip addr add 2001:db8:1::12/127 dev out6
+    ip netns exec next-hop ip link set up dev in6
+    ip netns exec next-hop ip link set up dev out7
+    ip netns exec next-hop ip addr add 2001:db8:1::13/127 dev in6
+    ip netns exec next-hop ip addr add 2001:db8:1::14/127 dev out7
+    ip netns exec next-hop ip route add default via 2001:db8:1::15
+    ip netns exec next-hop sysctl -qw net.ipv6.conf.all.forwarding=1
+    ip netns exec next-next-hop ip link set up dev in7
+    ip netns exec next-next-hop ip addr add 2001:db8:1::15/127 dev in7
+    ip netns exec next-next-hop ip addr add 2001:db8:1::50/128 dev in7
+    ip netns exec next-next-hop ip route add default via 2001:db8:1::14
+    ip netns exec next-next-hop sysctl -qw net.ipv6.conf.all.forwarding=1
+    ip route add 2001:db8:1::48/123 via 2001:db8:1::13
+
+    ping -M do -s 1452 -c 2 2001:db8:1::50 || true
+    # Check cache with:
+    # $ ip route get 2001:db8:1::50
+    # 2001:db8:1::50 via 2001:db8:1::13 dev out6  src 2001:db8:1::12
+    #     cache  expires 536sec mtu 1400
+}
+
+# Add additional (non-working) paths
+ip route add default via 2001:db8:1::5
+ip route add 2001:db8:2::0/121 \
+   nexthop via 2001:db8:1::7 \
+   nexthop via 2001:db8:1::9
+ip route add 2001:db8:2::47/128 via 2001:db8:1::3
+ip route add 2001:db8:2::48/128 via 2001:db8:1::3
+ip route add 2001:db8:2::49/128 via 2001:db8:1::3
+ip route add 2001:db8:2::50/128 via 2001:db8:1::3
+
+# Same paths alone in a table
+ip route add default via 2001:db8:1::5 table 100
+ip route add 2001:db8:2::0/121 table 100 \
+   nexthop via 2001:db8:1::7 \
+   nexthop via 2001:db8:1::9
+ip route add 2001:db8:2::47/128 via 2001:db8:1::3 table 100
+ip route add 2001:db8:2::48/128 via 2001:db8:1::3 table 100
+ip route add 2001:db8:2::49/128 via 2001:db8:1::3 table 100
+ip route add 2001:db8:2::50/128 via 2001:db8:1::3 table 100
