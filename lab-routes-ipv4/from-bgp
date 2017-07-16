@@ -16,7 +16,7 @@ import logging
 import socket
 import gzip
 import mrtparse
-from itertools import islice, cycle
+from itertools import islice
 from pyroute2 import IPRoute, IPBatch
 
 
@@ -125,7 +125,7 @@ def routes(options):
     i = 0
     v4 = 0
     v6 = 0
-    for prefix in islice(cycle(routes), 0, options.routes * skip, skip):
+    for prefix in islice(routes, 0, options.routes * skip, skip):
         if ":" in prefix:
             v6 += 1
             yield dict(family=socket.AF_INET6,
