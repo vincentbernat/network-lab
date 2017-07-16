@@ -119,7 +119,7 @@ def routes(options):
                    if ":" in nh]
     logger.debug("%d v6 nexthops", len(v6_nexthops))
     routes = [p for p in all_routes(options)
-              if ":" in p and v6_nexthops or ":" not in ":" and v4_nexthops]
+              if ":" in p and v6_nexthops or ":" not in p and v4_nexthops]
     logger.debug("%d routes in MRT dump", len(routes))
     skip = max(1, int(len(routes) / options.routes))
     i = 0
