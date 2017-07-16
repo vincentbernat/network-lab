@@ -144,7 +144,8 @@ if __name__ == "__main__":
                 logger.debug("add %s", r)
                 b.route('add', **r)
             logger.debug("submit batch")
-            ip.sendto(b.batch, (0, 0))
+            if not options.dry_run:
+                ip.sendto(b.batch, (0, 0))
             b.reset()
 
         ip.close()
