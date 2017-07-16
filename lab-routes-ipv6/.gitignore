@@ -1,0 +1,11 @@
+/latest-bview.gz
+/from-bgp.cache
+/stats/
+
+/*.o
+/*.ko
+/.tmp*
+/*.cmd
+/*.mod.c
+/*.symvers
+/*.order

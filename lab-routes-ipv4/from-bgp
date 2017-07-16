@@ -16,7 +16,7 @@ import logging
 import socket
 import gzip
 import mrtparse
-from itertools import islice
+from itertools import islice, cycle
 from pyroute2 import IPRoute, IPBatch
 
 
@@ -42,9 +42,6 @@ def parse_args():
     parser.add_argument("--mrt-dump",
                         default="latest-bview.gz",
                         help="MRT dump file")
-    parser.add_argument("--mrt-length", type=int,
-                        default=1000000,
-                        help="approximate number of routes in the dump")
     parser.add_argument("--batch", metavar="N",
                         default=100, type=int,
                         help="group netlink request by this number")
@@ -87,12 +84,13 @@ def all_routes_once(options):
         m = m.mrt
         if m.type != mrtparse.MRT_T['TABLE_DUMP_V2']:
             continue
-        if m.subtype != mrtparse.TD_V2_ST['RIB_IPV4_UNICAST']:
+        if m.subtype not in (mrtparse.TD_V2_ST['RIB_IPV4_UNICAST'],
+                             mrtparse.TD_V2_ST['RIB_IPV6_UNICAST']):
             continue
         yield "{}/{}".format(m.rib.prefix, m.rib.plen)
 
 
-def all_routes_once_cached(options):
+def all_routes(options):
     """Generate all routes, from cache."""
     if not options.cache:
         for r in all_routes_once(options):
@@ -110,23 +108,37 @@ def all_routes_once_cached(options):
             yield l.decode('ascii').rstrip()
 
 
-def all_routes(options):
-    """Generate all routes forever. Only IPv4 unicast routes are yielded."""
-    while True:
-        for r in all_routes_once_cached(options):
-            yield r
-
-
 def routes(options):
     """Generate the routes to add."""
-    skip = max(1, int(options.mrt_length / options.routes))
+    v4_nexthops = [nh
+                   for nh in options.nexthops
+                   if ":" not in nh]
+    logger.debug("%d v4 nexthops", len(v4_nexthops))
+    v6_nexthops = [nh
+                   for nh in options.nexthops
+                   if ":" in nh]
+    logger.debug("%d v6 nexthops", len(v6_nexthops))
+    routes = [p for p in all_routes(options)
+              if ":" in p and v6_nexthops or ":" not in ":" and v4_nexthops]
+    logger.debug("%d routes in MRT dump", len(routes))
+    skip = max(1, int(len(routes) / options.routes))
     i = 0
-    for prefix in islice(all_routes(options), 0,
-                         options.routes * skip, skip):
-        yield dict(family=socket.AF_INET,
-                   dst=prefix,
-                   gateway=options.nexthops[i % len(options.nexthops)])
+    v4 = 0
+    v6 = 0
+    for prefix in islice(cycle(routes), 0, options.routes * skip, skip):
+        if ":" in prefix:
+            v6 += 1
+            yield dict(family=socket.AF_INET6,
+                       dst=prefix,
+                       gateway=v6_nexthops[i % len(v6_nexthops)])
+        else:
+            v4 += 1
+            yield dict(family=socket.AF_INET,
+                       dst=prefix,
+                       gateway=v4_nexthops[i % len(v4_nexthops)])
         i += 1
+    logger.debug("%d IPv4 routes, %d IPv6 routes",
+                 v4, v6)
 
 
 if __name__ == "__main__":
