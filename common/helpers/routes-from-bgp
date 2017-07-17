@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+
+"""Insert many routes from a MRT dump
+
+Those routes are inserted using the provided next-hops (in a round
+robin fashion).
+
+"""
+
+from __future__ import print_function
+
+import os
+import sys
+import argparse
+import logging
+import socket
+import gzip
+import mrtparse
+from itertools import islice
+from pyroute2 import IPRoute, IPBatch
+
+
+logger = logging.getLogger("from-bgp")
+
+
+def parse_args():
+    """Parse arguments."""
+    parser = argparse.ArgumentParser(
+        description=sys.modules[__name__].__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument("--debug", "-d", action="store_true",
+                        default=False,
+                        help="enable debugging")
+
+    parser.add_argument("-n", "--routes", metavar="N",
+                        default=100, type=int,
+                        help="number of routes to generate")
+    parser.add_argument("--dry-run", action="store_true",
+                        default=False,
+                        help="just print inserted routes")
+    parser.add_argument("--mrt-dump",
+                        default="latest-bview.gz",
+                        help="MRT dump file")
+    parser.add_argument("--batch", metavar="N",
+                        default=100, type=int,
+                        help="group netlink request by this number")
+    parser.add_argument("--cache", metavar="FILE",
+                        default="from-bgp.cache")
+
+    parser.add_argument("nexthops", metavar="IP", nargs="+",
+                        help="next-hop to use to insert routes")
+
+    return parser.parse_args()
+
+
+def setup_logging(options):
+    """Configure logging."""
+    root = logging.getLogger("")
+    root.setLevel(logging.WARNING)
+    logger.setLevel(options.debug and logging.DEBUG or logging.INFO)
+    ch = logging.StreamHandler()
+    ch.setFormatter(logging.Formatter(
+        "%(levelname)s[%(name)s] %(message)s"))
+    root.addHandler(ch)
+
+
+def rebuild_cache(options):
+    """Rebuild the cache."""
+    logger.info("rebuild cache")
+    i = 0
+    with gzip.GzipFile(options.cache, "w") as f:
+        for m in all_routes_once(options):
+            f.write(m.encode("ascii"))
+            f.write(b"\n")
+            i += 1
+    logger.info("cache rebuilt with %d entries", i)
+
+
+def all_routes_once(options):
+    """Generate all routes. Only IPv4 unicast routes are yielded."""
+    r = mrtparse.Reader(options.mrt_dump)
+    for m in r:
+        m = m.mrt
+        if m.type != mrtparse.MRT_T['TABLE_DUMP_V2']:
+            continue
+        if m.subtype not in (mrtparse.TD_V2_ST['RIB_IPV4_UNICAST'],
+                             mrtparse.TD_V2_ST['RIB_IPV6_UNICAST']):
+            continue
+        yield "{}/{}".format(m.rib.prefix, m.rib.plen)
+
+
+def all_routes(options):
+    """Generate all routes, from cache."""
+    if not options.cache:
+        for r in all_routes_once(options):
+            yield r
+        return
+    try:
+        cache = os.stat(options.cache)
+        dump = os.stat(options.mrt_dump)
+        if cache.st_mtime < dump.st_mtime:
+            rebuild_cache(options)
+    except FileNotFoundError:
+        rebuild_cache(options)
+    with gzip.open(options.cache, "r") as f:
+        for l in f:
+            yield l.decode('ascii').rstrip()
+
+
+def routes(options):
+    """Generate the routes to add."""
+    v4_nexthops = [nh
+                   for nh in options.nexthops
+                   if ":" not in nh]
+    logger.debug("%d v4 nexthops", len(v4_nexthops))
+    v6_nexthops = [nh
+                   for nh in options.nexthops
+                   if ":" in nh]
+    logger.debug("%d v6 nexthops", len(v6_nexthops))
+    routes = [p for p in all_routes(options)
+              if ":" in p and v6_nexthops or ":" not in p and v4_nexthops]
+    logger.debug("%d routes in MRT dump", len(routes))
+    skip = max(1, int(len(routes) / options.routes))
+    i = 0
+    v4 = 0
+    v6 = 0
+    for prefix in islice(routes, 0, options.routes * skip, skip):
+        if ":" in prefix:
+            v6 += 1
+            yield dict(family=socket.AF_INET6,
+                       dst=prefix,
+                       gateway=v6_nexthops[i % len(v6_nexthops)])
+        else:
+            v4 += 1
+            yield dict(family=socket.AF_INET,
+                       dst=prefix,
+                       gateway=v4_nexthops[i % len(v4_nexthops)])
+        i += 1
+    logger.debug("%d IPv4 routes, %d IPv6 routes",
+                 v4, v6)
+
+
+if __name__ == "__main__":
+    options = parse_args()
+    setup_logging(options)
+
+    try:
+        nexthops = options.nexthops
+        ip = IPRoute()
+        b = IPBatch()
+
+        it = iter(routes(options))
+        for rr in iter(lambda: tuple(islice(it, options.batch)), ()):
+            for r in rr:
+                logger.debug("add %s", r)
+                b.route('add', **r)
+            logger.debug("submit batch")
+            if not options.dry_run:
+                ip.sendto(b.batch, (0, 0))
+            b.reset()
+
+        ip.close()
+
+    except Exception as e:
+        logger.exception("%s", e)
+        sys.exit(1)
