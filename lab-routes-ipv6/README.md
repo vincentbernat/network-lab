@@ -56,15 +56,15 @@ IPv6. However, we can look at the SLAB cache for `ip6_dst_cache` and
 
 So, we have 126×64 + 130×384 bytes in this example.
 
-However, after 4.2 (commit d52d3997f843), there is also per-CPU
-pointers allocated (to avoid cache bouncing I suppose). They are
-allocated directly, so it's a bit difficult to track them. For cached
-entries, per-CPU entries seem to be only added when they are needed.
-
-Let's assume we don't have cached entries. So, for each `struct
-rt6_info`, we have one additional pointer (8 bytes) allocated per
-CPU. This extends the size of the object from 384 to 384+8×n. This
-matches my empiric observations.
+However, after 4.2 (commit d52d3997f843), there is also per-CPU copies
+allocated. They are allocated like normal entries but some pointers to
+manage them (`rt6i_pcpu`) are allocated directly, so it's a bit
+difficult to track them. For each `struct rt6_info`, we have one
+additional pointer (8 bytes) allocated per CPU. This extends the size
+of the object from 384 to 384+8×n. This matches my empiric
+observations. Cache entries may not have those additional pointers
+(dunno why). We assume they are rare enough to not warrant accounting
+for them.
 
 ## Statistics
 
