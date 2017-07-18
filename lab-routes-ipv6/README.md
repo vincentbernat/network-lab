@@ -1,6 +1,6 @@
 # Experiments with Linux IPv6 FIB6
 
-## About source routing
+## Source routing
 
 With `CONFIG_IPV6_SUBTREES`, you can insert source-specific routing
 entries. The lookup is first done on the most specific destination and
@@ -15,7 +15,7 @@ Babel, it became usable with 3.11 (3e3be275851b).
 
 We totally ignore this part.
 
-## About caching
+## Caching
 
 For IPv4, the (external) route cache has been removed in 3.6. Each
 next hop can have a list of "exceptions" (like MTU) attached to it. In
@@ -40,7 +40,7 @@ You can display the cache with `ip -6 route show cache`.
 For a router, we would assume that those entries should not exist
 (PMTU handling is done by hosts).
 
-## About memory
+## Memory
 
 While IPv4 gives easy access to memory use, this is not the case for
 IPv6. However, we can look at the SLAB cache for `ip6_dst_cache` and
@@ -54,9 +54,20 @@ IPv6. However, we can look at the SLAB cache for `ip6_dst_cache` and
     ip6_dst_cache         97    130    384   10    1 : tunables   54   27    0 : slabdata     13     13      0
     ip6_mrt_cache          0      0    192   21    1 : tunables  120   60    0 : slabdata      0      0      0
 
-So, we have 126*64 + 130*384 bytes in this example.
+So, we have 126×64 + 130×384 bytes in this example.
 
-## About statistics
+However, after 4.2 (commit d52d3997f843), there is also per-CPU
+entries allocated. They are allocated directly, so it's a bit
+difficult to track them. For regular routes, we can add *n* `struct
+rt6_info` where *n* is the number of CPU. For cached entries, per-CPU
+entries are only added when they are needed.
+
+Let's assume we don't have cached entries. So, for each `struct
+rt6_info`, we have one entry in the SLAB and one entry per CPU
+directly allocated. In the example above, the total memory used is:
+126×64 + 130×384 + 130×384×n.
+
+## Statistics
 
 Some very light statistics are kept for IPv6:
 
@@ -92,3 +103,72 @@ The next ones are `ip6_route_input_lookup()` and
 locally-generated packets). They end up calling `ip6_pol_route()`
 which calls `fib6_lookup()` and arrange to get a per-CPU copy of the
 DST entry.
+
+## Structures
+
+The main structure is `struct fib6_node`:
+
+    struct fib6_node {
+        struct fib6_node    *parent;
+        struct fib6_node    *left;
+        struct fib6_node    *right;
+    #ifdef CONFIG_IPV6_SUBTREES
+        struct fib6_node    *subtree;
+    #endif
+        struct rt6_info     *leaf;
+    
+        __u16           fn_bit;     /* bit key */
+        __u16           fn_flags;
+        int         fn_sernum;
+        struct rt6_info     *rr_ptr;
+    };
+
+`parent`, `left`, `right` and `fn_bit` implements the radix trie. A
+leaf node is one where `fn_flags` has the bit `RTN_INFO` set. When an
+appropriate entry is found, the possible routes associated to the
+prefix are present in `leaf`, a `struct rt6_info`:
+
+    struct rt6_info {
+        struct dst_entry        dst;
+    
+        /*
+         * Tail elements of dst_entry (__refcnt etc.)
+         * and these elements (rarely used in hot path) are in
+         * the same cache line.
+         */
+        struct fib6_table       *rt6i_table;
+        struct fib6_node        *rt6i_node;
+    
+        struct in6_addr         rt6i_gateway;
+    
+        /* Multipath routes:
+         * siblings is a list of rt6_info that have the the same metric/weight,
+         * destination, but not the same gateway. nsiblings is just a cache
+         * to speed up lookup.
+         */
+        struct list_head        rt6i_siblings;
+        unsigned int            rt6i_nsiblings;
+    
+        atomic_t            rt6i_ref;
+    
+        /* These are in a separate cache line. */
+        struct rt6key           rt6i_dst ____cacheline_aligned_in_smp;
+        u32             rt6i_flags;
+        struct rt6key           rt6i_src;
+        struct rt6key           rt6i_prefsrc;
+    
+        struct list_head        rt6i_uncached;
+        struct uncached_list        *rt6i_uncached_list;
+    
+        struct inet6_dev        *rt6i_idev;
+        struct rt6_info * __percpu  *rt6i_pcpu;
+    
+        u32             rt6i_metric;
+        u32             rt6i_pmtu;
+        /* more non-fragment space at head required */
+        unsigned short          rt6i_nfheader_len;
+        u8              rt6i_protocol;
+    };
+
+For ECMP routes, `rt6i_siblings` links the different routes. For
+non-ECMP routes, they are linked through `rt6_next` field of `dst`.
