@@ -57,15 +57,14 @@ IPv6. However, we can look at the SLAB cache for `ip6_dst_cache` and
 So, we have 126×64 + 130×384 bytes in this example.
 
 However, after 4.2 (commit d52d3997f843), there is also per-CPU
-entries allocated. They are allocated directly, so it's a bit
-difficult to track them. For regular routes, we can add *n* `struct
-rt6_info` where *n* is the number of CPU. For cached entries, per-CPU
-entries are only added when they are needed.
+pointers allocated (to avoid cache bouncing I suppose). They are
+allocated directly, so it's a bit difficult to track them. For cached
+entries, per-CPU entries seem to be only added when they are needed.
 
 Let's assume we don't have cached entries. So, for each `struct
-rt6_info`, we have one entry in the SLAB and one entry per CPU
-directly allocated. In the example above, the total memory used is:
-126×64 + 130×384 + 130×384×n.
+rt6_info`, we have one additional pointer (8 bytes) allocated per
+CPU. This extends the size of the object from 384 to 384+8×n. This
+matches my empiric observations.
 
 ## Statistics
 
