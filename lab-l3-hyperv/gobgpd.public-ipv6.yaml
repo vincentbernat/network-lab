@@ -19,6 +19,10 @@ peer-groups:
       config:
         receive: true
         send-max: 8
+    ttl-security:
+      config:
+        enabled: true
+        ttl-min: 255
 dynamic-neighbors:
   - config:
       peer-group: rr-client

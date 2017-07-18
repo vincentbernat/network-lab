@@ -308,11 +308,7 @@ EOF
             RR4) service quagga ;;
             RR5)
                 log_begin_msg "Start gobgpd"
-                # gobgpd doesn't allow to set TTL
-                iptables -t mangle -I OUTPUT -p tcp --dport 179 -j TTL --ttl-set 255
-                iptables -t mangle -I OUTPUT -p tcp --sport 179 -j TTL --ttl-set 255
-                ip6tables -t mangle -I OUTPUT -p tcp --dport 179 -j HL --hl-set 255
-                ip6tables -t mangle -I OUTPUT -p tcp --sport 179 -j HL --hl-set 255
+                # Assuming GoBGP 1.22 (with proper TTL security support)
                 gobgpd -t yaml -f /mnt/lab/gobgpd.public-ipv4.yaml \
                        --syslog yes --disable-stdlog --pprof-disable --api-hosts 127.0.0.1:50051 &
                 gobgpd -t yaml -f /mnt/lab/gobgpd.public-ipv6.yaml \
