@@ -41,6 +41,9 @@
 #define DEFAULT_DST_IPADDR_E	0xdfffffff
 #define DEFAULT_SRC_IPADDR	0x00000000
 
+#define HIST_BUCKETS		10
+#define HIST_WIDTH		50
+
 static unsigned long	warmup_count	= DEFAULT_WARMUP_COUNT;
 static unsigned long	loop_count	= DEFAULT_LOOP_COUNT;
 static int		flow_oif	= DEFAULT_OIF;
@@ -99,13 +102,13 @@ static unsigned long long percentile(int p,
 	return (sorted[index] + sorted[index+1]) / 2;
 }
 
-static int do_bench(char *buf)
+static int do_bench(char *buf, int verbose)
 {
 	unsigned long long *results;
 	unsigned long long t1, t2, average;
 	struct fib_result res;
-	int err, l;
-	unsigned long i, total, delta = 0;
+	int err;
+	unsigned long i, j, total, count, delta = 0;
 	bool scan;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
 	struct flowi fl4;
@@ -178,21 +181,60 @@ static int do_bench(char *buf)
 	/* Compute percentiles */
 	sort(results, total, sizeof(*results), compare, NULL);
 	if (total == 0) {
-		l = scnprintf(buf, PAGE_SIZE, "msg=\"no match\"\n");
+		scnprintf(buf, PAGE_SIZE, "msg=\"no match\"\n");
 	} else {
-		l = scnprintf(buf, PAGE_SIZE,
-			      "min=%llu max=%llu count=%lu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
-			      results[0],
-			      results[total - 1],
-			      total,
-			      average/total,
-			      percentile(50, results, total),
-			      percentile(90, results, total),
-			      percentile(95, results, total));
+		scnprintf(buf, PAGE_SIZE,
+			  "min=%llu max=%llu count=%lu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
+			  results[0],
+			  results[total - 1],
+			  total,
+			  average/total,
+			  percentile(50, results, total),
+			  percentile(90, results, total),
+			  percentile(95, results, total));
+		if (verbose) {
+			/* Display an histogram */
+			unsigned long long share = (results[total - 1] - results[0]) / HIST_BUCKETS;
+			unsigned long long start = results[0];
+			int order = (ilog2(share) * 3 + 5) / 10;
+			char *hist_buf = buf + strnlen(buf, PAGE_SIZE);
+
+			if (order <= 0) order = 1;
+			for (i = order, order = 1; i > 1; i--) {
+				order *= 10;
+			}
+			share = share/order * order;
+			if (share <= 0) share = 1;
+			start = start/order * order;
+
+			hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf, " %8s │", "value");
+			hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf, "%*s", HIST_WIDTH, "");
+			hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf, " %8s\n", "count");
+
+			for (i = 0, count = 0;;) {
+				if (i < total &&
+				    results[i] < start + share) {
+					count++; i++;
+					continue;
+				}
+				hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf,
+						      " %8llu │", start);
+				for (j = 0; j < count * HIST_WIDTH / total; j++)
+					hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf,
+							      "▒");
+				hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf,
+						      "%*s %8lu\n",
+						      (int)(HIST_WIDTH - count * HIST_WIDTH / total), "",
+						      count);
+				count = 0;
+				start += share;
+				if (i >= total) break;
+			}
+		}
 	}
 
 	kfree(results);
-	return l;
+	return strnlen(buf, PAGE_SIZE);
 }
 
 /* Sysfs attributes */
@@ -435,7 +477,13 @@ static ssize_t flow_src_ipaddr_store(struct kobject *kobj, struct kobj_attribute
 static ssize_t run_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buf)
 {
-	return do_bench(buf);
+	return do_bench(buf, 0);
+}
+
+static ssize_t run_verbose_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf)
+{
+	return do_bench(buf, 1);
 }
 
 
@@ -449,6 +497,7 @@ static struct kobj_attribute	flow_dst_ipaddr_s_attr = __ATTR_RW(flow_dst_ipaddr_
 static struct kobj_attribute	flow_dst_ipaddr_e_attr = __ATTR_RW(flow_dst_ipaddr_e);
 static struct kobj_attribute	flow_src_ipaddr_attr   = __ATTR_RW(flow_src_ipaddr);
 static struct kobj_attribute	run_attr	       = __ATTR_RO(run);
+static struct kobj_attribute	run_verbose_attr       = __ATTR_RO(run_verbose);
 
 static struct attribute *bench_attributes[] = {
 	&warmup_count_attr.attr,
@@ -461,6 +510,7 @@ static struct attribute *bench_attributes[] = {
 	&flow_dst_ipaddr_e_attr.attr,
 	&flow_src_ipaddr_attr.attr,
 	&run_attr.attr,
+	&run_verbose_attr.attr,
 	NULL
 };
 
