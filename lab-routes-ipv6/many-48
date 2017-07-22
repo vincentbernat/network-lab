@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Insert many /32 routes.
+"""Insert many /48 routes.
 
 Those routes are inserted using the provided next-hops (in a round
 robin fashion).
@@ -11,9 +11,9 @@ import sys
 import argparse
 import logging
 import socket
-import struct
 import random
 import math
+import ipaddress
 from itertools import islice
 from pyroute2 import IPRoute, IPBatch
 
@@ -34,12 +34,16 @@ def parse_args():
     parser.add_argument("-n", "--routes", metavar="N",
                         default=100, type=int,
                         help="number of routes to generate")
-    parser.add_argument("--subnets", metavar="N",
-                        default=4, type=int,
-                        help="number of /8 subnets to use")
+    parser.add_argument("--start", metavar="IP",
+                        default="2001:db8:a::",
+                        type=ipaddress.IPv6Address,
+                        help="IP address to start from")
     parser.add_argument("--density", metavar="N",
                         default=0.7, type=float,
                         help="density of leaf nodes (1=dense)")
+    parser.add_argument("--prefix-length", metavar="N",
+                        default=48, type=int,
+                        help="prefix length to use for inserted subnets")
     parser.add_argument("--dry-run", action="store_true",
                         default=False,
                         help="just print inserted routes")
@@ -66,16 +70,13 @@ def setup_logging(options):
 
 def routes(options):
     """Generate the routes to add."""
-    ip = 0
-    for s in range(options.subnets):
-        ip += 1 << 24
-        ip &= 0xff << 24
-        for i in range(int(options.routes / options.subnets)):
-            ip += int(math.ceil(1/options.density * (1-random.random())))
-            yield dict(family=socket.AF_INET,
-                       dst="{}/32".format(socket.inet_ntoa(
-                           struct.pack('!L', ip))),
-                       gateway=options.nexthops[i % len(options.nexthops)])
+    ip = options.start
+    for i in range(int(options.routes)):
+        inc = int(math.ceil(1/options.density * (1-random.random())))
+        ip += inc << (128 - options.prefix_length)
+        yield dict(family=socket.AF_INET6,
+                   dst="{}/{}".format(ip, options.prefix_length),
+                   gateway=options.nexthops[i % len(options.nexthops)])
 
 
 if __name__ == "__main__":
