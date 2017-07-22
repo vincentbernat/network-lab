@@ -183,6 +183,7 @@ static int do_bench(char *buf, int verbose)
 	if (total == 0) {
 		scnprintf(buf, PAGE_SIZE, "msg=\"no match\"\n");
 	} else {
+		unsigned long long per95 = percentile(95, results, total);
 		scnprintf(buf, PAGE_SIZE,
 			  "min=%llu max=%llu count=%lu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
 			  results[0],
@@ -191,10 +192,10 @@ static int do_bench(char *buf, int verbose)
 			  average/total,
 			  percentile(50, results, total),
 			  percentile(90, results, total),
-			  percentile(95, results, total));
+			  per95);
 		if (verbose) {
 			/* Display an histogram */
-			unsigned long long share = (results[total - 1] - results[0]) / HIST_BUCKETS;
+			unsigned long long share = (per95 - results[0]) / HIST_BUCKETS;
 			unsigned long long start = results[0];
 			int order = (ilog2(share) * 3 + 5) / 10;
 			char *hist_buf = buf + strnlen(buf, PAGE_SIZE);
@@ -229,6 +230,7 @@ static int do_bench(char *buf, int verbose)
 				count = 0;
 				start += share;
 				if (i >= total) break;
+				if (results[i] > per95) break;
 			}
 		}
 	}
