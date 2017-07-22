@@ -7,7 +7,7 @@ for routes in 100 1000 10000 20000 50000 100000 200000 500000; do
     ip route flush scope global
     sleep 1
     /usr/bin/time --verbose -o stats/full/time.$routes \
-                  ./from-bgp -n $routes --batch 1000 \
+                  ./insert-from-bgp -n $routes --batch 1000 \
                   203.0.113.3 203.0.113.5  203.0.113.7 \
                   203.0.113.9 203.0.113.11 203.0.113.13
     cat /proc/net/fib_triestat > stats/full/stat.$routes

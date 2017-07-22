@@ -30,7 +30,7 @@
 #
 #     ip link del out6
 #     ip route flush scope global
-#     ./from-bgp -n 10000 --batch 1000 \
+#     ./insert-from-bgp -n 10000 --batch 1000 \
 #          203.0.113.3 203.0.113.5  203.0.113.7 \
 #          203.0.113.9 203.0.113.11
 #     ip route save scope global > stats/bgp-10000

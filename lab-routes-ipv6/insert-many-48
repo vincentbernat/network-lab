@@ -18,7 +18,7 @@ from itertools import islice
 from pyroute2 import IPRoute, IPBatch
 
 
-logger = logging.getLogger("many-32")
+logger = logging.getLogger("insert-many-48")
 
 
 def parse_args():

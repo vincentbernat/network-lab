@@ -20,7 +20,7 @@ from itertools import islice
 from pyroute2 import IPRoute, IPBatch
 
 
-logger = logging.getLogger("from-bgp")
+logger = logging.getLogger("insert-from-bgp")
 
 
 def parse_args():
@@ -46,7 +46,7 @@ def parse_args():
                         default=100, type=int,
                         help="group netlink request by this number")
     parser.add_argument("--cache", metavar="FILE",
-                        default="from-bgp.cache")
+                        default="insert-from-bgp.cache")
 
     parser.add_argument("nexthops", metavar="IP", nargs="+",
                         help="next-hop to use to insert routes")
