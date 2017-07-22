@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+
+"""Insert many /128 routes inside a given /64.
+
+Those routes are inserted using the provided next-hops (in a round
+robin fashion). Inserted addresses are EUI addresses with some fixed
+OUI.
+
+"""
+
+import sys
+import argparse
+import logging
+import socket
+import ipaddress
+from itertools import islice
+from pyroute2 import IPRoute, IPBatch
+
+
+logger = logging.getLogger("insert-many-128")
+
+
+def parse_args():
+    """Parse arguments."""
+    parser = argparse.ArgumentParser(
+        description=sys.modules[__name__].__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    parser.add_argument("--debug", "-d", action="store_true",
+                        default=False,
+                        help="enable debugging")
+
+    parser.add_argument("-n", "--routes", metavar="N",
+                        default=100, type=int,
+                        help="number of routes to generate")
+    parser.add_argument("--subnet", metavar="IP",
+                        default="2001:db8:b::",
+                        type=ipaddress.IPv6Address,
+                        help="/64 subnet to use to insert addresses")
+    parser.add_argument("--oui", metavar="OUI",
+                        default="52:54:00",
+                        help="OUI to use for all MAC addresses")
+    parser.add_argument("--seed", metavar="N",
+                        default=45742, type=int,
+                        help="Seed to use to initialize random generator")
+    parser.add_argument("--dry-run", action="store_true",
+                        default=False,
+                        help="just print inserted routes")
+    parser.add_argument("--batch", metavar="N",
+                        default=100, type=int,
+                        help="group netlink request by this number")
+
+    parser.add_argument("nexthops", metavar="IP", nargs="+",
+                        help="next-hop to use to insert routes")
+
+    return parser.parse_args()
+
+
+def setup_logging(options):
+    """Configure logging."""
+    root = logging.getLogger("")
+    root.setLevel(logging.WARNING)
+    logger.setLevel(options.debug and logging.DEBUG or logging.INFO)
+    ch = logging.StreamHandler()
+    ch.setFormatter(logging.Formatter(
+        "%(levelname)s[%(name)s] %(message)s"))
+    root.addHandler(ch)
+
+
+def lcg24(options):
+    """Get next 24-bit random number."""
+    x = options.seed
+    a = 1140671485              # 5*59*59*65537
+    m = 1 << 24
+    c = 12820163
+    # Full-period LCG
+    # See: https://en.wikipedia.org/wiki/Linear_congruential_generator
+    # a and m are relatively prime (no common factors except 1)
+    # a - 1 is divisible by 2
+    # a - 1 is divisible by 4
+    while True:
+        x = (a*x+c) % m
+        yield x
+
+
+def routes(options):
+    """Generate the routes to add."""
+    oui = sum([int(x, 16) * (256**i)
+               for i, x in enumerate(options.oui.split(":")[::-1])])
+    base = options.subnet
+    base += (oui << 40) + (0xff << 32) + (0xfe << 24)
+    for i, rnd24 in zip(range(int(options.routes)), lcg24(options)):
+        ip = base + rnd24
+        yield dict(family=socket.AF_INET6,
+                   dst="{}/128".format(ip),
+                   gateway=options.nexthops[i % len(options.nexthops)])
+
+
+if __name__ == "__main__":
+    options = parse_args()
+    setup_logging(options)
+
+    try:
+        nexthops = options.nexthops
+        ip = IPRoute()
+        b = IPBatch()
+
+        it = iter(routes(options))
+        for rr in iter(lambda: tuple(islice(it, options.batch)), ()):
+            for r in rr:
+                logger.debug("add %s", r)
+                b.route('add', **r)
+            logger.debug("submit batch")
+            if not options.dry_run:
+                ip.sendto(b.batch, (0, 0))
+            b.reset()
+
+        ip.close()
+
+    except Exception as e:
+        logger.exception("%s", e)
+        sys.exit(1)
