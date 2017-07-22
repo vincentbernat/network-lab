@@ -41,7 +41,7 @@
 #define DEFAULT_DST_IPADDR_E	0xdfffffff
 #define DEFAULT_SRC_IPADDR	0x00000000
 
-#define HIST_BUCKETS		10
+#define HIST_BUCKETS		15
 #define HIST_WIDTH		50
 
 static unsigned long	warmup_count	= DEFAULT_WARMUP_COUNT;
@@ -108,7 +108,7 @@ static int do_bench(char *buf, int verbose)
 	unsigned long long t1, t2, average;
 	struct fib_result res;
 	int err;
-	unsigned long i, j, total, count, delta = 0;
+	unsigned long i, j, total, count, count2, delta = 0;
 	bool scan;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
 	struct flowi fl4;
@@ -213,13 +213,15 @@ static int do_bench(char *buf, int verbose)
 			start = start/order * order;
 
 			hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf, " %8s │", "value");
-			hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf, "%*s", HIST_WIDTH, "");
+			hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf, "%*s┊%*s",
+					      HIST_WIDTH/2, "",
+					      HIST_WIDTH/2-1, "");
 			hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf, " %8s\n", "count");
 
-			for (i = 0, count = 0;;) {
+			for (i = 0, count = 0, count2 = 0;;) {
 				if (i < total &&
 				    results[i] < start + share) {
-					count++; i++;
+					count++; count2++; i++;
 					continue;
 				}
 				hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf,
@@ -227,9 +229,12 @@ static int do_bench(char *buf, int verbose)
 				for (j = 0; j < count * HIST_WIDTH / total; j++)
 					hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf,
 							      "▒");
+				for (; j < count2 * HIST_WIDTH / total; j++)
+					hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf,
+							      "░");
 				hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf,
 						      "%*s %8lu\n",
-						      (int)(HIST_WIDTH - count * HIST_WIDTH / total), "",
+						      (int)(HIST_WIDTH - count2 * HIST_WIDTH / total), "",
 						      count);
 				count = 0;
 				start += share;
