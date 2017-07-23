@@ -6,9 +6,6 @@
  *
  * The module only acts on the initial network namespace.
  *
- * Some parts of this module is not safe if routing table is modified
- * while the bench is collecting statistics.
- *
  * Copyright (C) 2017 Vincent Bernat
  * Based on https://git.kernel.org/pub/scm/linux/kernel/git/davem/net_test_tools.git/tree/kbench_mod.c
  *
@@ -283,7 +280,9 @@ static int do_bench(char *buf, int verbose)
 		struct fib6_table *table = init_net.ipv6.fib6_main_tbl;
 		unsigned long avgdepth, maxdepth;
 		unsigned long long per95 = percentile(95, results, total);
+		read_lock_bh(&table->tb6_lock);
 		collect_depth(&table->tb6_root, &avgdepth, &maxdepth);
+		read_unlock_bh(&table->tb6_lock);
 		scnprintf(buf, PAGE_SIZE,
 			  "min=%llu max=%llu count=%lu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
 			  results[0],
