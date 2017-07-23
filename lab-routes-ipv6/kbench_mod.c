@@ -6,6 +6,9 @@
  *
  * The module only acts on the initial network namespace.
  *
+ * Some parts of this module is not safe if routing table is modified
+ * while the bench is collecting statistics.
+ *
  * Copyright (C) 2017 Vincent Bernat
  * Based on https://git.kernel.org/pub/scm/linux/kernel/git/davem/net_test_tools.git/tree/kbench_mod.c
  *
@@ -26,6 +29,7 @@
 #include <linux/mutex.h>
 
 #include <net/ip6_route.h>
+#include <net/ip6_fib.h>
 
 #include <linux/timex.h>
 
@@ -86,6 +90,91 @@ static unsigned long long percentile(int p,
 	if (index2 < 0)
 		index2 = index;
 	return (sorted[index] + sorted[index+1]) / 2;
+}
+
+#ifdef CONFIG_IPV6_SUBTREES
+#define FWS_INIT FWS_S
+#else
+#define FWS_INIT FWS_L
+#endif
+
+static void collect_depth(struct fib6_node *root,
+			  unsigned long *avgdepth, unsigned long *maxdepth)
+{
+	unsigned long totdepth, depth;
+	unsigned int count;
+	struct fib6_node *fn, *pn, *node;
+	struct rt6_info *leaf;
+	enum fib6_walk_state state;
+	for (node = root, leaf = NULL,
+		     depth = 0, totdepth = 0, count = 0, *maxdepth = 0, *avgdepth = 0,
+		     state = FWS_INIT;;) {
+		fn = node;
+		if (!fn)
+			goto end;
+		switch (state) {
+#ifdef CONFIG_IPV6_SUBTREES
+		case FWS_S:
+			if (FIB6_SUBTREE(fn)) {
+				node = FIB6_SUBTREE(fn);
+				continue;
+			}
+			state = FWS_L;
+#endif
+		case FWS_L:
+			if (fn->left) {
+				node = fn->left;
+				depth++;
+				state = FWS_INIT;
+				continue;
+			}
+			state = FWS_R;
+		case FWS_R:
+			if (fn->right) {
+				node = fn->right;
+				depth++;
+				state = FWS_INIT;
+				continue;
+			}
+			state = FWS_C;
+			leaf = fn->leaf;
+		case FWS_C:
+			if (leaf && fn->fn_flags & RTN_RTINFO) {
+				totdepth += depth;
+				count++;
+				if (depth > *maxdepth)
+					*maxdepth = depth;
+				leaf = NULL;
+				continue;
+			}
+			state = FWS_U;
+		case FWS_U:
+			if (fn == root) {
+				goto end;
+			}
+			pn = fn->parent;
+			node = pn;
+			depth--;
+#ifdef CONFIG_IPV6_SUBTREES
+			if (FIB6_SUBTREE(pn) == fn) {
+				WARN_ON(!(fn->fn_flags & RTN_ROOT));
+				state = FWS_L;
+				continue;
+			}
+#endif
+			if (pn->left == fn) {
+				state = FWS_R;
+				continue;
+			}
+			if (pn->right == fn) {
+				state = FWS_C;
+				leaf = node->leaf;
+				continue;
+			}
+		}
+	}
+end:
+	if (count > 0) *avgdepth = totdepth*10 / count;
 }
 
 static int do_bench(char *buf, int verbose)
@@ -186,12 +275,15 @@ static int do_bench(char *buf, int verbose)
 	}
 	mutex_unlock(&kb_lock);
 
-	/* Compute percentiles */
+	/* Compute statistics */
 	sort(results, total, sizeof(*results), compare, NULL);
 	if (total == 0) {
 		scnprintf(buf, PAGE_SIZE, "msg=\"no match\"\n");
 	} else {
+		struct fib6_table *table = init_net.ipv6.fib6_main_tbl;
+		unsigned long avgdepth, maxdepth;
 		unsigned long long per95 = percentile(95, results, total);
+		collect_depth(&table->tb6_root, &avgdepth, &maxdepth);
 		scnprintf(buf, PAGE_SIZE,
 			  "min=%llu max=%llu count=%lu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
 			  results[0],
@@ -201,6 +293,9 @@ static int do_bench(char *buf, int verbose)
 			  percentile(50, results, total),
 			  percentile(90, results, total),
 			  per95);
+		scnprintf(buf + strnlen(buf, PAGE_SIZE), PAGE_SIZE - strnlen(buf, PAGE_SIZE),
+			  "table=%u avgdepth=%lu.%lu maxdepth=%lu\n",
+			  table->tb6_id, avgdepth/10, avgdepth%10, maxdepth);
 		if (verbose) {
 			/* Display an histogram */
 			unsigned long long share = (per95 - results[0]) / HIST_BUCKETS;
