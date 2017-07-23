@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+
+"""Plot results from the lab."""
+
+import os
+import glob
+import re
+import collections
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import ticker
+from scipy import stats
+
+FREQ = 3.7  # GHz (frequency of CPU while the tests were run)
+
+
+def extract_stats(t1, t2, t3):
+    """Extract stats from time dump (t1), kbench output (t2) and
+    /proc/slabinfo (t3)"""
+    stats = {}
+    if t1 is not None:
+        with open(t1) as f:
+            time = dict(l.lstrip().split(": ", 1)
+                        for l in f.readlines()
+                        if l.startswith("\t"))
+            stats['utime'] = float(time["User time (seconds)"])
+            stats['stime'] = float(time["System time (seconds)"])
+    if t2 is not None:
+        with open(t2) as f:
+            fields = f.readline().strip().split(" ")
+            fields.extend(f.readline().strip().split(" "))
+            stats.update({"kbench-{}".format(f[0]): float(f[1])
+                          for f in (f.split("=", 1) for f in fields)})
+    if t3 is not None:
+        with open(t3) as f:
+            used = 0
+            for line in f:
+                fields = re.split(r" +", line.strip())
+                if fields[0] in ["fib6_nodes", "ip6_dst_cache"]:
+                    used += int(fields[1], 10) * int(fields[3], 10)
+            stats['memory'] = used
+    return stats
+
+
+# Full view stats
+full = {}
+for t1 in glob.glob("stats/full/time.*"):
+    _, count = os.path.splitext(t1)
+    count = int(count[1:])
+    t2 = "stats/full/kbench.{}".format(count)
+    t3 = "stats/full/slab.{}".format(count)
+    if count == 0:
+        count = 10
+    full[count] = extract_stats(t1, t2, t3)
+
+# /48 stats
+subnets = collections.defaultdict(dict)
+for t1 in glob.glob("stats/many-48/time.*"):
+    ext = t1[len("stats/many-48/time."):]
+    count, density = ext.split("-")
+    count = int(count)
+    density = float(density)
+    t2 = "stats/many-48/kbench.{}".format(ext)
+    t3 = "stats/many-48/slab.{}".format(ext)
+    if count == 0:
+        count = 10
+    subnets[density][count] = extract_stats(t1, t2, t3)
+
+# /128
+hosts = {}
+for t1 in glob.glob("stats/many-128/time.*"):
+    _, count = os.path.splitext(t1)
+    count = int(count[1:])
+    t2 = "stats/many-128/kbench.{}".format(count)
+    t3 = "stats/many-128/slab.{}".format(count)
+    if count == 0:
+        count = 10
+    hosts[count] = extract_stats(t1, t2, t3)
+
+
+def plot(ax, facet, linreg=True):
+    """Plot a given facet on the provided axes."""
+    xmaxmax = -np.inf
+    xminmin = np.inf
+    if not callable(facet):
+        ofacet = facet
+        facet = lambda x: x[ofacet]
+
+    # /48 with density
+    if subnets is not None:
+        radians = np.linspace(0, 2*np.pi, len(subnets))
+        colors = plt.cm.Reds(np.linspace(0.2, 1, len(subnets)))
+        for r, c, density in zip(radians,
+                                 colors,
+                                 sorted(subnets.keys())):
+            x = np.array(sorted(subnets[density].keys()))
+            y = np.array([facet(subnets[density][k]) for k in x])
+            xmax = np.log10(np.max(x))
+            ymax = np.max(y)
+            xminmin = min(np.min(x), xminmin)
+            xmaxmax = max(np.max(x), xmaxmax)
+            ax.scatter(x * 10**(xmax/50*np.cos(r)),
+                       y + ymax/50*np.sin(r),
+                       color=c,
+                       label="/48, density {}".format(density))
+
+    # Full view
+    x = np.array(sorted(full.keys()))
+    y = np.array([facet(full[k]) for k in x])
+    xminmin = min(np.min(x), xminmin)
+    xmaxmax = max(np.max(x), xmaxmax)
+    slope, intercept, _, _, _ = stats.linregress(x, y)
+    ax.scatter(x * 10**(xmax/120), y, color='b', label="from full view")
+
+    # /128
+    x = np.array(sorted(hosts.keys()))
+    y = np.array([facet(hosts[k]) for k in x])
+    xminmin = min(np.min(x), xminmin)
+    xmaxmax = max(np.max(x), xmaxmax)
+    ax.scatter(x, y, color='g', label="/128 (random)")
+
+    # Linreg
+    if linreg:
+        x = np.linspace(xminmin, xmaxmax, 1000)
+        ax.plot(x, slope*x,     # assume intercept =~ 0
+                color='blue', lw=1, zorder=-1, alpha=0.2)
+
+    # Misc
+    ax.set_xscale("log")
+    ax.get_xaxis().set_major_formatter(
+        ticker.EngFormatter())
+    ax.get_yaxis().set_major_formatter(
+        ticker.EngFormatter())
+
+
+def save(fig, ax, name, legend=True, mxin=1., myin=1.):
+    """Save a figure after adding the legend."""
+    axes = fig.get_axes()
+    cols = max(a.colNum + 1 for a in axes)
+    rows = max(a.rowNum + 1 for a in axes)
+    if legend:
+        axes[0].legend(loc='upper left',
+                       bbox_to_anchor=(1.1, 1),
+                       borderaxespad=0.,
+                       frameon=False)
+    xin, yin = cols*4, rows*3
+    xin *= mxin
+    yin *= myin
+    if len(axes) == 1 or len(axes) % 2 == 0:
+        if legend:
+            xin += 3
+    fig.set_size_inches(xin, yin)
+    fig.savefig("stats/stats-{}.svg".format(name),
+                facecolor='white',
+                dpi=96,
+                bbox_inches='tight')
+
+
+with plt.style.context([
+        'fivethirtyeight', {'axes.labelsize': 'small',
+                            'axes.titleweight': 'medium',
+                            'axes.titlesize': 'large',
+                            'axes.facecolor': 'white',
+                            'axes.linewidth': 0.0,
+                            'font.size': 10.0,
+                            'grid.linewidth': 0.75,
+                            'font.family': ['Roboto', 'sans-serif'],
+                            'font.weight': 'light'}]):
+    fig = plt.figure()
+    ax = fig.add_subplot(221)
+    plot(ax, 'kbench-maxdepth', linreg=False)
+    ax.set_title("maximum depth")
+    ax = fig.add_subplot(223)
+    plot(ax,
+         lambda x: x['kbench-50th']/FREQ,
+         linreg=False)
+    ax.set_title("lookup time")
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
+    save(fig, ax, "maxdepth")
+
+    fig = plt.figure()
+    ax = fig.add_subplot(121)
+    plot(ax, 'memory')
+    ax.set_title("memory usage")
+    ax.get_yaxis().set_major_locator(ticker.MultipleLocator(base=1024*1024*128))
+    ax.get_yaxis().set_major_formatter(
+        ticker.FuncFormatter(lambda y, _: "%d MiB" % (y/1024/1024)))
+    save(fig, ax, "memory")
+
+    fig = plt.figure()
+    ax = fig.add_subplot(121)
+    plot(ax, 'stime')
+    ax.set_title("insertion time")
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d s"))
+    save(fig, ax, "time")
+
+# plt.show()
