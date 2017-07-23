@@ -7,7 +7,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 # Which VM to spawn
 KERNELPARAMS=slab_nomerge
-MEM=512M spawn vm R1
+MEM=2048M spawn vm R1
 
 run
 
