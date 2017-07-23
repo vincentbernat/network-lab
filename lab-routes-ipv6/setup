@@ -37,14 +37,14 @@ done
     ip netns exec next-hop ip link set up dev out7
     ip netns exec next-hop ip addr add 2001:db8:1::13/127 dev in6
     ip netns exec next-hop ip addr add 2001:db8:1::14/127 dev out7
-    ip netns exec next-hop ip route add default via 2001:db8:1::15
+    ip netns exec next-hop ip route add default via 2001:db8:1::15 proto static
     ip netns exec next-hop sysctl -qw net.ipv6.conf.all.forwarding=1
     ip netns exec next-next-hop ip link set up dev in7
     ip netns exec next-next-hop ip addr add 2001:db8:1::15/127 dev in7
     ip netns exec next-next-hop ip addr add 2001:db8:1::50/128 dev in7
-    ip netns exec next-next-hop ip route add default via 2001:db8:1::14
+    ip netns exec next-next-hop ip route add default via 2001:db8:1::14 proto static
     ip netns exec next-next-hop sysctl -qw net.ipv6.conf.all.forwarding=1
-    ip route add 2001:db8:1::48/123 via 2001:db8:1::13
+    ip route add 2001:db8:1::48/123 via 2001:db8:1::13 proto static
 
     ping -M do -s 1452 -c 2 2001:db8:1::50 || true
     # Check cache with:
@@ -54,14 +54,14 @@ done
 }
 
 # Add additional (non-working) paths
-ip route add default via 2001:db8:1::5
-ip route add 2001:db8:2::0/121 \
+ip route add default via 2001:db8:1::5 proto static
+ip route add 2001:db8:2::0/121 proto static \
    nexthop via 2001:db8:1::7 \
    nexthop via 2001:db8:1::9
-ip route add 2001:db8:2::47/128 via 2001:db8:1::3
-ip route add 2001:db8:2::48/128 via 2001:db8:1::3
-ip route add 2001:db8:2::49/128 via 2001:db8:1::3
-ip route add 2001:db8:2::50/128 via 2001:db8:1::3
+ip route add 2001:db8:2::47/128 via 2001:db8:1::3 proto static
+ip route add 2001:db8:2::48/128 via 2001:db8:1::3 proto static
+ip route add 2001:db8:2::49/128 via 2001:db8:1::3 proto static
+ip route add 2001:db8:2::50/128 via 2001:db8:1::3 proto static
 
 # Same paths alone in a table
 ip route add default via 2001:db8:1::5 table 100
