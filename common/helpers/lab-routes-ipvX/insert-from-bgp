@@ -16,6 +16,7 @@ import logging
 import socket
 import gzip
 import mrtparse
+import ipaddress
 from itertools import islice
 from pyroute2 import IPRoute, IPBatch
 
@@ -47,6 +48,8 @@ def parse_args():
                         help="group netlink request by this number")
     parser.add_argument("--cache", metavar="FILE",
                         default="insert-from-bgp.cache")
+    parser.add_argument("--range", metavar="FILE",
+                        help="store first and last address in FILE")
 
     parser.add_argument("nexthops", metavar="IP", nargs="+",
                         help="next-hop to use to insert routes")
@@ -151,10 +154,17 @@ if __name__ == "__main__":
         nexthops = options.nexthops
         ip = IPRoute()
         b = IPBatch()
+        first = None
+        last = None
 
         it = iter(routes(options))
         for rr in iter(lambda: tuple(islice(it, options.batch)), ()):
             for r in rr:
+                cur = ipaddress.ip_network(r['dst'])
+                if first is None or cur[0] < first:
+                    first = cur[0]
+                if last is None or cur[-1] > last:
+                    last = cur[-1]
                 logger.debug("add %s", r)
                 b.route('add', **r)
             logger.debug("submit batch")
@@ -163,6 +173,9 @@ if __name__ == "__main__":
             b.reset()
 
         ip.close()
+        if options.range is not None:
+            with open(options.range, "w") as f:
+                f.write('{}\n{}\n'.format(first, last))
 
     except Exception as e:
         logger.exception("%s", e)

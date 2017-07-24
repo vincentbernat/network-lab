@@ -16,8 +16,8 @@ for routes in 100 500 1000 2000 5000 10000 20000 30000 40000 50000 100000 200000
         cat /proc/net/rt6_stats > stats/many-48/stat.$routes-$density
         sed -ne 1,2p -e '/^ip6/p' -e '/^fib6/p' /proc/slabinfo > stats/many-48/slab.$routes-$density
         [ -d /sys/kernel/kbench ] && {
-            head -1 stats/many-48/range.$routes-$density | sed s+/48++ > /sys/kernel/kbench/flow_dst_ipaddr_s
-            tail -1 stats/many-48/range.$routes-$density | sed s+/48++ > /sys/kernel/kbench/flow_dst_ipaddr_e
+            head -1 stats/many-48/range.$routes-$density > /sys/kernel/kbench/flow_dst_ipaddr_s
+            tail -1 stats/many-48/range.$routes-$density > /sys/kernel/kbench/flow_dst_ipaddr_e
             cat /sys/kernel/kbench/run_verbose > stats/many-48/kbench.$routes-$density
         }
     done

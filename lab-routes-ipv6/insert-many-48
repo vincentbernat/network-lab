@@ -96,8 +96,8 @@ if __name__ == "__main__":
         for rr in iter(lambda: tuple(islice(it, options.batch)), ()):
             for r in rr:
                 if first is None:
-                    first = r['dst']
-                last = r['dst']
+                    first = ipaddress.ip_network(r['dst'])[0]
+                last = ipaddress.ip_network(r['dst'])[-1]
                 logger.debug("add %s", r)
                 b.route('add', **r)
             logger.debug("submit batch")
