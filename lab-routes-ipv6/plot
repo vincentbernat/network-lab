@@ -104,6 +104,13 @@ def plot(ax, facet, linreg=True):
                        color=c,
                        label="/48, density {}".format(density))
 
+    # /128
+    x = np.array(sorted(hosts.keys()))
+    y = np.array([facet(hosts[k]) for k in x])
+    xminmin = min(np.min(x), xminmin)
+    xmaxmax = max(np.max(x), xmaxmax)
+    ax.scatter(x, y, color='g', label="/128 (random)")
+
     # Full view
     x = np.array(sorted(full.keys()))
     y = np.array([facet(full[k]) for k in x])
@@ -111,13 +118,6 @@ def plot(ax, facet, linreg=True):
     xmaxmax = max(np.max(x), xmaxmax)
     slope, intercept, _, _, _ = stats.linregress(x, y)
     ax.scatter(x * 10**(xmax/120), y, color='b', label="from full view")
-
-    # /128
-    x = np.array(sorted(hosts.keys()))
-    y = np.array([facet(hosts[k]) for k in x])
-    xminmin = min(np.min(x), xminmin)
-    xmaxmax = max(np.max(x), xmaxmax)
-    ax.scatter(x, y, color='g', label="/128 (random)")
 
     # Linreg
     if linreg:
