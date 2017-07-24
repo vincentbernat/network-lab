@@ -175,7 +175,7 @@ non-ECMP routes, they are linked through `rt6_next` field of `dst`.
 ## Performance
 
 Even with an almost empty routing table, the performance of IPv6
-lookup is worse than its IPv4 counter-part. Using of `perf record -F
+lookup is worse than its IPv4 counter-part. Use of `perf record -F
 9999 --all-kernel -g -- cat /sys/kernel/kbench/run` can help to
 pinpoint the problem:
 
@@ -189,3 +189,6 @@ pinpoint the problem:
 
  - Locking is done with a read lock, which is more expensive than the
    RCU mechanism used for IPv4. About 10% of the time is lost here.
+
+As a quick experiment, with 100 routes, compiling-out support for
+tables double the performance of the lookup.
