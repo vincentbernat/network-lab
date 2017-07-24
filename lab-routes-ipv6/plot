@@ -127,6 +127,7 @@ def plot(ax, facet, linreg=True):
 
     # Misc
     ax.set_xscale("log")
+    ax.set_xlim(xminmin*0.9)
     ax.get_xaxis().set_major_formatter(
         ticker.EngFormatter())
     ax.get_yaxis().set_major_formatter(
@@ -143,7 +144,7 @@ def save(fig, ax, name, legend=True, mxin=1., myin=1.):
                        bbox_to_anchor=(1.1, 1),
                        borderaxespad=0.,
                        frameon=False)
-    xin, yin = cols*4, rows*3
+    xin, yin = cols*6, rows*3
     xin *= mxin
     yin *= myin
     if len(axes) == 1 or len(axes) % 2 == 0:
@@ -172,10 +173,10 @@ with plt.style.context([
     ax.set_title("maximum depth")
     ax = fig.add_subplot(223)
     plot(ax,
-         lambda x: x['kbench-50th']/FREQ,
+         lambda x: x['kbench-50th']/FREQ/1000,
          linreg=False)
     ax.set_title("lookup time")
-    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%.2f µs"))
     save(fig, ax, "maxdepth")
 
     fig = plt.figure()
