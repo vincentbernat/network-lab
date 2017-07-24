@@ -38,6 +38,8 @@ def parse_args():
                         default="2001:db8:a::",
                         type=ipaddress.IPv6Address,
                         help="IP address to start from")
+    parser.add_argument("--range", metavar="FILE",
+                        help="store first and last address in FILE")
     parser.add_argument("--density", metavar="N",
                         default=0.7, type=float,
                         help="density of leaf nodes (1=dense)")
@@ -87,10 +89,15 @@ if __name__ == "__main__":
         nexthops = options.nexthops
         ip = IPRoute()
         b = IPBatch()
+        first = None
+        last = None
 
         it = iter(routes(options))
         for rr in iter(lambda: tuple(islice(it, options.batch)), ()):
             for r in rr:
+                if first is None:
+                    first = r['dst']
+                last = r['dst']
                 logger.debug("add %s", r)
                 b.route('add', **r)
             logger.debug("submit batch")
@@ -99,6 +106,9 @@ if __name__ == "__main__":
             b.reset()
 
         ip.close()
+        if options.range is not None:
+            with open(options.range, "w") as f:
+                f.write('{}\n{}\n'.format(first, last))
 
     except Exception as e:
         logger.exception("%s", e)
