@@ -171,3 +171,21 @@ prefix are present in `leaf`, a `struct rt6_info`:
 
 For ECMP routes, `rt6i_siblings` links the different routes. For
 non-ECMP routes, they are linked through `rt6_next` field of `dst`.
+
+## Performance
+
+Even with an almost empty routing table, the performance of IPv6
+lookup is worse than its IPv4 counter-part. Using of `perf record -F
+9999 --all-kernel -g -- cat /sys/kernel/kbench/run` can help to
+pinpoint the problem:
+
+ - Policy rules are always evaluated, even when they are
+   untouched. This is not the case for IPv4. With an almost empty
+   routing table, 30% of the time is spent in evaluating those rules.
+
+ - Main and local tables are not merged. A first match is done against
+   local, then a second one is done for main. About 10% of the time is
+   lost in this check (always with almost empty tables).
+
+ - Locking is done with a read lock, which is more expensive than the
+   RCU mechanism used for IPv4. About 10% of the time is lost here.
