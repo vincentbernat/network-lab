@@ -24,6 +24,7 @@
 #include <linux/sort.h>
 #include <linux/netdevice.h>
 #include <linux/mutex.h>
+#include <linux/random.h>
 
 #include <net/ip6_route.h>
 #include <net/ip6_fib.h>
@@ -32,6 +33,7 @@
 
 #define DEFAULT_WARMUP_COUNT	100000
 #define DEFAULT_LOOP_COUNT	5000
+#define DEFAULT_MAX_LOOP_COUNT	1000000
 #define DEFAULT_OIF		0
 #define DEFAULT_IIF		0
 #define DEFAULT_MARK		0x00000000
@@ -46,6 +48,7 @@
 
 static unsigned long	warmup_count	= DEFAULT_WARMUP_COUNT;
 static unsigned long	loop_count	= DEFAULT_LOOP_COUNT;
+static unsigned long	max_loop_count	= DEFAULT_MAX_LOOP_COUNT;
 static int		flow_oif	= DEFAULT_OIF;
 static int		flow_iif	= DEFAULT_IIF;
 static u32		flow_label	= DEFAULT_LABEL;
@@ -239,8 +242,10 @@ static int do_bench(char *buf, int verbose)
 	}
 
 	average = 0;
-	for (i = total = 0; i < loop_count; i++) {
+	for (i = total = 0; i < max_loop_count; i++) {
 		struct dst_entry *dst;
+		if (total >= loop_count)
+			break;
 		if (scan) {
 			for (j = 0, carry = 0; j < 4; j++) {
 				carry = ((uint64_t)ntohl(fl6.daddr.s6_addr32[3-j]) +
@@ -250,9 +255,28 @@ static int do_bench(char *buf, int verbose)
 								 ntohl(delta.s6_addr32[3-j]) +
 								 carry);
 			}
-			if (!memcmp(&fl6.daddr, &flow_dst_ipaddr_e, sizeof(flow_dst_ipaddr_e)))
-				/* This only happens if delta == 1 */
+			if (ntohl(fl6.daddr.s6_addr32[0]) > ntohl(flow_dst_ipaddr_e.s6_addr32[0]) ||
+			    (ntohl(fl6.daddr.s6_addr32[0]) == ntohl(flow_dst_ipaddr_e.s6_addr32[0]) &&
+			     (ntohl(fl6.daddr.s6_addr32[1]) > ntohl(flow_dst_ipaddr_e.s6_addr32[1]) ||
+			      (ntohl(fl6.daddr.s6_addr32[1]) == ntohl(flow_dst_ipaddr_e.s6_addr32[1]) &&
+			       (ntohl(fl6.daddr.s6_addr32[2]) > ntohl(flow_dst_ipaddr_e.s6_addr32[2]) ||
+				(ntohl(fl6.daddr.s6_addr32[2]) == ntohl(flow_dst_ipaddr_e.s6_addr32[2]) &&
+				 ntohl(fl6.daddr.s6_addr32[3]) > ntohl(flow_dst_ipaddr_e.s6_addr32[3]))))))) {
 				memcpy(&fl6.daddr, &flow_dst_ipaddr_s, sizeof(flow_dst_ipaddr_s));
+				/* Add a bit of randomness to the
+				 * first step to avoid using the same
+				 * routes. */
+				for (j = 0, carry = 0; j < 4; j++) {
+					uint32_t add = ntohl(delta.s6_addr32[3-j]);
+					add &= get_random_u32();
+					carry = ((uint64_t)ntohl(fl6.daddr.s6_addr32[3-j]) +
+						 add +
+						 carry > U32_MAX);
+					fl6.daddr.s6_addr32[3-j] = htonl(ntohl(fl6.daddr.s6_addr32[3-j]) +
+									 add +
+									 carry);
+				}
+			}
 		}
 		local_irq_disable();
 		preempt_disable();
@@ -394,6 +418,31 @@ static ssize_t loop_count_store(struct kobject *kobj, struct kobj_attribute *att
 		return -EINVAL;
 	mutex_lock(&kb_lock);
 	loop_count = val;
+	mutex_unlock(&kb_lock);
+	return count;
+}
+
+static ssize_t max_loop_count_show(struct kobject *kobj, struct kobj_attribute *attr,
+			       char *buf)
+{
+	ssize_t res;
+	mutex_lock(&kb_lock);
+	res = scnprintf(buf, PAGE_SIZE, "%lu\n", max_loop_count);
+	mutex_unlock(&kb_lock);
+	return res;
+}
+
+static ssize_t max_loop_count_store(struct kobject *kobj, struct kobj_attribute *attr,
+				const char *buf, size_t count)
+{
+	unsigned long val;
+	int err = kstrtoul(buf, 0, &val);
+	if (err < 0)
+		return err;
+	if (val < 1)
+		return -EINVAL;
+	mutex_lock(&kb_lock);
+	max_loop_count = val;
 	mutex_unlock(&kb_lock);
 	return count;
 }
@@ -608,6 +657,7 @@ static ssize_t run_verbose_show(struct kobject *kobj, struct kobj_attribute *att
 
 static struct kobj_attribute	warmup_count_attr      = __ATTR_RW(warmup_count);
 static struct kobj_attribute	loop_count_attr	       = __ATTR_RW(loop_count);
+static struct kobj_attribute	max_loop_count_attr    = __ATTR_RW(max_loop_count);
 static struct kobj_attribute	flow_oif_attr	       = __ATTR_RW(flow_oif);
 static struct kobj_attribute	flow_iif_attr	       = __ATTR_RW(flow_iif);
 static struct kobj_attribute	flow_label_attr	       = __ATTR_RW(flow_label);
@@ -621,6 +671,7 @@ static struct kobj_attribute	run_verbose_attr       = __ATTR_RO(run_verbose);
 static struct attribute *bench_attributes[] = {
 	&warmup_count_attr.attr,
 	&loop_count_attr.attr,
+	&max_loop_count_attr.attr,
 	&flow_oif_attr.attr,
 	&flow_iif_attr.attr,
 	&flow_label_attr.attr,
