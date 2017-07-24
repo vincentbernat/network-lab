@@ -110,6 +110,8 @@ def all_routes(options):
 
 def routes(options):
     """Generate the routes to add."""
+    if options.routes == 0:
+        return
     v4_nexthops = [nh
                    for nh in options.nexthops
                    if ":" not in nh]
