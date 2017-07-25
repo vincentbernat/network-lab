@@ -268,7 +268,7 @@ static int do_bench(char *buf, int verbose)
 				 * routes. */
 				for (j = 0, carry = 0; j < 4; j++) {
 					uint32_t add = ntohl(delta.s6_addr32[3-j]);
-					add &= get_random_u32();
+					add &= (uint32_t)get_random_int();
 					carry = ((uint64_t)ntohl(fl6.daddr.s6_addr32[3-j]) +
 						 add +
 						 carry > U32_MAX);
