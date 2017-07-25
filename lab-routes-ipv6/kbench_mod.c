@@ -278,13 +278,9 @@ static int do_bench(char *buf, int verbose)
 				}
 			}
 		}
-		local_irq_disable();
-		preempt_disable();
 		t1 = get_cycles();
 		dst = ip6_route_output_flags(&init_net, NULL, &fl6, 0);
 		t2 = get_cycles();
-		preempt_enable();
-		local_irq_enable();
 		if (dst->error == -ENETUNREACH) {
 			dst_release(dst);
 			continue;
