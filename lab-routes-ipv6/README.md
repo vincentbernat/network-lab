@@ -190,5 +190,8 @@ pinpoint the problem:
  - Locking is done with a read lock, which is more expensive than the
    RCU mechanism used for IPv4. About 10% of the time is lost here.
 
-As a quick experiment, with 100 routes, compiling-out support for
-tables double the performance of the lookup.
+This can be observed with some flamegraphs: `v6-flamegraph.svg` and
+`v4-flamegraph.svg` (unmerged routing tables, IP rules evaluated,
+otherwise all time is spent in `fib_table_lookup()`). In both cases,
+routing table only contain a default route. IPv6 just needs to get the
+same optimization than for IPv4 with respect to the routing tables.
