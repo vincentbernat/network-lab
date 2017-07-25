@@ -38,6 +38,10 @@ def extract_stats(t1, t2, t3):
                 fields = re.split(r" +", line.strip())
                 if fields[0] in ["fib6_nodes", "ip6_dst_cache"]:
                     used += int(fields[1], 10) * int(fields[3], 10)
+                if fields[0] == "fib6_nodes":
+                    stats['nodes'] = int(fields[1], 10)
+                if fields[0] == "ip6_dst_cache":
+                    stats['leaves'] = int(fields[1], 10)
             stats['memory'] = used
     return stats
 
@@ -194,5 +198,11 @@ with plt.style.context([
     ax.set_title("insertion time")
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d s"))
     save(fig, ax, "time")
+
+    fig = plt.figure()
+    ax = fig.add_subplot(121)
+    plot(ax, 'nodes')
+    ax.set_title("nodes")
+    save(fig, ax, "nodes")
 
 # plt.show()
