@@ -194,4 +194,7 @@ This can be observed with some flamegraphs: `v6-flamegraph.svg` and
 `v4-flamegraph.svg` (unmerged routing tables, IP rules evaluated,
 otherwise all time is spent in `fib_table_lookup()`). In both cases,
 routing table only contain a default route. IPv6 just needs to get the
-same optimization than for IPv4 with respect to the routing tables.
+same optimization than for IPv4 with respect to the routing
+tables. Note that in the IPv4 case, there are 2 calls to
+fib_table_lookup() (local, main) but as they are on the same level, we
+only see one.
