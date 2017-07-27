@@ -66,6 +66,9 @@ observations. Cache entries may not have those additional pointers
 (dunno why). We assume they are rare enough to not warrant accounting
 for them.
 
+In 4.12, a `struct rt6_info` is 336 bytes and a `struct fib6_node` is
+48 bytes.
+
 ## Statistics
 
 Some very light statistics are kept for IPv6:
