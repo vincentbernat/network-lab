@@ -201,3 +201,8 @@ same optimization than for IPv4 with respect to the routing
 tables. Note that in the IPv4 case, there are 2 calls to
 fib_table_lookup() (local, main) but as they are on the same level, we
 only see one.
+
+A small test with 40k routes show that compiling-out table support
+saves about 100ns. Compiling-out subtree support only saves less than
+5%. This roughly matches the flamegraph (75% time spent in
+`ip6_pol_route_output` for a total of 300ns minus 5%).
