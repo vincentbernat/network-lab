@@ -37,11 +37,11 @@ def extract_stats(t1, t2, t3):
             for line in f:
                 fields = re.split(r" +", line.strip())
                 if fields[0] in ["fib6_nodes", "ip6_dst_cache"]:
-                    used += int(fields[1], 10) * int(fields[3], 10)
+                    used += int(fields[2], 10) * int(fields[3], 10)
                 if fields[0] == "fib6_nodes":
-                    stats['nodes'] = int(fields[1], 10)
+                    stats['nodes'] = int(fields[2], 10)
                 if fields[0] == "ip6_dst_cache":
-                    stats['leaves'] = int(fields[1], 10)
+                    stats['leaves'] = int(fields[2], 10)
             stats['memory'] = used
     return stats
 
