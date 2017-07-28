@@ -82,7 +82,7 @@ for t1 in glob.glob("stats/many-128/time.*"):
     hosts[count] = extract_stats(t1, t2, t3)
 
 
-def plot(ax, facet, linreg=True):
+def plot(ax, facet, linreg=True, vmax=None):
     """Plot a given facet on the provided axes."""
     xmaxmax = -np.inf
     xminmin = np.inf
@@ -104,7 +104,7 @@ def plot(ax, facet, linreg=True):
             xminmin = min(np.min(x), xminmin)
             xmaxmax = max(np.max(x), xmaxmax)
             ax.scatter(x * 10**(xmax/50*np.cos(r)),
-                       y + ymax/50*np.sin(r),
+                       y + (vmax if vmax is not None else ymax)/50*np.sin(r),
                        color=c,
                        label="/48, density {}".format(density))
 
@@ -184,16 +184,22 @@ with plt.style.context([
     save(fig, ax, "maxdepth")
 
     fig = plt.figure()
-    ax = fig.add_subplot(121)
+    ax = fig.add_subplot(221)
     plot(ax, 'memory')
     ax.set_title("memory usage")
     ax.get_yaxis().set_major_locator(ticker.MultipleLocator(base=1024*1024*128))
     ax.get_yaxis().set_major_formatter(
         ticker.FuncFormatter(lambda y, _: "%d MiB" % (y/1024/1024)))
+    ax = fig.add_subplot(223)
+    plot(ax, 'memory', vmax=1024*1024*64)
+    ax.set_ylim(top=1024*1024*64, bottom=-4*1204*1024)
+    ax.get_yaxis().set_major_locator(ticker.MultipleLocator(base=1024*1024*10))
+    ax.get_yaxis().set_major_formatter(
+        ticker.FuncFormatter(lambda y, _: "%d MiB" % (y/1024/1024)))
     save(fig, ax, "memory")
 
     fig = plt.figure()
-    ax = fig.add_subplot(121)
+    ax = fig.add_subplot(221)
     plot(ax, 'stime')
     ax.set_title("insertion time")
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d s"))
