@@ -91,42 +91,6 @@ static unsigned long long percentile(int p,
 	return (sorted[index] + sorted[index+1]) / 2;
 }
 
-static unsigned long stddev(unsigned long long *sorted,
-			    unsigned long long average,
-			    unsigned int count)
-{
-	unsigned long long result = 0, iresult = 0, power;
-	unsigned int i;
-	for (i = 0; i < count; i++) {
-		if (sorted[i] > average)
-			power = (sorted[i] - average)*(sorted[i] - average);
-		else
-			power = (average - sorted[i])*(average - sorted[i]);
-		if (iresult > ULLONG_MAX - power) {
-			iresult /= count - 1;
-			if (result > ULLONG_MAX - iresult) {
-				/* Overflow... */
-				return ULONG_MAX;
-			}
-			result += iresult;
-			iresult = 0;
-		}
-		iresult += power;
-	}
-	iresult /= count - 1;
-	if (result > ULLONG_MAX - iresult) {
-		/* Overflow... */
-		return ULONG_MAX;
-	}
-	result += iresult;
-	if (result > ULONG_MAX) {
-		/* Overflow before square root */
-		return ULONG_MAX;
-	}
-	result = int_sqrt(result);
-	return result;
-}
-
 static unsigned long long mad(unsigned long long *sorted,
 			      unsigned long long median,
 			      unsigned count)
@@ -370,12 +334,11 @@ static int do_bench(char *buf, int verbose)
 		collect_depth(&table->tb6_root, &avgdepth, &maxdepth);
 		read_unlock_bh(&table->tb6_lock);
 		scnprintf(buf, PAGE_SIZE,
-			  "min=%llu max=%llu count=%lu average=%llu stddev=%lu 95th=%llu 90th=%llu 50th=%llu mad=%llu\n",
+			  "min=%llu max=%llu count=%lu average=%llu 95th=%llu 90th=%llu 50th=%llu mad=%llu\n",
 			  results[0],
 			  results[total - 1],
 			  total,
 			  average,
-			  stddev(results, average, total),
 			  p95,
 			  p90,
 			  p50,
