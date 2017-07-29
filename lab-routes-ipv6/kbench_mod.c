@@ -65,7 +65,7 @@ static DEFINE_MUTEX(kb_lock);
 				_name##_show, _name##_store)
 #endif
 
-/* Benchmark */
+/* Helpers */
 
 static int compare(const void *lhs, const void *rhs) {
     unsigned long long lhs_integer = *(const unsigned long long *)(lhs);
@@ -125,6 +125,25 @@ static unsigned long stddev(unsigned long long *sorted,
 	}
 	result = int_sqrt(result);
 	return result;
+}
+
+static unsigned long long mad(unsigned long long *sorted,
+			      unsigned long long median,
+			      unsigned count)
+{
+	unsigned long long *dmedian = kmalloc(sizeof(unsigned long long) * count, GFP_KERNEL);
+	unsigned long long res;
+	unsigned i;
+	for (i = 0; i < count; i++) {
+		if (sorted[i] > median)
+			dmedian[i] = sorted[i] - median;
+		else
+			dmedian[i] = median - sorted[i];
+	}
+	sort(dmedian, count, sizeof(unsigned long long), compare, NULL);
+	res = percentile(50, dmedian, count);
+	kfree(dmedian);
+	return res;
 }
 
 static void lcg32(uint32_t *cur)
@@ -216,6 +235,8 @@ static void collect_depth(struct fib6_node *root,
 end:
 	if (count > 0) *avgdepth = totdepth*10 / count;
 }
+
+/* Benchmark */
 
 static int do_bench(char *buf, int verbose)
 {
@@ -341,26 +362,30 @@ static int do_bench(char *buf, int verbose)
 	} else {
 		struct fib6_table *table = init_net.ipv6.fib6_main_tbl;
 		unsigned long avgdepth, maxdepth;
-		unsigned long long per95 = percentile(95, results, total);
+		unsigned long long p95 = percentile(95, results, total);
+		unsigned long long p90 = percentile(90, results, total);
+		unsigned long long p50 = percentile(50, results, total);
+		average /= total;
 		read_lock_bh(&table->tb6_lock);
 		collect_depth(&table->tb6_root, &avgdepth, &maxdepth);
 		read_unlock_bh(&table->tb6_lock);
 		scnprintf(buf, PAGE_SIZE,
-			  "min=%llu max=%llu count=%lu average=%llu stddev=%lu 50th=%llu 90th=%llu 95th=%llu\n",
+			  "min=%llu max=%llu count=%lu average=%llu stddev=%lu 95th=%llu 90th=%llu 50th=%llu mad=%llu\n",
 			  results[0],
 			  results[total - 1],
 			  total,
-			  average/total,
-			  stddev(results, average/total, total),
-			  percentile(50, results, total),
-			  percentile(90, results, total),
-			  per95);
+			  average,
+			  stddev(results, average, total),
+			  p95,
+			  p90,
+			  p50,
+			  mad(results, p50, total));
 		scnprintf(buf + strnlen(buf, PAGE_SIZE), PAGE_SIZE - strnlen(buf, PAGE_SIZE),
 			  "table=%u avgdepth=%lu.%lu maxdepth=%lu\n",
 			  table->tb6_id, avgdepth/10, avgdepth%10, maxdepth);
 		if (verbose) {
 			/* Display an histogram */
-			unsigned long long share = (per95 - results[0]) / HIST_BUCKETS;
+			unsigned long long share = (p95 - results[0]) / HIST_BUCKETS;
 			unsigned long long start = results[0];
 			int order = (ilog2(share) * 3 + 5) / 10;
 			char *hist_buf = buf + strnlen(buf, PAGE_SIZE);
@@ -400,7 +425,7 @@ static int do_bench(char *buf, int verbose)
 				count = 0;
 				start += share;
 				if (i >= total) break;
-				if (results[i] > per95) break;
+				if (results[i] > p95) break;
 			}
 		}
 	}
