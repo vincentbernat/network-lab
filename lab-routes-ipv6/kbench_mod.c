@@ -24,7 +24,6 @@
 #include <linux/sort.h>
 #include <linux/netdevice.h>
 #include <linux/mutex.h>
-#include <linux/random.h>
 
 #include <net/ip6_route.h>
 #include <net/ip6_fib.h>
@@ -90,6 +89,11 @@ static unsigned long long percentile(int p,
 	if (index2 < 0)
 		index2 = index;
 	return (sorted[index] + sorted[index+1]) / 2;
+}
+
+static void lcg32(uint32_t *cur)
+{
+	*cur = *cur * 1664525 + 1013904223;
 }
 
 #ifdef CONFIG_IPV6_SUBTREES
@@ -183,6 +187,7 @@ static int do_bench(char *buf, int verbose)
 	unsigned long long t1, t2, average;
 	unsigned long i, j, total, count, count2, carry;
 	bool scan;
+	uint32_t rnd = 0;
 	struct flowi6 fl6;
 	struct in6_addr delta = {};
 
@@ -263,12 +268,13 @@ static int do_bench(char *buf, int verbose)
 				(ntohl(fl6.daddr.s6_addr32[2]) == ntohl(flow_dst_ipaddr_e.s6_addr32[2]) &&
 				 ntohl(fl6.daddr.s6_addr32[3]) > ntohl(flow_dst_ipaddr_e.s6_addr32[3]))))))) {
 				memcpy(&fl6.daddr, &flow_dst_ipaddr_s, sizeof(flow_dst_ipaddr_s));
-				/* Add a bit of randomness to the
-				 * first step to avoid using the same
-				 * routes. */
+				/* Add a bit of (reproducible)
+				 * randomness to the first step to
+				 * avoid using the same routes. */
 				for (j = 0, carry = 0; j < 4; j++) {
 					uint32_t add = ntohl(delta.s6_addr32[3-j]);
-					add &= (uint32_t)get_random_int();
+					lcg32(&rnd);
+					add &= rnd;
 					carry = ((uint64_t)ntohl(fl6.daddr.s6_addr32[3-j]) +
 						 add +
 						 carry > U32_MAX);
