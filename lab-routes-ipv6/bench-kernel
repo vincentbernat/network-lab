@@ -112,6 +112,10 @@ for i in 1 2 3 4 5; do
     ip addr add 2001:db8:1::$((i*2))/31 dev out$i
 done
 set -x
+sysctl -qw net.ipv6.route.gc_interval=7200
+sysctl -qw net.ipv6.route.gc_min_interval=7200
+sysctl -qw net.ipv6.route.gc_thresh=1000000
+sysctl -qw net.ipv6.route.max_size=1000000
 insmod /kbench_mod.ko
 echo 100000 > /sys/kernel/kbench/loop_count
 cat /proc/version | tee /dev/ttyS1

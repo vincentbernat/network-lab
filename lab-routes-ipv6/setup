@@ -12,6 +12,10 @@ MEM=2048M spawn vm R1
 run
 
 sysctl -qw net.ipv6.conf.all.forwarding=1
+sysctl -qw net.ipv6.route.gc_interval=7200
+sysctl -qw net.ipv6.route.gc_min_interval=7200
+sysctl -qw net.ipv6.route.gc_thresh=1000000
+sysctl -qw net.ipv6.route.max_size=1000000
 
 # Set some output interfaces
 for i in $(seq 1 5); do
