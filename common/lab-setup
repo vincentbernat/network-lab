@@ -426,6 +426,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -nodefconfig -nodefaults \
      -display none \
      -m ${MEM:-128M} \
+     -cpu host \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
