@@ -91,6 +91,42 @@ static unsigned long long percentile(int p,
 	return (sorted[index] + sorted[index+1]) / 2;
 }
 
+static unsigned long stddev(unsigned long long *sorted,
+			    unsigned long long average,
+			    unsigned int count)
+{
+	unsigned long long result = 0, iresult = 0, power;
+	unsigned int i;
+	for (i = 0; i < count; i++) {
+		if (sorted[i] > average)
+			power = (sorted[i] - average)*(sorted[i] - average);
+		else
+			power = (average - sorted[i])*(average - sorted[i]);
+		if (iresult > ULLONG_MAX - power) {
+			iresult /= count - 1;
+			if (result > ULLONG_MAX - iresult) {
+				/* Overflow... */
+				return ULONG_MAX;
+			}
+			result += iresult;
+			iresult = 0;
+		}
+		iresult += power;
+	}
+	iresult /= count - 1;
+	if (result > ULLONG_MAX - iresult) {
+		/* Overflow... */
+		return ULONG_MAX;
+	}
+	result += iresult;
+	if (result > ULONG_MAX) {
+		/* Overflow before square root */
+		return ULONG_MAX;
+	}
+	result = int_sqrt(result);
+	return result;
+}
+
 static void lcg32(uint32_t *cur)
 {
 	*cur = *cur * 1664525 + 1013904223;
@@ -310,11 +346,12 @@ static int do_bench(char *buf, int verbose)
 		collect_depth(&table->tb6_root, &avgdepth, &maxdepth);
 		read_unlock_bh(&table->tb6_lock);
 		scnprintf(buf, PAGE_SIZE,
-			  "min=%llu max=%llu count=%lu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
+			  "min=%llu max=%llu count=%lu average=%llu stddev=%lu 50th=%llu 90th=%llu 95th=%llu\n",
 			  results[0],
 			  results[total - 1],
 			  total,
 			  average/total,
+			  stddev(results, average/total, total),
 			  percentile(50, results, total),
 			  percentile(90, results, total),
 			  per95);
