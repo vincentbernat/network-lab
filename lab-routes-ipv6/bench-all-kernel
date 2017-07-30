@@ -24,7 +24,7 @@ for version in $(git --git-dir="$TREE"/.git tag \
          3.15.*) git cherry-pick dd727f0191ea ;;
          3.17.*) git cherry-pick b28283637b3b ;;
          3.19.*) git cherry-pick 99124e4db5b7 ;;
-         3.[1356].*) git cherry-pick 83b53b8cc693 ;;
+         2.6.39|3.[1356].*) git cherry-pick 83b53b8cc693 ;;
      esac)
     case $version in
         3.[02489].*)
@@ -33,7 +33,7 @@ for version in $(git --git-dir="$TREE"/.git tag \
         3.[567].*)
             (cd "$TREE"; git am) < 0001-netlink-ignore-unknown-attributes-2.patch
             ;;
-        3.[13].*)
+        2.6.39|3.[13].*)
             (cd "$TREE"; git am) < 0001-netlink-ignore-unknown-attributes-3.patch
             ;;
     esac
