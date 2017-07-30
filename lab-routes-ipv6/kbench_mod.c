@@ -110,7 +110,7 @@ static unsigned long long mad(unsigned long long *sorted,
 	return res;
 }
 
-static void lcg32(uint32_t *cur)
+static void lcg32(unsigned long *cur)
 {
 	*cur = *cur * 1664525 + 1013904223;
 }
@@ -210,7 +210,7 @@ static int do_bench(char *buf, int verbose)
 	unsigned long long t1, t2, average;
 	unsigned long i, j, total, count, count2, carry;
 	bool scan;
-	uint32_t rnd = 0;
+	unsigned long rnd = 0;
 	struct flowi6 fl6;
 	struct in6_addr delta = {};
 
@@ -228,7 +228,7 @@ static int do_bench(char *buf, int verbose)
 	memcpy(&fl6.daddr, &flow_dst_ipaddr_s, sizeof(flow_dst_ipaddr_s));
 	memcpy(&fl6.saddr, &flow_src_ipaddr, sizeof(flow_src_ipaddr));
 	for (i = 0, carry = 0; i < 4; i++) {
-		if ((uint64_t)ntohl(flow_dst_ipaddr_s.s6_addr32[3 - i]) + carry <=
+		if ((unsigned long long)ntohl(flow_dst_ipaddr_s.s6_addr32[3 - i]) + carry <=
 		    ntohl(flow_dst_ipaddr_e.s6_addr32[3 - i])) {
 			delta.s6_addr32[3-i] = ntohl(flow_dst_ipaddr_e.s6_addr32[3 - i]) -
 				ntohl(flow_dst_ipaddr_s.s6_addr32[3 - i]) -
@@ -243,11 +243,11 @@ static int do_bench(char *buf, int verbose)
 	if (carry == 0 &&
 	    (delta.s6_addr32[0] != 0 || delta.s6_addr32[1] != 0 ||
 	     delta.s6_addr32[2] != 0 || delta.s6_addr32[3] != 0)) {
-		uint32_t rem;
-		uint64_t quo;
+		unsigned long rem;
+		unsigned long long quo;
 		scan = true;
 		for (i = 0, rem = 0; i < 4; i++) {
-			quo = delta.s6_addr32[i] + ((uint64_t)rem << 32);
+			quo = delta.s6_addr32[i] + ((unsigned long long)rem << 32);
 			rem = quo % loop_count;
 			quo /= loop_count;
 			delta.s6_addr32[i] = quo;
@@ -276,9 +276,9 @@ static int do_bench(char *buf, int verbose)
 			break;
 		if (scan) {
 			for (j = 0, carry = 0; j < 4; j++) {
-				carry = ((uint64_t)ntohl(fl6.daddr.s6_addr32[3-j]) +
+				carry = ((unsigned long long)ntohl(fl6.daddr.s6_addr32[3-j]) +
 					 ntohl(delta.s6_addr32[3-j]) +
-					 carry > U32_MAX);
+					 carry > ULONG_MAX);
 				fl6.daddr.s6_addr32[3-j] = htonl(ntohl(fl6.daddr.s6_addr32[3-j]) +
 								 ntohl(delta.s6_addr32[3-j]) +
 								 carry);
@@ -295,12 +295,12 @@ static int do_bench(char *buf, int verbose)
 				 * randomness to the first step to
 				 * avoid using the same routes. */
 				for (j = 0, carry = 0; j < 4; j++) {
-					uint32_t add = ntohl(delta.s6_addr32[3-j]);
+					unsigned long add = ntohl(delta.s6_addr32[3-j]);
 					lcg32(&rnd);
 					add &= rnd;
-					carry = ((uint64_t)ntohl(fl6.daddr.s6_addr32[3-j]) +
+					carry = ((unsigned long long)ntohl(fl6.daddr.s6_addr32[3-j]) +
 						 add +
-						 carry > U32_MAX);
+						 carry > ULONG_MAX);
 					fl6.daddr.s6_addr32[3-j] = htonl(ntohl(fl6.daddr.s6_addr32[3-j]) +
 									 add +
 									 carry);
