@@ -199,7 +199,7 @@ with plt.style.context([
     save(fig, ax, "memory")
 
     fig = plt.figure()
-    ax = fig.add_subplot(221)
+    ax = fig.add_subplot(121)
     plot(ax, 'stime')
     ax.set_title("insertion time")
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d s"))
