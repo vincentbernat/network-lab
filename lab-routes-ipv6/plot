@@ -82,6 +82,23 @@ for t1 in glob.glob("stats/many-128/time.*"):
     hosts[count] = extract_stats(t1, t2, t3)
 
 
+# Kernel variations
+kernel_full = {}
+kernel_48 = {}
+kernel_128 = {}
+for t in glob.glob("stats/kernel/*"):
+    version = os.path.basename(t)
+    with open(t) as f:
+        a, b, c = [{f[0]: int(f[1])
+                    for f in (f.split("=", 1)
+                              for f in l.strip().split(" "))}
+                   for l in f
+                   if l.startswith("min=")]
+        kernel_48[version] = a
+        kernel_128[version] = b
+        kernel_full[version] = c
+
+
 def plot(ax, facet, linreg=True, vmax=None):
     """Plot a given facet on the provided axes."""
     xmaxmax = -np.inf
@@ -161,6 +178,10 @@ def save(fig, ax, name, legend=True, mxin=1., myin=1.):
                 bbox_inches='tight')
 
 
+def versionize(x):
+    return [int(y) for y in x.split(".")]
+
+
 with plt.style.context([
         'fivethirtyeight', {'axes.labelsize': 'small',
                             'axes.titleweight': 'medium',
@@ -171,6 +192,62 @@ with plt.style.context([
                             'grid.linewidth': 0.75,
                             'font.family': ['Roboto', 'sans-serif'],
                             'font.weight': 'light'}]):
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    x = sorted(kernel_full.keys(), key=versionize)
+    y1 = np.array([kernel_full[k]["50th"]/FREQ/1000 for k in x])
+    err1 = np.array([kernel_full[k]["mad"]/FREQ/1000 for k in x])/2
+    ax.plot(range(len(x)), y1,
+            'o-',
+            lw=1, ms=4,
+            label="from full view",
+            color="blue")
+    ax.fill_between(range(len(x)), y1-err1, y1+err1,
+                    facecolor="blue", alpha=0.2, lw=0,
+                    antialiased=True, interpolate=True)
+    y2 = np.array([kernel_48[k]["50th"]/FREQ/1000 for k in x])
+    err2 = np.array([kernel_48[k]["mad"]/FREQ/1000 for k in x])/2
+    ax.plot(range(len(x)), y2,
+            'o-',
+            lw=1, ms=4,
+            label="/48, density 0.5",
+            color=plt.cm.Reds(0.6))
+    ax.fill_between(range(len(x)), y2-err2, y2+err2,
+                    facecolor=plt.cm.Reds(0.6), alpha=0.2, lw=0,
+                    antialiased=True, interpolate=True)
+    y3 = np.array([kernel_128[k]["50th"]/FREQ/1000 for k in x])
+    err3 = np.array([kernel_128[k]["mad"]/FREQ/1000 for k in x])/2
+    ax.plot(range(len(x)), y3,
+            'o-',
+            lw=1, ms=4,
+            label="/128 (random)",
+            color="green")
+    ax.fill_between(range(len(x)), y3-err3, y3+err3,
+                    facecolor="green", alpha=0.2, lw=0,
+                    antialiased=True, interpolate=True)
+    ax.set_title("route lookup time for 40,000 routes")
+
+    ax.set_ylim(bottom=0)
+    ax.set_xticks(range(len(x)))
+    ax.set_xticklabels(x, rotation=60, ha='right')
+
+    for idx in range(len(x))[1:]:
+        r1 = kernel_full[x[idx]]["50th"]/kernel_full[x[idx-1]]["50th"]
+        r2 = kernel_48[x[idx]]["50th"]/kernel_48[x[idx-1]]["50th"]
+        r3 = kernel_128[x[idx]]["50th"]/kernel_128[x[idx-1]]["50th"]
+        if (r1 < 0.9 and r2 < 0.9 and r3 < 0.9) or \
+           (r1 < 0.5 or r2 < 0.5 or r3 < 0.5):
+            ax.get_xticklabels()[idx].set_weight('bold')
+            ax.get_xgridlines()[idx].set_color('black')
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%.2f µs"))
+    ax.legend(loc='upper right')
+    save(fig, ax, "kernels", legend=False,
+         mxin=max(1., len(x)/19.5),
+         myin=1.3)
+
+    import sys
+    sys.exit(0)
     fig = plt.figure()
     ax = fig.add_subplot(221)
     plot(ax, 'kbench-maxdepth', linreg=False)
