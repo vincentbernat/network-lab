@@ -8,6 +8,16 @@
 # example, a git tree at the right version). A minimal .config file
 # will be generated and the kernel will be compiled with it.
 
+# On many kernels (>= 3.9, < 4.1), you'll also need to apply
+# 425be5679fd2 to be able to compile with a recent version of
+# binutils. Here are a few backports of this patch:
+#  - 99124e4db5b7 (4.0.x)
+#  - b28283637b3b (3.18.x)
+#  - dd727f0191ea (3.16.x)
+#  - 510458cb7da6 (3.14.x)
+#  - e4037eb7c531 (3.12.x)
+#  - 4800af91229e (3.10.x)
+
 # As additional arguments, we should have the output of "ip route save"
 # that will be used to restore the same routes. This only works if the
 # interfaces are the same than the ones in this script. The interfaces
