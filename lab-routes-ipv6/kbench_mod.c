@@ -1,5 +1,5 @@
 /* -*- mode: c; c-file-style: "linux" -*- */
-/* Run a micro benchmark on ip6_route_output_flags().
+/* Run a micro benchmark on ip6_route_output().
  *
  * It creates a /sys/kernel/kbench directory. By default, a scan is
  * done in 2000::/3 (considered as a linear space).
@@ -258,7 +258,7 @@ static int do_bench(char *buf, int verbose)
 	}
 
 	for (i = 0; i < warmup_count; i++) {
-		struct dst_entry *dst = ip6_route_output_flags(&init_net, NULL, &fl6, 0);
+		struct dst_entry *dst = ip6_route_output(&init_net, NULL, &fl6);
 		if (dst->error && dst->error != -ENETUNREACH) {
 			dst_release(dst);
 			kfree(results);
@@ -307,7 +307,7 @@ static int do_bench(char *buf, int verbose)
 			}
 		}
 		t1 = get_cycles();
-		dst = ip6_route_output_flags(&init_net, NULL, &fl6, 0);
+		dst = ip6_route_output(&init_net, NULL, &fl6);
 		t2 = get_cycles();
 		if (dst->error == -ENETUNREACH) {
 			dst_release(dst);
