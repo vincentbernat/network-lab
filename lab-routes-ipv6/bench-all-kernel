@@ -18,6 +18,7 @@ for version in $(git --git-dir="$TREE"/.git tag \
     version=${version#v}
     (cd "$TREE" ; git checkout v$version
      case $version in
+         4.0.*) git cherry-pick 99124e4db5b7 ;;
          3.9.*) git cherry-pick 4800af91229e ;;
          3.11.*) git cherry-pick e4037eb7c531 ;;
          3.13.*) git cherry-pick 510458cb7da6 ;;

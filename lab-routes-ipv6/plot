@@ -86,7 +86,7 @@ for t1 in glob.glob("stats/many-128/time.*"):
 kernel_full = {}
 kernel_48 = {}
 kernel_128 = {}
-for t in glob.glob("stats/kernel/*"):
+for t in glob.glob("stats/kernel.ok/*"):
     version = os.path.basename(t)
     with open(t) as f:
         a, b, c = [{f[0]: int(f[1])

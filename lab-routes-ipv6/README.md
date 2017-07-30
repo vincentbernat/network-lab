@@ -206,3 +206,20 @@ A small test with 40k routes show that compiling-out table support
 saves about 100ns. Compiling-out subtree support only saves less than
 5%. This roughly matches the flamegraph (75% time spent in
 `ip6_pol_route_output` for a total of 300ns minus 5%).
+
+As for the evolution of the performance:
+
+ - In 4.2, huge progression, notably with 4b32b5ad31a6 but also
+   45e4fd26683c (despite the benchmark not creating cache entries). On
+   SMP systems, it is likely that d52d3997f843 would have helped
+   too. All this work is from Martin KaFai Lau (Facebook).
+
+ - In 3.9, a small regression, partly due to 887c95cc1da5 (quite
+   surprising, maybe cache-related but just adding back the field in
+   `struct rt6_info` doesn't help). I wasn't able to pinpoint a second
+   commit, but I suppose the whole neighbor removal is to
+   "blame". This could be investigated a bit more since there are not
+   many commits.
+
+ - In 3.1, an important regression due to 21efcfa0ff27. The change
+   doesn't look like it would introduce such a regression.
