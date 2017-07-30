@@ -1,0 +1,28 @@
+From 96573c527be48177b6c7c81ddb499dbe7d203a21 Mon Sep 17 00:00:00 2001
+From: Vincent Bernat <vincent@bernat.im>
+Date: Sun, 30 Jul 2017 17:22:36 +0200
+Subject: [PATCH] netlink: ignore unknown attributes
+
+---
+ net/core/rtnetlink.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 055fb130de1d..d792036495ed 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2541,9 +2541,8 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		while (RTA_OK(attr, attrlen)) {
+ 			unsigned int flavor = attr->rta_type & NLA_TYPE_MASK;
+ 			if (flavor) {
+-				if (flavor > rta_max[sz_idx])
+-					return -EINVAL;
+-				rta_buf[flavor-1] = attr;
++				if (flavor <= rta_max[sz_idx])
++					rta_buf[flavor-1] = attr;
+ 			}
+ 			attr = RTA_NEXT(attr, attrlen);
+ 		}
+-- 
+2.13.3
+
