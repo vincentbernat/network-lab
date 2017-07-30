@@ -86,6 +86,7 @@ CONFIG_IP_ROUTE_MULTIPATH=y
 CONFIG_FIB_RULES=y
 CONFIG_IPV6=y
 CONFIG_IPV6_MULTIPLE_TABLES=y
+CONFIG_IPV6_SUBTREES=y
 CONFIG_IPV6_SIT=n
 CONFIG_DUMMY=y
 EOF
@@ -94,7 +95,7 @@ make -j3 -C "$TREE" O=${TMP}/kernel CC=${CC}
 make -C "$TREE" O=${TMP}/kernel CC=${CC} INSTALL_PATH=${TMP} install
 
 # Compile the benchmark module
-rm -f kbench_mod.ko
+rm -f kbench_mod.*o kbench_mod.mod.*
 make KDIR=${TMP}/kernel O=${TMP}/kernel CC=${CC}
 
 # init script
