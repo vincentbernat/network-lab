@@ -237,7 +237,9 @@ with plt.style.context([
         r2 = kernel_48[x[idx]]["50th"]/kernel_48[x[idx-1]]["50th"]
         r3 = kernel_128[x[idx]]["50th"]/kernel_128[x[idx-1]]["50th"]
         if (r1 < 0.9 and r2 < 0.9 and r3 < 0.9) or \
-           (r1 < 0.5 or r2 < 0.5 or r3 < 0.5):
+           (r1 < 0.5 or r2 < 0.5 or r3 < 0.5) or \
+           (r1 > 1.1 and r2 > 1.1 and r3 > 1.1) or \
+           (r1 > 2 or r2 > 2 or r3 > 2):
             ax.get_xticklabels()[idx].set_weight('bold')
             ax.get_xgridlines()[idx].set_color('black')
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%.2f µs"))
