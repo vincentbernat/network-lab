@@ -115,6 +115,7 @@ static void lcg32(uint32_t *cur)
 	*cur = *cur * 1664525 + 1013904223;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
 #ifdef CONFIG_IPV6_SUBTREES
 #define FWS_INIT FWS_S
 #else
@@ -199,6 +200,7 @@ static void collect_depth(struct fib6_node *root,
 end:
 	if (count > 0) *avgdepth = totdepth*10 / count;
 }
+#endif
 
 /* Benchmark */
 
@@ -325,15 +327,10 @@ static int do_bench(char *buf, int verbose)
 	if (total == 0) {
 		scnprintf(buf, PAGE_SIZE, "msg=\"no match\"\n");
 	} else {
-		struct fib6_table *table = init_net.ipv6.fib6_main_tbl;
-		unsigned long avgdepth, maxdepth;
 		unsigned long long p95 = percentile(95, results, total);
 		unsigned long long p90 = percentile(90, results, total);
 		unsigned long long p50 = percentile(50, results, total);
 		average /= total;
-		read_lock_bh(&table->tb6_lock);
-		collect_depth(&table->tb6_root, &avgdepth, &maxdepth);
-		read_unlock_bh(&table->tb6_lock);
 		scnprintf(buf, PAGE_SIZE,
 			  "min=%llu max=%llu count=%lu average=%llu 95th=%llu 90th=%llu 50th=%llu mad=%llu\n",
 			  results[0],
@@ -344,9 +341,18 @@ static int do_bench(char *buf, int verbose)
 			  p90,
 			  p50,
 			  mad(results, p50, total));
-		scnprintf(buf + strnlen(buf, PAGE_SIZE), PAGE_SIZE - strnlen(buf, PAGE_SIZE),
-			  "table=%u avgdepth=%lu.%lu maxdepth=%lu\n",
-			  table->tb6_id, avgdepth/10, avgdepth%10, maxdepth);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+		do {
+			unsigned long avgdepth, maxdepth;
+			struct fib6_table *table = init_net.ipv6.fib6_main_tbl;
+			read_lock_bh(&table->tb6_lock);
+			collect_depth(&table->tb6_root, &avgdepth, &maxdepth);
+			read_unlock_bh(&table->tb6_lock);
+			scnprintf(buf + strnlen(buf, PAGE_SIZE), PAGE_SIZE - strnlen(buf, PAGE_SIZE),
+				  "table=%u avgdepth=%lu.%lu maxdepth=%lu\n",
+				  table->tb6_id, avgdepth/10, avgdepth%10, maxdepth);
+		} while(0);
+#endif
 		if (verbose) {
 			/* Display an histogram */
 			unsigned long long share = (p95 - results[0]) / HIST_BUCKETS;
