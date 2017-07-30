@@ -303,6 +303,7 @@ static int do_bench(char *buf, int verbose)
 									 add +
 									 carry);
 				}
+				schedule();
 			}
 		}
 		t1 = get_cycles();
