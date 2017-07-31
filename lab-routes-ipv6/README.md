@@ -19,7 +19,7 @@ We totally ignore this part.
 
 For IPv4, the (external) route cache has been removed in 3.6. Each
 next hop can have a list of "exceptions" (like MTU) attached to it. In
-IPv6, the cached entries are directly put in the routing tree.
+IPv6, the cache entries are directly put in the routing tree.
 
 Before Linux 4.2, any lookup would create a cache entry. This was
 massively inefficient. This was fixed in 45e4fd26683c. Cache entries
@@ -210,9 +210,8 @@ saves about 100ns. Compiling-out subtree support only saves less than
 As for the evolution of the performance:
 
  - In 4.2, huge progression, notably with 4b32b5ad31a6 but also
-   45e4fd26683c (despite the benchmark not creating cache entries). On
-   SMP systems, it is likely that d52d3997f843 would have helped
-   too. All this work is from Martin KaFai Lau (Facebook).
+   45e4fd26683c. On SMP systems, it is likely that d52d3997f843 would
+   have helped too. All this work is from Martin KaFai Lau (Facebook).
 
  - In 3.9, a small regression, partly due to 887c95cc1da5 (quite
    surprising, maybe cache-related but just adding back the field in
@@ -221,5 +220,5 @@ As for the evolution of the performance:
    "blame". This could be investigated a bit more since there are not
    many commits.
 
- - In 3.1, an important regression due to 21efcfa0ff27. The change
-   doesn't look like it would introduce such a regression.
+ - In 3.1, an important regression due to 21efcfa0ff27 which
+   effectively ensure metrics are allocated for each cache entry.
