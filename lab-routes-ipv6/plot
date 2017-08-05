@@ -113,24 +113,23 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
         err = lambda x: x[oerr]
 
     # /48 with density
-    if subnets is not None:
-        radians = np.linspace(0, 2*np.pi, len(subnets))
-        colors = plt.cm.Reds(np.linspace(0.2, 1, len(subnets)))
-        for r, c, density in zip(radians,
-                                 colors,
-                                 sorted(subnets.keys())):
-            x = np.array(sorted(subnets[density].keys()))
-            y = np.array([facet(subnets[density][k]) for k in x])
-            yerr = np.array([err(subnets[density][k]) for k in x])
-            xmax = np.log10(np.max(x))
-            ymax = np.max(y)
-            xminmin = min(np.min(x), xminmin)
-            xmaxmax = max(np.max(x), xmaxmax)
-            ax.errorbar(x * 10**(xmax/50*np.cos(r)),
-                        y + (vmax if vmax is not None else ymax)/50*np.sin(r),
-                        yerr=yerr,
-                        elinewidth=1, color=c, fmt='.',
-                        label="/48, density {}".format(density))
+    radians = np.linspace(0, 2*np.pi, len(subnets))
+    colors = plt.cm.Reds(np.linspace(0.2, 1, len(subnets)))
+    for r, c, density in zip(radians,
+                             colors,
+                             sorted(subnets.keys())):
+        x = np.array(sorted(subnets[density].keys()))
+        y = np.array([facet(subnets[density][k]) for k in x])
+        yerr = np.array([err(subnets[density][k]) for k in x])
+        xmax = np.log10(np.max(x))
+        ymax = np.max(y)
+        xminmin = min(np.min(x), xminmin)
+        xmaxmax = max(np.max(x), xmaxmax)
+        ax.errorbar(x * 10**(xmax/50*np.cos(r)),
+                    y + (vmax if vmax is not None else ymax)/50*np.sin(r),
+                    yerr=yerr,
+                    elinewidth=1, color=c, fmt='.',
+                    label="/48, density {}".format(density))
 
     # /128
     x = np.array(sorted(hosts.keys()))
