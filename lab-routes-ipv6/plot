@@ -129,7 +129,7 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
             ax.errorbar(x * 10**(xmax/50*np.cos(r)),
                         y + (vmax if vmax is not None else ymax)/50*np.sin(r),
                         yerr=yerr,
-                        elinewidth=1, color=c, fmt='o',
+                        elinewidth=1, color=c, fmt='.',
                         label="/48, density {}".format(density))
 
     # /128
@@ -139,7 +139,7 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
     xminmin = min(np.min(x), xminmin)
     xmaxmax = max(np.max(x), xmaxmax)
     ax.errorbar(x, y, yerr=yerr,
-                elinewidth=1, color='g', fmt='o',
+                elinewidth=1, color='g', fmt='.',
                 label="/128 (random)")
 
     # Full view
@@ -150,7 +150,7 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
     xmaxmax = max(np.max(x), xmaxmax)
     slope, intercept, _, _, _ = stats.linregress(x, y)
     ax.errorbar(x * 10**(xmax/120), y, yerr=yerr,
-                elinewidth=1, color='b', fmt='o',
+                elinewidth=1, color='b', fmt='.',
                 label="from full view")
 
     # Linreg
