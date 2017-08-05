@@ -113,7 +113,7 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
         err = lambda x: x[oerr]
 
     # /48 with density
-    radians = np.linspace(0, 2*np.pi, len(subnets))
+    radians = np.linspace(0, 2*np.pi, len(subnets)+1)[:-1]
     colors = plt.cm.Reds(np.linspace(0.2, 1, len(subnets)))
     for r, c, density in zip(radians,
                              colors,
@@ -125,7 +125,9 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
         ymax = np.max(y)
         xminmin = min(np.min(x), xminmin)
         xmaxmax = max(np.max(x), xmaxmax)
-        ax.errorbar(x * 10**(xmax/50*np.cos(r)),
+        displace = np.array([(50 if k in hosts and k in full else 70)
+                             for k in x])
+        ax.errorbar(x * 10**(xmax/displace*np.cos(r)),
                     y + (vmax if vmax is not None else ymax)/50*np.sin(r),
                     yerr=yerr,
                     elinewidth=1, color=c, fmt='.',
@@ -137,7 +139,9 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
     yerr = np.array([err(hosts[k]) for k in x])
     xminmin = min(np.min(x), xminmin)
     xmaxmax = max(np.max(x), xmaxmax)
-    ax.errorbar(x, y, yerr=yerr,
+    displace = np.array([(1 / 10**(xmax/180) if k in full else 1)
+                         for k in x])
+    ax.errorbar(x*displace, y, yerr=yerr,
                 elinewidth=1, color='g', fmt='.',
                 label="/128 (random)")
 
@@ -148,7 +152,9 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
     xminmin = min(np.min(x), xminmin)
     xmaxmax = max(np.max(x), xmaxmax)
     slope, intercept, _, _, _ = stats.linregress(x, y)
-    ax.errorbar(x * 10**(xmax/120), y, yerr=yerr,
+    displace = np.array([(10**(xmax/180) if k in hosts else 1)
+                         for k in x])
+    ax.errorbar(x*displace, y, yerr=yerr,
                 elinewidth=1, color='b', fmt='.',
                 label="from full view")
 
