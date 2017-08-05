@@ -120,7 +120,7 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
                              sorted(subnets.keys())):
         x = np.array(sorted(subnets[density].keys()))
         y = np.array([facet(subnets[density][k]) for k in x])
-        yerr = np.array([err(subnets[density][k]) for k in x])
+        yerr = np.array([err(subnets[density][k]) for k in x])/2
         xmax = np.log10(np.max(x))
         ymax = np.max(y)
         xminmin = min(np.min(x), xminmin)
@@ -136,7 +136,7 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
     # /128
     x = np.array(sorted(hosts.keys()))
     y = np.array([facet(hosts[k]) for k in x])
-    yerr = np.array([err(hosts[k]) for k in x])
+    yerr = np.array([err(hosts[k]) for k in x])/2
     xminmin = min(np.min(x), xminmin)
     xmaxmax = max(np.max(x), xmaxmax)
     displace = np.array([(1 / 10**(xmax/180) if k in full else 1)
@@ -148,7 +148,7 @@ def plot(ax, facet, err=None, linreg=True, vmax=None):
     # Full view
     x = np.array(sorted(full.keys()))
     y = np.array([facet(full[k]) for k in x])
-    yerr = np.array([err(full[k]) for k in x])
+    yerr = np.array([err(full[k]) for k in x])/2
     xminmin = min(np.min(x), xminmin)
     xmaxmax = max(np.max(x), xmaxmax)
     slope, intercept, _, _, _ = stats.linregress(x, y)
