@@ -1,4 +1,0 @@
-bgpd=yes
-debian=yes
-ospfd=yes
-zebra=yes

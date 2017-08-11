@@ -1,87 +1,19 @@
 #!/bin/sh
 
 LABNAME="redundant-vpn"
-DEPS="screen ip vde_switch linux bash start-stop-daemon racoon vtysh"
-PROGNAME="$0"
-PROGARGS="$@"
 
-# Check for dependencies needed by this tool
-check_dependencies() {
-    for dep in $DEPS; do
-	which $dep 2> /dev/null > /dev/null || {
-	    echo "[!] Missing dependency: $dep"
-	    exit 1
-	}
-    done
-}
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
 
-# Run our lab in screen
-setup_screen() {
-    [ x"$TERM" = x"screen" ] || \
-	exec screen -ln -S $LABNAME -c /dev/null -t main "$PROGNAME" "$PROGARGS"
-    sleep 1
-    screen -X zombie cr
-    screen -X caption always "%{= wk}%-w%{= BW}%n %t%{-}%+w %-="
-}
+spawn vm R1 network 1
+spawn vm R2 network 2
+spawn vm V1 networks 1,5
+spawn vm V2 networks 1,5
+spawn vm V3 networks 2,5
+spawn vm V4 networks 2,5
+spawn vm I1 network 5
 
-# Setup a VDE switch
-setup_switch() {
-    echo "[+] Setup switch $1"
-    screen -t "switch-$1" \
-	start-stop-daemon --make-pidfile --pidfile "$TMP/switch-$1.pid" \
-	--start --startas $(which vde_switch) -- \
-	--sock "$TMP/switch-$1.sock"
-    screen -X select 0
-}
-
-# Start a VM
-start_vm() {
-    echo "[+] Start VM $1"
-    name="$1"
-    shift
-    screen -t $name \
-	start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
-	--start --startas $(which linux) -- \
-	uts=$name mem=64M \
-	root=/dev/root rootfstype=hostfs init=$(readlink -f "$PROGNAME") \
-	"$@"
-    screen -X select 0
-}
-
-display_help() {
-    cat <<EOF
-
-Some screen commands :
- C-a d     - Detach the screen (resume with screen -r $LABNAME)
- C-a "     - Select a window
- C-a space - Next window
- C-a C-a   - Previous window
-EOF
-echo "Press enter to exit the lab"
-read a
-}
-
-cleanup() {
-    for pid in $TMP/*.pid; do
-	kill $(cat $pid)
-    done
-    screen -X quit
-}
-
-setup_quagga() {
-    echo "[+] Start Quagga"
-    export VTYSH_PAGER=/bin/cat
-    rm -rf /etc/quagga
-    ln -s $PWD/$uts/quagga /etc/quagga
-    mkdir /var/log/quagga
-    chown quagga:quagga /var/log/quagga
-    :> /etc/quagga/daemons
-    for conf in /etc/quagga/*.conf; do
-	echo "$(basename ${conf%.conf})=yes" >> /etc/quagga/daemons
-    done
-    cp quagga-debian.conf /etc/quagga/debian.conf
-    /etc/init.d/quagga start
-}
+run
 
 setup_racoon() {
     rm -f /etc/racoon/racoon.conf
@@ -90,7 +22,7 @@ setup_racoon() {
     cp racoon-psk.txt /etc/racoon/psk.txt
     chmod 600 /etc/racoon/psk.txt
     chown root /etc/racoon/psk.txt
-    echo "[+] Setup IPsec policy"
+    log_begin_msg "Setup IPsec policies"
     local="$1" ; shift
     remote="$1" ; shift
     for net in "$@"; do
@@ -103,162 +35,57 @@ spdadd $net1 $net2 any -P out ipsec
   esp/tunnel/${local}-${remote}/require;
 EOF
     done | setkey -c
-    echo "[+] Start racoon"
-    /etc/init.d/racoon start
+    log_ok_msg "IPsec policies configured"
+    service racoon
 }
 
-case $$ in
-    1)
-	# Inside UML. Three states:
-	#   1. Setup the getty
-	#   2. Setup AUFS
-	#   3. Remaining setup
-	STATE=${STATE:-1}
 
-	case $STATE in
-	    1)
-		echo "[+] Set hostname"
-		hostname -b ${uts}
-		echo "[+] Set path"
-		export TERM=xterm
-		export PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/local/sbin:/usr/sbin
-		
-		# Setup getty
-		export STATE=2
-		exec setsid python -c '
-import os, sys
-os.close(0)
-os.open("/dev/tty0", os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK, 0)
-os.dup2(0, 1)
-os.dup2(0, 2)
-# os.tcsetpgrp(0, 1)
-os.execv(sys.argv[1], [sys.argv[1]])' "$PROGNAME"
-		;;
-	    2)
-		echo "[+] Setup AUFS"
-		mount -n -t proc proc /proc
-		mount -n -t sysfs sysfs /sys
-		mount -o bind /usr/lib/uml/modules /lib/modules
-		mount -n -t tmpfs tmpfs /tmp -o rw,nosuid,nodev
-		mkdir /tmp/ro
-		mkdir /tmp/rw
-		mkdir /tmp/aufs
-		mount -n -t hostfs hostfs /tmp/ro -o /,ro
-		mount -n -t aufs aufs /tmp/aufs -o noatime,dirs=/tmp/rw:/tmp/ro=ro
-
-		# Chroot inside our new root
-		export STATE=3
-		exec chroot /tmp/aufs "$PROGNAME"
-		;;
-	esac
-
-	echo "[+] Set filesystems"
-	rm /etc/mtab
-	mount -t proc proc /proc
-	mount -t sysfs sysfs /sys
-	mount -t tmpfs tmpfs /dev -o rw && {
-	    cd /dev
-	    if [ -f $(dirname "$PROGNAME")/dev.tar ]; then
-		tar xf $(dirname "$PROGNAME")/dev.tar
-	    else
-		MAKEDEV null consoleonly
-	    fi
-	}
-	mount -o bind /usr/lib/uml/modules /lib/modules
-	for fs in /var/run /var/tmp /var/log /tmp; do
-	    mount -t tmpfs tmpfs $fs -o rw,nosuid,nodev
-	done
-	mount -t hostfs hostfs $(dirname "$PROGNAME") -o $(dirname "$PROGNAME")
-
-	# Interfaces
-	echo "[+] Set interfaces"
-	for intf in /sys/class/net/*; do
-	    intf=$(basename $intf)
-	    ip a l dev $intf 2> /dev/null >/dev/null && ip link set up dev $intf
-	done
-
-	echo "[+] Start syslog"
-	rsyslogd
-
-	cd $(dirname "$PROGNAME")
-	[ -f dev.tar ] || {
-	    tar -C /dev -cf dev.tar.$uts . && mv dev.tar.$uts dev.tar
-	}
-
-	# Configure each UML
-	echo "[+] Setup UML"
-	sysctl -w net.ipv4.ip_forward=1
-	case ${uts} in
-	    R1)
-		modprobe dummy
-		ip link set up dev dummy0
-		ip addr add 192.168.15.1/24 dev dummy0
-		ip addr add 192.168.1.10/24 dev eth0
-		setup_quagga
-		;;
-	    R2)
-		modprobe dummy
-		ip link set up dev dummy0
-		ip addr add 192.168.115.1/24 dev dummy0
-		ip addr add 192.168.101.10/24 dev eth0
-		setup_quagga
-		;;
-	    V1)
-		ip addr add 192.168.1.11/24 dev eth0
-		ip addr add 1.1.2.1/24 dev eth1
-		ip route add default via 1.1.2.10
-		setup_quagga
-		setup_racoon 1.1.2.1 1.1.1.1 192.168.0.0/19-192.168.100.0/19
-		;;
-	    V2)
-		ip addr add 192.168.1.12/24 dev eth0
-		ip addr add 1.1.2.2/24 dev eth1
-		ip route add default via 1.1.2.10
-		setup_quagga
-		setup_racoon 1.1.2.2 1.1.1.2 192.168.0.0/19-192.168.100.0/19
-		;;
-	    V3)
-		ip addr add 192.168.101.13/24 dev eth0
-		ip addr add 1.1.1.1/24 dev eth1
-		ip route add default via 1.1.1.10
-		setup_quagga
-		setup_racoon 1.1.1.1 1.1.2.1 192.168.100.0/19-192.168.0.0/19
-		;;
-	    V4)
-		ip addr add 192.168.101.14/24 dev eth0
-		ip addr add 1.1.1.2/24 dev eth1
-		ip route add default via 1.1.1.10
-		setup_quagga
-		setup_racoon 1.1.1.2 1.1.2.2 192.168.100.0/19-192.168.0.0/19
-		;;
-	    I1)
-		ip addr add 1.1.1.10/24 dev eth0
-		ip addr add 1.1.2.10/24 dev eth0
-		;;
-	esac
-
-	echo "[+] Drop to a shell"
-	exec /bin/bash
-
+sysctl -qw net.ipv4.ip_forward=1
+case ${uts} in
+    R1)
+	modprobe dummy
+	ip link set up dev dummy0
+	ip addr add 192.168.15.1/24 dev dummy0
+	ip addr add 192.168.1.10/24 dev eth0
+	service quagga
 	;;
-    *)
-	TMP=$(mktemp -d)
-	trap "rm -rf $TMP" EXIT
-	check_dependencies
-	setup_screen
-	# Setup switches
-	setup_switch site1
-	setup_switch site101
-	setup_switch internet
-	# Start VM
-	start_vm R1 eth0=vde,$TMP/switch-site1.sock
-	start_vm R2 eth0=vde,$TMP/switch-site101.sock
-	start_vm V1 eth0=vde,$TMP/switch-site1.sock eth1=vde,$TMP/switch-internet.sock
-	start_vm V2 eth0=vde,$TMP/switch-site1.sock eth1=vde,$TMP/switch-internet.sock
-	start_vm V3 eth0=vde,$TMP/switch-site101.sock eth1=vde,$TMP/switch-internet.sock
-	start_vm V4 eth0=vde,$TMP/switch-site101.sock eth1=vde,$TMP/switch-internet.sock
-	start_vm I1 eth0=vde,$TMP/switch-internet.sock
-	display_help
-	cleanup
+    R2)
+	modprobe dummy
+	ip link set up dev dummy0
+	ip addr add 192.168.115.1/24 dev dummy0
+	ip addr add 192.168.101.10/24 dev eth0
+	service quagga
+	;;
+    V1)
+	ip addr add 192.168.1.11/24 dev eth0
+	ip addr add 1.1.2.1/24 dev eth1
+	ip route add default via 1.1.2.10
+	service quagga
+	setup_racoon 1.1.2.1 1.1.1.1 192.168.0.0/19-192.168.100.0/19
+	;;
+    V2)
+	ip addr add 192.168.1.12/24 dev eth0
+	ip addr add 1.1.2.2/24 dev eth1
+	ip route add default via 1.1.2.10
+	service quagga
+	setup_racoon 1.1.2.2 1.1.1.2 192.168.0.0/19-192.168.100.0/19
+	;;
+    V3)
+	ip addr add 192.168.101.13/24 dev eth0
+	ip addr add 1.1.1.1/24 dev eth1
+	ip route add default via 1.1.1.10
+	service quagga
+	setup_racoon 1.1.1.1 1.1.2.1 192.168.100.0/19-192.168.0.0/19
+	;;
+    V4)
+	ip addr add 192.168.101.14/24 dev eth0
+	ip addr add 1.1.1.2/24 dev eth1
+	ip route add default via 1.1.1.10
+	service quagga
+	setup_racoon 1.1.1.2 1.1.2.2 192.168.100.0/19-192.168.0.0/19
+	;;
+    I1)
+	ip addr add 1.1.1.10/24 dev eth0
+	ip addr add 1.1.2.10/24 dev eth0
 	;;
 esac
