@@ -1,0 +1,77 @@
+#!/bin/sh
+
+LABNAME="routed-vpn"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm V1-1 networks 1,2,3
+spawn vm V1-2 networks 1,2,3
+spawn vm V2-1 networks 1,4,5
+spawn vm V2-2 networks 1,4,5
+spawn vm V3-1 networks 1,6,7
+spawn vm V3-2 networks 1,6,7
+
+spawn vm internet network 1
+spawn vm Rx       networks 3,5,7
+
+run
+
+case $uts in
+    Rx)
+        for i in 1 2 3; do
+            ip netns add R$i
+            ip link set netns R$i dev eth$((i-1))
+            ip netns exec R$i ip link set name eth0 dev eth$((i-1))
+            ip netns exec R$i ip link set up dev eth0
+            ip netns exec R$i ip addr add 172.16.$i.1/29 dev eth0
+            ip netns exec R$i ip link add type dummy
+            ip netns exec R$i ip link set up dev dummy0
+            ip netns exec R$i ip addr add 192.168.1.$(( (i-1)*64 + 1 ))/26 dev dummy0
+            template bird.Rx.Ry.conf bird.Rx.R$i.conf y=$i
+            netns=R$i service bird
+        done
+        ;;
+    internet)
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv4.conf.all.send_redirects=0
+        sysctl -qw net.ipv4.conf.eth0.send_redirects=0
+        for i in 0 1 2 3 4 5; do
+            ip addr add 198.51.100.$((i*2))/31 dev eth0
+        done
+        service bird
+        ;;
+    V*)
+        j=${uts#*-}
+        i=${uts#V}
+        i=${i%-*}
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv4.conf.all.send_redirects=0
+
+        ip route add blackhole 10.0.0.0/8
+        ip route add blackhole 172.16.0.0/12
+        ip route add blackhole 192.168.0.0/16
+
+        ip addr add 198.51.100.$(( ((i-1)*2+(j-1))*2 + 1 ))/31 dev eth0
+        ip addr add 203.0.113.$(( (i-1)*64 + j ))/26 dev dummy0
+        ip addr add 203.0.113.$(( (i-1)*64 + j ))/32 dev dummy0
+        ip route add 203.0.113.$(( ((i-1)*64 + 3 - j) )) dev eth1 src 203.0.113.$(( ((i-1)*64 + j) ))
+        ip addr add 172.16.$i.$(( j + 1 ))/29 dev eth2
+
+        template bird.Vx-y.conf bird.$uts.conf x=$i y=$j xmax=3 ymax=2
+        service bird
+
+        template ipsec.Vx-y.conf ipsec.$uts.conf x=$i y=$j xmax=3 ymax=2
+        template ipsec.Vx-y.secrets ipsec.$uts.secrets x=$i y=$j xmax=3 ymax=2
+        template ipsec-updown.j2 ipsec-updown.$uts x=$i y=$j xmax=3 ymax=2
+        chmod +x ipsec-updown.$uts
+        ln -sf $PWD/ipsec-updown.$uts /tmp/ipsec-updown
+        ln -sf $PWD/ipsec.$uts.secrets /etc/ipsec.secrets
+        ln -sf $PWD/ipsec.$uts.conf /etc/ipsec.conf
+        sed -i 's/\( *\)# install_routes =.*/\1 install_routes = no/' /etc/strongswan.d/charon.conf
+        sed -i 's/\( *\)# install_virtual_ip =.*/\1 install_virtual_ip = no/' /etc/strongswan.d/charon.conf
+        sed -i 's/\( *\)# routing_table =.*/\1 routing_table = 0/' /etc/strongswan.d/charon.conf
+        service ipsec start
+        ;;
+esac

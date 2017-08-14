@@ -880,6 +880,24 @@ EOF
 # Services
 #
 
+template () {
+    input="$1"
+    output="$2"
+    shift 2
+    args="$(echo $@ | sed 's/ /,/g')"
+    python3 - <<EOF > $output
+from jinja2 import Template
+t=Template(open("${input}").read())
+print(t.render(${args}))
+EOF
+    case $output in
+        /*) ;;
+        *)
+            grep -Fqx /$output .gitignore 2>/dev/null || echo /$output >> .gitignore
+            ;;
+    esac
+}
+
 execute () {
     command="$1"
     shift
@@ -910,18 +928,18 @@ service () {
             log_begin_msg "Running bird${netns+, netns=}$netns"
             [ -d /run/bird ] || mkdir -p /run/bird
             if [ -f /mnt/lab/bird.$uts.$netns.conf ]; then
-                execute bird -R -s /var/run/bird.$netns.ctl -c /mnt/lab/bird.$uts.$netns.conf
+                execute bird -s /var/run/bird.$netns.ctl -c /mnt/lab/bird.$uts.$netns.conf
             elif [ -f /mnt/lab/bird.$uts.conf ] && [ -z "$netns" ]; then
-                execute bird  -R -c /mnt/lab/bird.$uts.conf
+                execute bird -c /mnt/lab/bird.$uts.conf
             elif [ -f /mnt/lab/bird.conf ]; then
-                execute bird  -R -c /mnt/lab/bird.conf
+                execute bird -c /mnt/lab/bird.conf
             fi
             if [ -f /mnt/lab/bird6.$uts.$netns.conf ]; then
-                execute bird6 -R -s /var/run/bird6.$netns.ctl -c /mnt/lab/bird6.$uts.$netns.conf
+                execute bird6 -s /var/run/bird6.$netns.ctl -c /mnt/lab/bird6.$uts.$netns.conf
             elif [ -f /mnt/lab/bird6.$uts.conf ] && [ -z "$netns" ]; then
-                execute bird6  -R -c /mnt/lab/bird6.$uts.conf
+                execute bird6 -c /mnt/lab/bird6.$uts.conf
             elif [ -f /mnt/lab/bird6.conf ]; then
-                execute bird6  -R -c /mnt/lab/bird6.conf
+                execute bird6 -c /mnt/lab/bird6.conf
             fi
             log_ok_msg "bird started${netns+, netns=}$netns"
             ;;
