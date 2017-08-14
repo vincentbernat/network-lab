@@ -18,9 +18,12 @@ spawn vm Rx       networks 3,5,7
 
 run
 
+imax=3
+jmax=2
+
 case $uts in
     Rx)
-        for i in 1 2 3; do
+        for i in $(seq 1 $imax); do
             ip netns add R$i
             ip link set netns R$i dev eth$((i-1))
             ip netns exec R$i ip link set name eth0 dev eth$((i-1))
@@ -29,7 +32,7 @@ case $uts in
             ip netns exec R$i ip link add type dummy
             ip netns exec R$i ip link set up dev dummy0
             ip netns exec R$i ip addr add 192.168.1.$(( (i-1)*64 + 1 ))/26 dev dummy0
-            template bird.Rx.Ry.conf bird.Rx.R$i.conf y=$i
+            template bird.Rx.Ry.conf bird.Rx.R$i.conf li=$i
             netns=R$i service bird
         done
         ;;
@@ -43,9 +46,9 @@ case $uts in
         service bird
         ;;
     V*)
-        j=${uts#*-}
-        i=${uts#V}
-        i=${i%-*}
+        li=${uts#V}
+        li=${li%-*}
+        lj=${uts#*-}
         sysctl -qw net.ipv4.ip_forward=1
         sysctl -qw net.ipv4.conf.all.send_redirects=0
 
@@ -53,20 +56,40 @@ case $uts in
         ip route add blackhole 172.16.0.0/12
         ip route add blackhole 192.168.0.0/16
 
-        ip addr add 198.51.100.$(( ((i-1)*2+(j-1))*2 + 1 ))/31 dev eth0
-        ip addr add 203.0.113.$(( (i-1)*64 + j ))/26 dev dummy0
-        ip addr add 203.0.113.$(( (i-1)*64 + j ))/32 dev dummy0
-        ip route add 203.0.113.$(( ((i-1)*64 + 3 - j) )) dev eth1 src 203.0.113.$(( ((i-1)*64 + j) ))
-        ip addr add 172.16.$i.$(( j + 1 ))/29 dev eth2
+        ip addr add 198.51.100.$(( ((li-1)*jmax+(lj-1))*2 + 1 ))/31 dev eth0
+        ip addr add 203.0.113.$(( (li-1)*64 + lj ))/26 dev dummy0
+        ip addr add 203.0.113.$(( (li-1)*64 + lj ))/32 dev dummy0
+        ip route add 203.0.113.$(( ((li-1)*64 + 3 - lj) )) dev eth1 src 203.0.113.$(( ((li-1)*64 + lj) ))
+        ip addr add 172.16.$li.$(( lj + 1 ))/29 dev eth2
 
-        template bird.Vx-y.conf bird.$uts.conf x=$i y=$j xmax=3 ymax=2
+        template bird.Vx-y.conf bird.$uts.conf li=$li lj=$lj imax=$imax jmax=$jmax
         service bird
 
-        template ipsec.Vx-y.conf ipsec.$uts.conf x=$i y=$j xmax=3 ymax=2
-        template ipsec.Vx-y.secrets ipsec.$uts.secrets x=$i y=$j xmax=3 ymax=2
-        template ipsec-updown.j2 ipsec-updown.$uts x=$i y=$j xmax=3 ymax=2
-        chmod +x ipsec-updown.$uts
-        ln -sf $PWD/ipsec-updown.$uts /tmp/ipsec-updown
+        lmark=$(( (li-1)*jmax + lj ))
+        for ri in $(seq 1 $imax); do
+            [ $ri -ne $li ] || continue
+            for rj in $(seq 1 $jmax); do
+                rmark=$(( (ri-1)*jmax + rj ))
+                if [ $lmark -lt $rmark ]; then
+                    me=172.22.15.$(( (lmark*imax*jmax + rmark) * 2 ))
+                    peer=172.22.15.$(( (lmark*imax*jmax + rmark) * 2 + 1 ))
+                else
+                    me=172.22.15.$(( (rmark*imax*jmax + lmark) * 2 + 1 ))
+                    peer=172.22.15.$(( (rmark*imax*jmax + lmark) * 2 ))
+                fi
+                ip tunnel add vti$rmark \
+                   local 203.0.113.$(( (li-1)*64 + lj )) \
+                   remote 203.0.113.$(( (ri-1)*64 + rj )) \
+                   okey $rmark ikey $rmark
+                ip addr add $me peer $peer dev vti$rmark
+                sysctl -qw "net.ipv4.conf.vti$rmark.disable_policy=1"
+                ip link set vti$rmark mtu 1426
+                ip link set vti$rmark up
+            done
+        done
+
+        template ipsec.Vx-y.conf ipsec.$uts.conf li=$li lj=$lj imax=$imax jmax=$jmax
+        template ipsec.Vx-y.secrets ipsec.$uts.secrets li=$li lj=$lj imax=$imax jmax=$jmax
         ln -sf $PWD/ipsec.$uts.secrets /etc/ipsec.secrets
         ln -sf $PWD/ipsec.$uts.conf /etc/ipsec.conf
         sed -i 's/\( *\)# install_routes =.*/\1 install_routes = no/' /etc/strongswan.d/charon.conf
