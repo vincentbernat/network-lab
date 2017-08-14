@@ -18,7 +18,7 @@ spawn vm Rx       networks 3,5,7
 
 run
 
-imax=3
+imax=3                          # no more than 4
 jmax=2
 
 case $uts in
