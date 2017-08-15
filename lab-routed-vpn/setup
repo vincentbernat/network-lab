@@ -52,14 +52,28 @@ case $uts in
         sysctl -qw net.ipv4.ip_forward=1
         sysctl -qw net.ipv4.conf.all.send_redirects=0
 
-        ip route add blackhole 10.0.0.0/8
-        ip route add blackhole 172.16.0.0/12
-        ip route add blackhole 192.168.0.0/16
+        echo "100	public"    >> /etc/iproute2/rt_tables
+        echo "101	private"   >> /etc/iproute2/rt_tables
+        echo "102	local-out" >> /etc/iproute2/rt_tables
+        ip rule add iif lo   table local-out priority 10
+        ip rule add iif lo   unreachable     priority 11
+        ip rule add iif eth0 table public    priority 14
+        ip rule add iif eth0 blackhole       priority 15
+        ip rule add iif eth1 table public    priority 14
+        ip rule add iif eth1 blackhole       priority 15
+        ip rule add iif dummy0 table public  priority 14
+        ip rule add iif dummy0 blackhole     priority 15
+        ip rule add iif eth2 table private   priority 14
+        ip rule add iif eth2 blackhole       priority 15
+
+        ip route add blackhole 10.0.0.0/8 table private
+        ip route add blackhole 172.16.0.0/12 table private
+        ip route add blackhole 192.168.0.0/16 table private
 
         ip addr add 198.51.100.$(( ((li-1)*jmax+(lj-1))*2 + 1 ))/31 dev eth0
         ip addr add 203.0.113.$(( (li-1)*64 + lj ))/26 dev dummy0
         ip addr add 203.0.113.$(( (li-1)*64 + lj ))/32 dev dummy0
-        ip route add 203.0.113.$(( ((li-1)*64 + 3 - lj) )) dev eth1 src 203.0.113.$(( ((li-1)*64 + lj) ))
+        ip route add 203.0.113.$(( ((li-1)*64 + 3 - lj) )) dev eth1 src 203.0.113.$(( ((li-1)*64 + lj) )) table public
         ip addr add 172.16.$li.$(( lj + 1 ))/29 dev eth2
 
         template bird.Vx-y.conf bird.$uts.conf li=$li lj=$lj imax=$imax jmax=$jmax
@@ -81,6 +95,8 @@ case $uts in
                    local 203.0.113.$(( (li-1)*64 + lj )) \
                    remote 203.0.113.$(( (ri-1)*64 + rj )) \
                    okey $rmark ikey $rmark
+                ip rule add iif vti$rmark table private priority 20
+                ip rule add iif vti$rmark blackhole     priority 21
                 ip addr add $me peer $peer dev vti$rmark
                 sysctl -qw "net.ipv4.conf.vti$rmark.disable_policy=1"
                 ip link set vti$rmark mtu 1426

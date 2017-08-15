@@ -136,7 +136,7 @@ BGP sessions should be up:
 
 And all private subnets should be learnt:
 
-    $ birdc show route | grep IBGP_V
+    $ birdc show route table private | grep IBGP_V
     192.168.1.128/26   via 172.22.15.23 on vti5 [IBGP_V3_1 20:17:10] * (100/0) [i]
                        via 172.22.15.25 on vti6 [IBGP_V3_2 20:17:10] (100/0) [i]
     192.168.1.64/26    via 172.22.15.19 on vti3 [IBGP_V2_1 20:17:10] * (100/0) [i]
