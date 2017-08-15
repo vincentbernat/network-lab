@@ -63,8 +63,8 @@ case $uts in
         ip rule add iif eth1 blackhole       priority 15
         ip rule add iif dummy0 table public  priority 14
         ip rule add iif dummy0 blackhole     priority 15
-        ip rule add iif eth2 table private   priority 14
-        ip rule add iif eth2 blackhole       priority 15
+        ip rule add table private            priority 16
+        ip rule add blackhole                priority 17
 
         ip route add blackhole 10.0.0.0/8 table private
         ip route add blackhole 172.16.0.0/12 table private
@@ -95,8 +95,6 @@ case $uts in
                    local 203.0.113.$(( (li-1)*64 + lj )) \
                    remote 203.0.113.$(( (ri-1)*64 + rj )) \
                    okey $rmark ikey $rmark
-                ip rule add iif vti$rmark table private priority 20
-                ip rule add iif vti$rmark blackhole     priority 21
                 ip addr add $me peer $peer dev vti$rmark
                 sysctl -qw "net.ipv4.conf.vti$rmark.disable_policy=1"
                 ip link set vti$rmark mtu 1426
