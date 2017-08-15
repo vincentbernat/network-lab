@@ -12,6 +12,8 @@ spawn vm V2-1 networks 1,4,5
 spawn vm V2-2 networks 1,4,5
 spawn vm V3-1 networks 1,6,7
 spawn vm V3-2 networks 1,6,7
+# WIP:
+#spawn juniper-vsrx V3-2 network 1,6,7
 
 spawn vm internet network 1
 spawn vm Rx       networks 3,5,7
