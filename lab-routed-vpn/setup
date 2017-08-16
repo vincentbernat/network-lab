@@ -4,6 +4,7 @@ LABNAME="routed-vpn"
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
+SWITCH_MON=1
 
 # Which VM to spawn
 spawn vm V1-1 networks 1,2,3
@@ -99,7 +100,7 @@ case $uts in
                    okey $rmark ikey $rmark
                 ip addr add $me peer $peer dev vti$rmark
                 sysctl -qw "net.ipv4.conf.vti$rmark.disable_policy=1"
-                ip link set vti$rmark mtu 1426
+                ip link set vti$rmark mtu 1500
                 ip link set vti$rmark up
             done
         done

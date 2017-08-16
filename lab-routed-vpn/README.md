@@ -141,3 +141,38 @@ And all private subnets should be learnt:
                        via 172.22.15.25 on vti6 [IBGP_V3_2 20:17:10] (100/0) [i]
     192.168.1.64/26    via 172.22.15.19 on vti3 [IBGP_V2_1 20:17:10] * (100/0) [i]
                        via 172.22.15.21 on vti4 [IBGP_V2_2 20:17:10] (100/0) [i]
+
+## MTU
+
+Another crucial aspect of VPN is MTU. If the outside MTU is 1500, the
+inside MTU is reduced by some value. Unfortunately, IPsec doesn't have
+a fixed overhead. It depends on the encapsulation and on the
+negociated ciphers. Cisco used to have a handy calculator available
+but it has behind a login screen.
+
+The best tool is to hope PMTU discovery works. When creating VTI
+tunnel, Linux sets the MTU of the interface to 1332 (`ip_tunnel.c`
+contains the logic). We can however set it to 1500 and let the outer
+layer do its job:
+
+    $ ip netns exec R1 ping -M do -s 1472 -c2 -I 192.168.1.1 192.168.1.129
+    PING 192.168.1.129 (192.168.1.129) from 192.168.1.1 : 1472(1500) bytes of data.
+    From 172.16.1.3 icmp_seq=1 Frag needed and DF set (mtu = 1438)
+    From 172.16.1.3 icmp_seq=2 Frag needed and DF set (mtu = 1438)
+    
+    --- 192.168.1.129 ping statistics ---
+    2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 1005ms
+    
+    $ ip netns exec R1 ip route get 192.168.1.129
+    192.168.1.129 via 172.16.1.2 dev eth0  src 172.16.1.1
+        cache  expires 590sec mtu 1438
+
+This is with AES128+SHA256 using transport mode.
+
+As long as PMTU works, no workaround is needed. However, you might
+want to use TCP MSS clamping to avoid problems with broken equipments
+(notably if the MTU is lowered on the encapsulated path, the VPN has
+to handle PTMU discovery itself to update the MTU to the destination
+and trigger another PMTU exception for the source). This would also
+potentially hide a misconfiguration. With a MTU of 1438, TCP MSS is
+1398.
