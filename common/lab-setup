@@ -713,31 +713,51 @@ EOF
 
 start_juniper_vsrx () {
     name=$NAME
+    log_info_msg "Start Juniper vSRX $name"
     netargs=""
+    ssh=$(tcp_port)
+    netargs="$netargs -net nic,model=virtio,macaddr=$oobmac,vlan=4090" # OOB
+    netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    add_ssh_config $NAME $ssh juniper
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -net nic,model=e1000,macaddr=$mac,vlan=$net"
+        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
         netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
     done
 
-    log_info_msg "Start Juniper vSRX $name"
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vsrx.img $TMP/junos-$name.img
-mkdir -p $TMP/junos-$name-iso
-cp junos-$name.conf $TMP/junos-$name-iso/juniper.conf
-genisoimage -quiet -o $TMP/junos-$name.iso $TMP/junos-$name-iso
+truncate -s 10M $TMP/metadata-$name.img
+mkfs.vfat $TMP/metadata-$name.img
+mkdir -p $TMP/metadata-$name/boot
+cat - $TMP/ssh-junos.conf junos-$name.conf <<END > $TMP/metadata-$name/juniper.conf
+interfaces {
+  fxp0 {
+    unit 0 {
+      family inet dhcp;
+    }
+  }
+}
+END
+cat <<END > $TMP/metadata-$name/boot/loader.conf
+vm_local_rpio="1"
+END
+tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
+mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vsrx-config.tgz
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
      -nodefconfig -nodefaults \
      -display none \
      -m ${MEM:-4G} \
+     -cpu host \
+     -smp cpus=2 \
      -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VSRX \
      \
      -boot c \
      -drive file=$TMP/junos-$name.img,if=ide,media=disk \
-     -drive file=$TMP/junos-$name.iso,if=ide,media=cdrom \
+     -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
