@@ -77,7 +77,7 @@ It should also learn a default for Internet:
 
 This default is also known from the Rx routers:
 
-    $ ip netns exec R1 birdc -s /var/run/bird.R1.ctl show route 0.0.0.0/0
+    $ birdc -s /var/run/bird.R1.ctl show route 0.0.0.0/0
     BIRD 1.6.3 ready.
     0.0.0.0/0          multipath [INTERNAL 20:17:11] * E2 (150/10/10000) [0.0.1.2]
             via 172.16.1.2 on eth0 weight 1
