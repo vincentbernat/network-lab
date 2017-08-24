@@ -115,17 +115,15 @@ EOF
                    -j LOG --log-prefix "NF: routing evasion: " --log-level warning
         ip46tables -A FORWARD -j DROP
 
-        # TTL: routing is a bit too complex to let Linux guess
-        # sensible source address for TTL exceeded packets. Use one of
-        # those options:
+        # IPv4 TTL: routing is a bit too complex to let Linux guess
+        # sensible source address for TTL exceeded packets (we assume
+        # there is no proble with IPv6). Use one of those options:
         #  1. Use interface address
         sysctl -qw net.ipv4.icmp_errors_use_inbound_ifaddr=1
         #  2. Drop packets with too low TTL
         # iptables  -t mangle -A PREROUTING -m ttl --ttl-eq 1 -j DROP
-        # ip6tables -t mangle -A PREROUTING -m hl  --hl-eq 1  -j DROP
         #  3. Don't decrease TTL (dangerous)
         # iptables  -t mangle -A PREROUTING -m ttl --ttl-eq 1 -j TTL --set-ttl 2
-        # ip6tables -t mangle -A PREROUTING -m hl  --hl-eq 1  -j HL --set-hl 2
 
         # RP filtering. We use Netfilter for IPv6 (3.3+) and rp_filter for IPv4 (it also filters ARP).
         ip6tables -t raw -N RPFILTER
