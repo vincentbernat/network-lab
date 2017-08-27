@@ -12,7 +12,15 @@ vpns=2                          # number of VPNs per AS
 # Which VM to spawn
 for asn in $(seq 1 $asns); do
     for vpn in $(seq 1 $vpns); do
-        spawn vm V$asn-$vpn networks 1,$(( asn*2 )),$(( asn*2 + 1))
+        networks=1,$(( asn*2 )),$(( asn*2 + 1))
+        case V$asn-$vpn in
+            # V3-2)
+            #     spawn juniper-vsrx V3-2 networks $networks
+            #     ;;
+            *)
+                spawn vm V$asn-$vpn networks $networks
+                ;;
+        esac
     done
 done
 
