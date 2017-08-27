@@ -39,6 +39,8 @@ one namespace to another is to be encapsulated into an IPsec policy.
 The main namespace is using OSPFv3, but this doesn't really
 matter. This is just a way to let each VPN see each others.
 
+For a similar lab using IPv4, see commit 82d2cc0e4a33.
+
 ## Troubleshooting
 
 Each VPN should see the `2001:db8:aX::/64` network through OSPF:
@@ -96,6 +98,10 @@ And all private subnets should be learnt:
                        via fe80::2:2 on vti4 [IBGP_V2_2 19:51:37] (100) [i]
     2001:db8:a3::/64   via fe80::3:1 on vti5 [IBGP_V3_1 19:51:39] ! (100) [i]
                        via fe80::3:2 on vti6 [IBGP_V3_2 19:51:37] (100) [i]
+
+The exclamation mark is because BIRD isn't able to handle IPv6 ECMP
+routes correctly yet. Therefore, in production, `ecmp yes` should be
+commented out of `protocol kernel`.
 
 ## MTU
 
