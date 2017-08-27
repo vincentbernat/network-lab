@@ -6,112 +6,83 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 SWITCH_MON=1
 
-# Which VM to spawn
-spawn vm V1-1 networks 1,2,3
-spawn vm V1-2 networks 1,2,3
-spawn vm V2-1 networks 1,4,5
-spawn vm V2-2 networks 1,4,5
-spawn vm V3-1 networks 1,6,7
-spawn vm V3-2 networks 1,6,7
-# WIP:
-#spawn juniper-vsrx V3-2 network 1,6,7
+asns=3                          # number of AS
+vpns=2                          # number of VPNs per AS
 
-spawn vm internet network 1
-spawn vm Rx       networks 3,5,7
+# Which VM to spawn
+for asn in $(seq 1 $asns); do
+    for vpn in $(seq 1 $vpns); do
+        spawn vm V$asn-$vpn networks 1,$(( asn*2 )),$(( asn*2 + 1))
+    done
+done
+
+spawn vm Rx networks $(seq -s, 3 2 $(( asns*2 + 1 )))
 
 run
 
-imax=3                          # no more than 4
-jmax=2
-
 case $uts in
     Rx)
-        for i in $(seq 1 $imax); do
+        for i in $(seq 1 $asns); do
             ip netns add R$i
             ip link set netns R$i dev eth$((i-1))
             ip netns exec R$i ip link set name eth0 dev eth$((i-1))
             ip netns exec R$i ip link set up dev eth0
-            ip netns exec R$i ip addr add 172.16.$i.1/29 dev eth0
             ip netns exec R$i ip link add type dummy
             ip netns exec R$i ip link set up dev dummy0
-            ip netns exec R$i ip addr add 192.168.1.$(( (i-1)*64 + 1 ))/26 dev dummy0
-            template bird.Rx.Ry.conf bird.Rx.R$i.conf li=$i
+            ip netns exec R$i ip addr add 2001:db8:a$i::1/64 dev dummy0
+            template bird6.Rx.Ry.conf bird6.Rx.R$i.conf asn=$i
             netns=R$i service bird
         done
         ;;
-    internet)
-        sysctl -qw net.ipv4.ip_forward=1
-        sysctl -qw net.ipv4.conf.all.send_redirects=0
-        sysctl -qw net.ipv4.conf.eth0.send_redirects=0
-        for i in 0 1 2 3 4 5; do
-            ip addr add 198.51.100.$((i*2))/31 dev eth0
-        done
-        service bird
-        ;;
     V*)
-        li=${uts#V}
-        li=${li%-*}
-        lj=${uts#*-}
-        sysctl -qw net.ipv4.ip_forward=1
-        sysctl -qw net.ipv4.conf.all.send_redirects=0
+        asn=${uts#V}
+        asn=${asn%-*}
+        vpn=${uts#*-}
 
-        echo "100	public"    >> /etc/iproute2/rt_tables
-        echo "101	private"   >> /etc/iproute2/rt_tables
-        echo "102	local-out" >> /etc/iproute2/rt_tables
-        ip rule add iif lo   table local-out priority 10
-        ip rule add iif lo   unreachable     priority 11
-        ip rule add iif eth0 table public    priority 14
-        ip rule add iif eth0 blackhole       priority 15
-        ip rule add iif eth1 table public    priority 14
-        ip rule add iif eth1 blackhole       priority 15
-        ip rule add iif dummy0 table public  priority 14
-        ip rule add iif dummy0 blackhole     priority 15
-        ip rule add table private            priority 16
-        ip rule add blackhole                priority 17
+        sysctl -qw net.ipv6.conf.all.forwarding=1
 
-        ip route add blackhole 10.0.0.0/8 table private
-        ip route add blackhole 172.16.0.0/12 table private
-        ip route add blackhole 192.168.0.0/16 table private
+        ip netns add private
+        ip netns exec private sysctl -qw net.ipv6.conf.all.forwarding=1
+        ip link set netns private dev eth1
+        ip link set netns private dev eth2
+        ip netns exec private ip link set up dev eth1
+        ip netns exec private ip link set up dev eth2
+        ip netns exec private ip link add type dummy
+        ip netns exec private ip link set up dev dummy0
 
-        ip addr add 198.51.100.$(( ((li-1)*jmax+(lj-1))*2 + 1 ))/31 dev eth0
-        ip addr add 203.0.113.$(( (li-1)*64 + lj ))/26 dev dummy0
-        ip addr add 203.0.113.$(( (li-1)*64 + lj ))/32 dev dummy0
-        ip route add 203.0.113.$(( ((li-1)*64 + 3 - lj) )) dev eth1 src 203.0.113.$(( ((li-1)*64 + lj) )) table public
-        ip addr add 172.16.$li.$(( lj + 1 ))/29 dev eth2
+        ip addr add 2001:db8:$asn::$vpn/128 dev dummy0
 
-        template bird.Vx-y.conf bird.$uts.conf li=$li lj=$lj imax=$imax jmax=$jmax
-        service bird
+        template bird6.Vx-y.public.conf  bird6.$uts.conf asn=$asn vpn=$vpn
+        template bird6.Vx-y.private.conf bird6.$uts.private.conf asn=$asn vpn=$vpn asns=$asns vpns=$vpns
 
-        lmark=$(( (li-1)*jmax + lj ))
-        for ri in $(seq 1 $imax); do
-            [ $ri -ne $li ] || continue
-            for rj in $(seq 1 $jmax); do
-                rmark=$(( (ri-1)*jmax + rj ))
-                if [ $lmark -lt $rmark ]; then
-                    me=172.22.15.$(( (lmark*imax*jmax + rmark) * 2 ))
-                    peer=172.22.15.$(( (lmark*imax*jmax + rmark) * 2 + 1 ))
-                else
-                    me=172.22.15.$(( (rmark*imax*jmax + lmark) * 2 + 1 ))
-                    peer=172.22.15.$(( (rmark*imax*jmax + lmark) * 2 ))
-                fi
+        for rasn in $(seq 1 $asns); do
+            [ $rasn -ne $asn ] || continue
+            for rvpn in $(seq 1 $vpns); do
+                rmark=$(( (rasn-1)*vpns + rvpn ))
+                me=fe80::$asn:$vpn
                 ip tunnel add vti$rmark \
-                   local 203.0.113.$(( (li-1)*64 + lj )) \
-                   remote 203.0.113.$(( (ri-1)*64 + rj )) \
+                   mode vti6 \
+                   local 2001:db8:$asn::$vpn \
+                   remote 2001:db8:$rasn::$rvpn \
                    okey $rmark ikey $rmark
-                ip addr add $me peer $peer dev vti$rmark
-                sysctl -qw "net.ipv4.conf.vti$rmark.disable_policy=1"
-                ip link set vti$rmark mtu 1500
-                ip link set vti$rmark up
+                ip link set netns private dev vti$rmark
+                ip netns exec private ip addr add $me/64 dev vti$rmark scope link
+                ip netns exec private sysctl -qw "net.ipv4.conf.vti$rmark.disable_policy=1"
+                ip netns exec private ip link set vti$rmark mtu 1500
+                ip netns exec private ip link set vti$rmark up
             done
         done
 
-        template ipsec.Vx-y.conf ipsec.$uts.conf li=$li lj=$lj imax=$imax jmax=$jmax
-        template ipsec.Vx-y.secrets ipsec.$uts.secrets li=$li lj=$lj imax=$imax jmax=$jmax
+        template ipsec.Vx-y.conf ipsec.$uts.conf asn=$asn vpn=$vpn asns=$asns vpns=$vpns
+        template ipsec.Vx-y.secrets ipsec.$uts.secrets asn=$asn vpn=$vpn asns=$asns vpns=$vpns
         ln -sf $PWD/ipsec.$uts.secrets /etc/ipsec.secrets
         ln -sf $PWD/ipsec.$uts.conf /etc/ipsec.conf
         sed -i 's/\( *\)# install_routes =.*/\1 install_routes = no/' /etc/strongswan.d/charon.conf
         sed -i 's/\( *\)# install_virtual_ip =.*/\1 install_virtual_ip = no/' /etc/strongswan.d/charon.conf
         sed -i 's/\( *\)# routing_table =.*/\1 routing_table = 0/' /etc/strongswan.d/charon.conf
         service ipsec start
+
+        service bird
+        netns=private service bird
         ;;
 esac
