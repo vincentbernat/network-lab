@@ -77,11 +77,11 @@ IPsec sessions should be up:
 
 Each interco should be pingable using the tunnel:
 
-    $ ip netns exec private fping fe80::{2:1%vti3,2:2%vti4,3:1%vti5,3:2%vti6}
-    fe80::2:1%vti3 is alive
-    fe80::2:2%vti4 is alive
-    fe80::3:1%vti5 is alive
-    fe80::3:2%vti6 is alive
+    $ ip netns exec private fping 2001:db8:ff::{1,3,5,7}
+    2001:db8:ff::1 is alive
+    2001:db8:ff::3 is alive
+    2001:db8:ff::5 is alive
+    2001:db8:ff::7 is alive
 
 BGP sessions should be up:
 
@@ -94,10 +94,10 @@ BGP sessions should be up:
 And all private subnets should be learnt:
 
     $ birdc6 -s /run/bird6.private.ctl show route | grep IBGP_V
-    2001:db8:a2::/64   via fe80::2:1 on vti3 [IBGP_V2_1 19:51:37] ! (100) [i]
-                       via fe80::2:2 on vti4 [IBGP_V2_2 19:51:37] (100) [i]
-    2001:db8:a3::/64   via fe80::3:1 on vti5 [IBGP_V3_1 19:51:39] ! (100) [i]
-                       via fe80::3:2 on vti6 [IBGP_V3_2 19:51:37] (100) [i]
+    2001:db8:a2::/64   via 2001:db8:ff::1 on vti3 [IBGP_V2_1 13:23:43] ! (160) [AS65002i]
+                       via 2001:db8:ff::3 on vti4 [IBGP_V2_2 13:23:34] (160) [AS65002i]
+    2001:db8:a3::/64   via 2001:db8:ff::5 on vti6 [IBGP_V3_1 13:23:39] ! (160) [AS65003i]
+                       via 2001:db8:ff::7 on vti4 [IBGP_V3_2 13:23:39] (160) [AS65002i]
 
 The exclamation mark is because BIRD isn't able to handle IPv6 ECMP
 routes correctly yet. Therefore, in production, `ecmp yes` should be
@@ -118,7 +118,7 @@ layer do its job:
 
     $ ip netns exec R1 ping -M do -s 1472 -c2 2001:db8:a3::1
     PING 2001:db8:a3::1(2001:db8:a3::1) 1472 data bytes
-    From fe80::5254:33ff:fe00:3%eth0 icmp_seq=2 Packet too big: mtu=1406
+    From 2001:db8:ff::8 icmp_seq=2 Packet too big: mtu=1406
     
     --- 2001:db8:a3::1 ping statistics ---
     2 packets transmitted, 0 received, +1 errors, 100% packet loss, time 1021ms
