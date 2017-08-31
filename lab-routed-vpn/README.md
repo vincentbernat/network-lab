@@ -100,8 +100,7 @@ And all private subnets should be learnt:
                        via 2001:db8:ff::7 on vti4 [IBGP_V3_2 13:23:39] (160) [AS65002i]
 
 The exclamation mark is because BIRD isn't able to handle IPv6 ECMP
-routes correctly yet. Therefore, in production, `ecmp yes` should be
-commented out of `protocol kernel`.
+routes correctly yet with recent kernels (4.11+).
 
 ## MTU
 
