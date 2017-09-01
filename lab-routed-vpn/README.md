@@ -135,3 +135,26 @@ to handle PTMU discovery itself to update the MTU to the destination
 and trigger another PMTU exception for the source). This would also
 potentially hide a misconfiguration. With a MTU of 1406, TCP MSS is
 1366.
+
+## Mark
+
+The VTI interface alter the firewall mark of the packet and there is
+no way to set a mask to avoid altering part of the existing
+mark. However, this is not a problem as the mark is set only to lookup
+the appropriate XFRM policy and then restored:
+
+    u32 orig_mark = skb->mark;
+    skb->mark = be32_to_cpu(t->parms.i_key);
+    ret = xfrm_policy_check(NULL, XFRM_POLICY_IN, skb, family);
+    skb->mark = orig_mark;
+
+This can be checked with Netfilter:
+
+    sysctl -qw net.netfilter.nf_log_all_netns=1
+    ip netns exec private ip6tables -t raw -A PREROUTING -j TRACE
+    ip netns exec private ip6tables -t raw -A PREROUTING -j TRACE
+    ip6tables -t raw -A PREROUTING -j TRACE
+    ip6tables -t raw -A PREROUTING -j TRACE
+
+No packet has a mark. However, XFRM policies take a mask because the
+mark can be set from something else (notably a Netfilter rule).
