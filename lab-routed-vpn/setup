@@ -76,7 +76,7 @@ case $uts in
                    mode vti6 \
                    local 2001:db8:$asn::$vpn \
                    remote 2001:db8:$rasn::$rvpn \
-                   okey $rmark ikey $rmark
+                   key $rmark
                 ip link set netns private dev vti$rmark
                 ip netns exec private ip addr add $me/127 dev vti$rmark
                 ip netns exec private sysctl -qw "net.ipv4.conf.vti$rmark.disable_policy=1"
