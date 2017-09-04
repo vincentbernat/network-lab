@@ -126,7 +126,8 @@ layer do its job:
     2001:db8:a3::1 from :: via fe80::5254:33ff:fe00:3 dev eth0 src 2001:db8:a1::1 metric 0
         cache  expires 559sec mtu 1406 pref medium
 
-This is with AES128+SHA256 using transport mode.
+This is with AES128+SHA256 using transport mode. With
+AES256-GCM16+ECP384, the MTU is increased to 1426.
 
 As long as PMTU works, no workaround is needed. However, you might
 want to use TCP MSS clamping to avoid problems with broken equipments
