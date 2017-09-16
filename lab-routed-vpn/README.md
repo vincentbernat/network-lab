@@ -112,8 +112,8 @@ but it has behind a login screen.
 
 The best tool is to hope PMTU discovery works. When creating VTI
 tunnel, Linux sets the MTU of the interface to 1332 (`ip_tunnel.c`
-contains the logic). We can however set it to 1500 and let the outer
-layer do its job:
+contains the logic) to handle all possible ciphers and protocols. We
+can however set it to 1500 and let the outer layer do its job:
 
     $ ip netns exec R1 ping -M do -s 1472 -c2 2001:db8:a3::1
     PING 2001:db8:a3::1(2001:db8:a3::1) 1472 data bytes
