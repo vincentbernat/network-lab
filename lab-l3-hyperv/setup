@@ -142,7 +142,6 @@ EOF
         ip46tables -N BGP-BFD
         ip46tables -A INPUT -p tcp --dport bgp -j BGP-BFD
         ip46tables -A INPUT -p udp --dport 3784 -j BGP-BFD
-        ip46tables -A INPUT -p udp --dport 4784 -j BGP-BFD
         iptables -A INPUT -p udp --dport 4789 -s 172.22.2.0/24 -m ttl --ttl-eq 255 -j ACCEPT
         iptables -A BGP-BFD -s 198.51.100.0/24 -m ttl --ttl-eq 255 -j ACCEPT
         iptables -A BGP-BFD -s 172.22.15.0/24 -m ttl --ttl-eq 255 -j ACCEPT
