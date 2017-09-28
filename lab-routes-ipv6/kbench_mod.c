@@ -308,6 +308,9 @@ static int do_bench(char *buf, int verbose)
 				schedule();
 			}
 		}
+		/* Could use sched_clock() to get a number of
+		 * nanoseconds instead. This would be the one used for
+		 * ftrace. */
 		t1 = get_cycles();
 		dst = ip6_route_output(&init_net, NULL, &fl6);
 		t2 = get_cycles();
