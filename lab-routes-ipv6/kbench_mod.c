@@ -310,7 +310,16 @@ static int do_bench(char *buf, int verbose)
 		}
 		/* Could use sched_clock() to get a number of
 		 * nanoseconds instead. This would be the one used for
-		 * ftrace. */
+		 * ftrace. get_cycles() use RDTSC behind the scene and
+		 * this instruction is virtualized with low-overhead
+		 * (see cpu_has_vmx_rdtscp() for support, which can be
+		 * checked with the following command-line: `sudo
+		 * rdmsr 0x0000048b` (which is
+		 * MSR_IA32_VMX_PROCBASED_CTLS2), and it should have
+		 * 0x8 bit set (which is SECONDARY_EXEC_RDTSCP) in the
+		 * high word. For example, if we have 0x7cff00000000,
+		 * high word is 0x7cff, so 0x8 bit is set and it's
+		 * OK. */
 		t1 = get_cycles();
 		dst = ip6_route_output(&init_net, NULL, &fl6);
 		t2 = get_cycles();
