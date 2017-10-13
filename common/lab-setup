@@ -491,6 +491,10 @@ interfaces {
   }
 }
 END
+cat <<END > $TMP/metadata-$name/boot/loader.conf
+console="comconsole"
+vm_retype="RE-VRR"
+END
 tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
 mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vrr-config.tgz
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
