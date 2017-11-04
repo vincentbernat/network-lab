@@ -154,6 +154,12 @@ system {
       }
     }
   }
+  syslog {
+    file messages {
+      any any;
+      authorization info;
+    }
+  }
   services {
     ssh {
       root-login allow;
