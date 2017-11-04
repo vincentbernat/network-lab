@@ -154,6 +154,9 @@ system {
       }
     }
   }
+  root-authentication {
+    encrypted-password "$5$JvRcaEgr$rVa0H6jmKOCA9Jh5/LNc1BOC38gkFbalN8cKKamIp8/"; ## SECRET-DATA
+  }
   syslog {
     file messages {
       any any;
