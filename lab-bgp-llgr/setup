@@ -1,0 +1,38 @@
+#!/bin/sh
+
+LABNAME="bgpllgr"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm          S1  networks 1,2,3,4,5,6
+spawn juniper-vrr R   networks 1,2,3,4,5,6
+
+run
+
+# Executed on each VM
+case $uts in
+    S1)
+        for b in 1 2 3; do
+            ip link add wire$b type bridge
+            ip link set up dev wire$b
+            ip link set master wire$b eth$((b-1))
+            ip link set master wire$b eth$((b+2))
+        done
+
+        cat <<EOF > /tmp/tools/ddos
+#!/bin/sh
+case "\${1:-on}" in
+    on)
+        ebtables -A FORWARD -p IPv6 --ip6-proto udp --ip6-destination-port 3784 -j DROP
+        ebtables -A FORWARD -p IPv6 --ip6-proto tcp --ip6-destination-port 179 -j DROP
+        ;;
+    off)
+        ebtables -F FORWARD
+        ;;
+esac
+EOF
+        chmod +x /tmp/tools/ddos
+        ;;
+esac
