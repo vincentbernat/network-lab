@@ -272,6 +272,10 @@ our example):
       Time until long-lived stale routes deleted: inet6-unicast 00:00:47
         LLGR-stale prefixes:          1
 
+On vRR 16.1R2.11, it doesn't seem possible to use an import policy to
+match a stale route. The displayed community may have been added after
+import policies are evaluated.
+
 ## Documentation
 
 Long-lived BGP graceful restart is still a draft. It is implemented by
