@@ -23,8 +23,12 @@ case $uts in
 
         cat <<EOF > /tmp/tools/ddos
 #!/bin/sh
-case "\${1:-on}" in
-    on)
+case "\${1:-all}" in
+    wire*)
+        ebtables -A FORWARD --logical-in \$1 -p IPv6 --ip6-proto udp --ip6-destination-port 3784 -j DROP
+        ebtables -A FORWARD --logical-in \$1 -p IPv6 --ip6-proto tcp --ip6-destination-port 179 -j DROP
+        ;;
+    all)
         ebtables -A FORWARD -p IPv6 --ip6-proto udp --ip6-destination-port 3784 -j DROP
         ebtables -A FORWARD -p IPv6 --ip6-proto tcp --ip6-destination-port 179 -j DROP
         ;;
