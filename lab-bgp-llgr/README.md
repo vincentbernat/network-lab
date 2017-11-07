@@ -276,6 +276,16 @@ On vRR 16.1R2.11, it doesn't seem possible to use an import policy to
 match a stale route. The displayed community may have been added after
 import policies are evaluated.
 
+We can check we can ping the destination despite the ongoing "DDoS"
+(better than nothing):
+
+    juniper@R:R1> ping 2001:db8:10::2 count 10 rapid
+    PING6(56=40+8+8 bytes) 2001:db8:2::1 --> 2001:db8:10::2
+    !!.!.!.!.!
+    --- 2001:db8:10::2 ping6 statistics ---
+    10 packets transmitted, 6 packets received, 40% packet loss
+    round-trip min/avg/max/std-dev = 0.580/1.516/2.251/0.677 ms
+
 ## Documentation
 
 Long-lived BGP graceful restart is still a draft. It is implemented by
