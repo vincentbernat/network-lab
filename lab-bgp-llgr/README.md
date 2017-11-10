@@ -28,6 +28,11 @@ We use only the first mechanism in this lab. Also, graceful restart is
 not enabled explicitely. This means the long-lived stale route timer
 starts immediately.
 
+This has been tested with:
+
+ - vRR 16.1R2.11 (no problem)
+ - vRR 17.3R1.10 (ECMP routes broken but otherwise work)
+
 ## Commands
 
 The lab has two nodes:
