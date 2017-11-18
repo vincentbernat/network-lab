@@ -166,7 +166,7 @@ def save(fig, ax, name, legend=True, mxin=1., myin=1.):
     cols = max(a.colNum + 1 for a in axes)
     rows = max(a.rowNum + 1 for a in axes)
     if legend:
-        axes[0].legend(loc='upper left',
+        axes[0].legend(loc='best',
                        bbox_to_anchor=(1.1, 1),
                        borderaxespad=0.,
                        frameon=False)
@@ -261,7 +261,7 @@ with plt.style.context([
                                                             fixed=more))
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
     ax.set_ylim(bottom=0)
-    ax.legend(loc='upper right')
+    ax.legend(loc='best')
     save(fig, ax, "kernels", legend=False,
          mxin=max(1., len(x)/19.5),
          myin=1.3)
