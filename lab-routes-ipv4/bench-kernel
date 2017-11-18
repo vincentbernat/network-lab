@@ -101,6 +101,7 @@ CONFIG_IPV6_MULTIPLE_TABLES=y
 CONFIG_IPV6_SIT=n
 CONFIG_DUMMY=y
 EOF
+
 yes "" | make -C "$TREE" O=${TMP}/kernel CC=${CC} oldconfig
 make -j3 -C "$TREE" O=${TMP}/kernel CC=${CC}
 make -C "$TREE" O=${TMP}/kernel CC=${CC} INSTALL_PATH=${TMP} install
@@ -112,7 +113,7 @@ make KDIR=${TMP}/kernel O=${TMP}/kernel CC=${CC}
 # init script
 cat <<EOF'' > ${TMP}/init
 #!/bin/sh
-set -e
+set -ex
 export PATH=/usr/local/bin:/usr/bin:/bin:/sbin:/usr/local/sbin:/usr/sbin
 mount -n -t proc  proc /proc
 mount -n -t sysfs sys /sys
@@ -123,7 +124,6 @@ for i in 1 2 3 4 5; do
     ip link set up dev out$i
     ip addr add 203.0.113.$((i*2))/31 dev out$i
 done
-set -x
 insmod /kbench_mod.ko
 echo 100000 > /sys/kernel/kbench/loop_count
 cat /proc/version | tee /dev/ttyS1
@@ -142,7 +142,7 @@ for f in /rtdump*; do
   fi
   ip route show | wc -l | tee /dev/ttyS1
   sleep 2
-  cat /sys/kernel/kbench/run | tee /dev/ttyS1
+  cat /sys/kernel/kbench/run_verbose | tee /dev/ttyS1
 done
 echo b > /proc/sysrq-trigger
 EOF
@@ -181,15 +181,17 @@ qemu-system-$(uname -m) \
             -enable-kvm \
             -nodefconfig -nodefaults \
             -display none \
-            -m 512 \
+            -m 1024 \
+            -cpu host \
             -chardev stdio,id=charserial0,signal=off \
             -device isa-serial,chardev=charserial0,id=serial0 \
             -chardev file,id=charserial1,path=${TMP}/output \
             -device isa-serial,chardev=charserial1,id=serial1 \
+            -gdb unix:$TMP/gdb.pipe,server,nowait \
             -no-reboot \
             -kernel $TMP/vmlinuz* \
             -initrd $TMP/initrd.gz \
-            -append "console=ttyS0 panic=1 8250.nr_uarts=4" || :
+            -append "console=ttyS0 panic=1 oops=panic 8250.nr_uarts=4" || :
 
 mkdir -p stats/kernel
 [ ! -s ${TMP}/output ] || cp ${TMP}/output stats/kernel/${VERSION}

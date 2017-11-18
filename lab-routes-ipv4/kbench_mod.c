@@ -102,6 +102,25 @@ static unsigned long long percentile(int p,
 	return (sorted[index] + sorted[index+1]) / 2;
 }
 
+static unsigned long long mad(unsigned long long *sorted,
+			      unsigned long long median,
+			      unsigned count)
+{
+	unsigned long long *dmedian = kmalloc(sizeof(unsigned long long) * count, GFP_KERNEL);
+	unsigned long long res;
+	unsigned i;
+	for (i = 0; i < count; i++) {
+		if (sorted[i] > median)
+			dmedian[i] = sorted[i] - median;
+		else
+			dmedian[i] = median - sorted[i];
+	}
+	sort(dmedian, count, sizeof(unsigned long long), compare, NULL);
+	res = percentile(50, dmedian, count);
+	kfree(dmedian);
+	return res;
+}
+
 static int do_bench(char *buf, int verbose)
 {
 	unsigned long long *results;
@@ -167,6 +186,18 @@ static int do_bench(char *buf, int verbose)
 			fl4.daddr = daddr;
 #endif
 		}
+		/* Could use sched_clock() to get a number of
+		 * nanoseconds instead. This would be the one used for
+		 * ftrace. get_cycles() use RDTSC behind the scene and
+		 * this instruction is virtualized with low-overhead
+		 * (see cpu_has_vmx_rdtscp() for support, which can be
+		 * checked with the following command-line: `sudo
+		 * rdmsr 0x0000048b` (which is
+		 * MSR_IA32_VMX_PROCBASED_CTLS2), and it should have
+		 * 0x8 bit set (which is SECONDARY_EXEC_RDTSCP) in the
+		 * high word. For example, if we have 0x7cff00000000,
+		 * high word is 0x7cff, so 0x8 bit is set and it's
+		 * OK. */
 		t1 = get_cycles();
 		err = my_fib_lookup(&fl4, &res);
 		t2 = get_cycles();
@@ -178,24 +209,28 @@ static int do_bench(char *buf, int verbose)
 	}
 	mutex_unlock(&kb_lock);
 
-	/* Compute percentiles */
+	/* Compute statistics */
 	sort(results, total, sizeof(*results), compare, NULL);
 	if (total == 0) {
 		scnprintf(buf, PAGE_SIZE, "msg=\"no match\"\n");
 	} else {
-		unsigned long long per95 = percentile(95, results, total);
+		unsigned long long p95 = percentile(95, results, total);
+		unsigned long long p90 = percentile(90, results, total);
+		unsigned long long p50 = percentile(50, results, total);
+		average /= total;
 		scnprintf(buf, PAGE_SIZE,
-			  "min=%llu max=%llu count=%lu average=%llu 50th=%llu 90th=%llu 95th=%llu\n",
+			  "min=%llu max=%llu count=%lu average=%llu 95th=%llu 90th=%llu 50th=%llu mad=%llu\n",
 			  results[0],
 			  results[total - 1],
 			  total,
-			  average/total,
-			  percentile(50, results, total),
-			  percentile(90, results, total),
-			  per95);
+			  average,
+			  p95,
+			  p90,
+			  p50,
+			  mad(results, p50, total));
 		if (verbose) {
 			/* Display an histogram */
-			unsigned long long share = (per95 - results[0]) / HIST_BUCKETS;
+			unsigned long long share = (p95 - results[0]) / HIST_BUCKETS;
 			unsigned long long start = results[0];
 			int order = (ilog2(share) * 3 + 5) / 10;
 			char *hist_buf = buf + strnlen(buf, PAGE_SIZE);
@@ -235,7 +270,7 @@ static int do_bench(char *buf, int verbose)
 				count = 0;
 				start += share;
 				if (i >= total) break;
-				if (results[i] > per95) break;
+				if (results[i] > p95) break;
 			}
 		}
 	}

@@ -54,7 +54,7 @@ def extract_stats(t1, t2, t3):
                                            for k, v in details}
     if t3 is not None:
         with open(t3) as f:
-            fields = f.read().strip().split(" ")
+            fields = f.readline().strip().split(" ")
             stats.update({"kbench-{}".format(f[0]): int(f[1])
                           for f in (f.split("=", 1) for f in fields)})
     return stats
@@ -102,13 +102,18 @@ for t in glob.glob("stats/kernel.ok/*"):
         kernel_many[version] = m
 
 
-def plot(ax, facet, linreg=True):
+def plot(ax, facet, err=None, linreg=True):
     """Plot a given facet on the provided axes."""
     xmaxmax = -np.inf
     xminmin = np.inf
     if not callable(facet):
         ofacet = facet
         facet = lambda x: x[ofacet]
+    if err is None:
+        err = lambda x: 0
+    elif not callable(err):
+        oerr = err
+        err = lambda x: x[oerr]
 
     # /32 with density
     if thirtytwo is not None:
@@ -119,22 +124,27 @@ def plot(ax, facet, linreg=True):
                                  sorted(thirtytwo.keys())):
             x = np.array(sorted(thirtytwo[density].keys()))
             y = np.array([facet(thirtytwo[density][k]) for k in x])
+            yerr = np.array([err(thirtytwo[density][k]) for k in x])/2
             xmax = np.log10(np.max(x))
             ymax = np.max(y)
             xminmin = min(np.min(x), xminmin)
             xmaxmax = max(np.max(x), xmaxmax)
-            ax.scatter(x * 10**(xmax/50*np.cos(r)),
-                       y + ymax/50*np.sin(r),
-                       color=c,
-                       label="/32, density {}".format(density))
+            ax.errorbar(x * 10**(xmax/50*np.cos(r)),
+                        y + ymax/50*np.sin(r),
+                        yerr=yerr,
+                        elinewidth=1, color=c, fmt='.',
+                        label="/32, density {}".format(density))
 
     # Full view
     x = np.array(sorted(full.keys()))
     y = np.array([facet(full[k]) for k in x])
+    yerr = np.array([err(full[k]) for k in x])/2
     xminmin = min(np.min(x), xminmin)
     xmaxmax = max(np.max(x), xmaxmax)
     slope, intercept, _, _, _ = stats.linregress(x, y)
-    ax.scatter(x, y, color='b', label="from full view")
+    ax.errorbar(x, y, yerr=yerr,
+                elinewidth=1, color='b', fmt='.',
+                label="from full view")
 
     # Linreg
     if linreg:
@@ -211,17 +221,25 @@ with plt.style.context([
     ax = fig.add_subplot(111)
     x = sorted(kernel_bgp.keys(), key=versionize)
     y1 = [kernel_bgp[k]["50th"]/FREQ for k in x]
+    err1 = np.array([kernel_bgp[k]["mad"]/FREQ for k in x])/2
     ax.plot(range(len(x)), y1,
             'o-',
             lw=1, ms=4,
             label="from full view",
             color="blue")
+    ax.fill_between(range(len(x)), y1-err1, y1+err1,
+                    facecolor="blue", alpha=0.2, lw=0,
+                    antialiased=True, interpolate=True)
     y2 = [kernel_many[k]["50th"]/FREQ for k in x]
+    err2 = np.array([kernel_many[k]["mad"]/FREQ for k in x])/2
     ax.plot(range(len(x)), y2,
             'o-',
             lw=1, ms=4,
             label="/32, density 1",
             color=plt.cm.Reds(0.8))
+    ax.fill_between(range(len(x)), y2-err2, y2+err2,
+                    facecolor=plt.cm.Reds(0.8), alpha=0.2, lw=0,
+                    antialiased=True, interpolate=True)
     ax.set_title("route lookup time")
 
     ax.set_xticks(range(len(x)))
@@ -235,9 +253,12 @@ with plt.style.context([
             ax.get_xgridlines()[idx].set_color('black')
     # We want to remove the outlier
     vmax = 200
-    more = [max([v for v in y1+y2 if v > vmax])//100*100]
-    ax.set_yscale("symlog", linthreshy=vmax, linscaley=1.0)
-    ax.get_yaxis().set_major_locator(BoundedMaxNLocator(vmax=vmax, fixed=more))
+    outliers = [v for v in y1+y2 if v > vmax]
+    if outliers:
+        more = [max(outliers)//100*100]
+        ax.set_yscale("symlog", linthreshy=vmax, linscaley=1.0)
+        ax.get_yaxis().set_major_locator(BoundedMaxNLocator(vmax=vmax,
+                                                            fixed=more))
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
     ax.set_ylim(bottom=0)
     ax.legend(loc='upper right')
@@ -252,6 +273,7 @@ with plt.style.context([
     ax = fig.add_subplot(223)
     plot(ax,
          lambda x: x['kbench-50th']/FREQ,
+         err=lambda x: x['kbench-mad']/FREQ,
          linreg=False)
     ax.set_title("lookup time")
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))

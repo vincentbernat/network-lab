@@ -15,6 +15,6 @@ for routes in 100 1000 10000 20000 50000 100000 200000 500000; do
     grep '^ip_fib' /proc/slabinfo > stats/full/slab.$routes
     [ -d /sys/kernel/kbench ] && {
         echo 50000 > /sys/kernel/kbench/loop_count
-        cat /sys/kernel/kbench/run > stats/full/kbench.$routes
+        cat /sys/kernel/kbench/run_verbose > stats/full/kbench.$routes
     }
 done
