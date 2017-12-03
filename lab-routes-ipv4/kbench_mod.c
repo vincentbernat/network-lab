@@ -123,10 +123,18 @@ static unsigned long long average(unsigned long long *results,
 				  unsigned count)
 {
 	unsigned long i;
-	unsigned long long avg = 0;
-	for (i = 0; i < count; i++)
-		avg += results[i];
-	return avg / count;
+	unsigned long long avg = 0, remainder = 0, remainder1;
+	for (i = 0; i < count; i++) {
+		avg += results[i] / count;
+		remainder1 = results[i] % count;
+		if (remainder >= count - remainder1) {
+			avg++;
+			remainder -= count - remainder1;
+		} else {
+			remainder += remainder1;
+		}
+	}
+	return avg;		/* + remainder/N but that's 0 */
 }
 
 static void display_statistics(char *buf,
