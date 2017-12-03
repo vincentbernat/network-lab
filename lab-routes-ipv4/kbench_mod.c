@@ -78,13 +78,11 @@ static DEFINE_MUTEX(kb_lock);
 
 /* Benchmark */
 
-static int compare(const void *lhs, const void *rhs) {
+static int compare_ull(const void *lhs, const void *rhs) {
     unsigned long long lhs_integer = *(const unsigned long long *)(lhs);
     unsigned long long rhs_integer = *(const unsigned long long *)(rhs);
 
-    if (lhs_integer < rhs_integer) return -1;
-    if (lhs_integer > rhs_integer) return 1;
-    return 0;
+    return (lhs_integer < rhs_integer) ? -1 : (lhs_integer > rhs_integer);
 }
 
 static unsigned long long percentile(int p,
@@ -115,7 +113,7 @@ static unsigned long long mad(unsigned long long *sorted,
 		else
 			dmedian[i] = median - sorted[i];
 	}
-	sort(dmedian, count, sizeof(unsigned long long), compare, NULL);
+	sort(dmedian, count, sizeof(unsigned long long), compare_ull, NULL);
 	res = percentile(50, dmedian, count);
 	kfree(dmedian);
 	return res;
@@ -210,7 +208,7 @@ static int do_bench(char *buf, int verbose)
 	mutex_unlock(&kb_lock);
 
 	/* Compute statistics */
-	sort(results, total, sizeof(*results), compare, NULL);
+	sort(results, total, sizeof(*results), compare_ull, NULL);
 	if (total == 0) {
 		scnprintf(buf, PAGE_SIZE, "msg=\"no match\"\n");
 	} else {
