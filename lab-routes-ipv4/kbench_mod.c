@@ -285,6 +285,11 @@ static int do_bench(char *buf, int verbose)
 		 * high word. For example, if we have 0x7cff00000000,
 		 * high word is 0x7cff, so 0x8 bit is set and it's
 		 * OK. */
+		/* There is a small overhead added to the measured
+		 * function. It's easy to test, just remove the call
+		 * to the function. On my test machine, I get an
+		 * overhead of 28 instructions (which is less than 10
+		 * ns). */
 		t1 = get_cycles();
 		err = my_fib_lookup(&fl4, &res);
 		t2 = get_cycles();
