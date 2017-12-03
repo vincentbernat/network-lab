@@ -119,109 +119,36 @@ static unsigned long long mad(unsigned long long *sorted,
 	return res;
 }
 
-static int do_bench(char *buf, int verbose)
+static unsigned long long average(unsigned long long *results,
+				  unsigned count)
 {
-	unsigned long long *results;
-	unsigned long long t1, t2, average;
-	struct fib_result res;
-	int err;
-	unsigned long i, j, total, count, count2, delta = 0;
-	bool scan;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
-	struct flowi fl4;
-#else
-	struct flowi4 fl4;
-#endif
+	unsigned long i;
+	unsigned long long avg = 0;
+	for (i = 0; i < count; i++)
+		avg += results[i];
+	return avg / count;
+}
 
-	results = kmalloc(sizeof(*results) * loop_count, GFP_KERNEL);
-	if (!results)
-		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
-
-	mutex_lock(&kb_lock);
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
-	memset(&fl4, 0, sizeof(fl4));
-	fl4.oif = flow_oif;
-	fl4.iif = flow_iif;
-	fl4.mark = flow_mark;
-	fl4.fl4_tos = flow_tos;
-	fl4.fl4_dst = flow_dst_ipaddr_s;
-	fl4.fl4_src = flow_src_ipaddr;
-#else
-	memset(&fl4, 0, sizeof(fl4));
-	fl4.flowi4_oif = flow_oif;
-	fl4.flowi4_iif = flow_iif;
-	fl4.flowi4_mark = flow_mark;
-	fl4.flowi4_tos = flow_tos;
-	fl4.daddr = flow_dst_ipaddr_s;
-	fl4.saddr = flow_src_ipaddr;
-#endif
-	if (ntohl(flow_dst_ipaddr_s) < ntohl(flow_dst_ipaddr_e)) {
-		scan = true;
-		delta = ntohl(flow_dst_ipaddr_e) - ntohl(flow_dst_ipaddr_s);
-	}
-
-	for (i = 0; i < warmup_count; i++) {
-		err = my_fib_lookup(&fl4, &res);
-		if (err && err != -ENETUNREACH && err != -ESRCH) {
-			kfree(results);
-			return scnprintf(buf, PAGE_SIZE, "err=%d msg=\"lookup error\"\n", err);
-		}
-	}
-
-	average = 0;
-	for (i = total = 0; i < loop_count; i++) {
-		if (scan) {
-			__be32 daddr;
-			if (delta < loop_count)
-				daddr = htonl(ntohl(flow_dst_ipaddr_s) + (i % delta));
-			else
-				daddr = htonl(ntohl(flow_dst_ipaddr_s) + delta / loop_count * i);
-			if (ipv4_is_loopback(daddr))
-				continue;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
-			fl4.fl4_dst = daddr;
-#else
-			fl4.daddr = daddr;
-#endif
-		}
-		/* Could use sched_clock() to get a number of
-		 * nanoseconds instead. This would be the one used for
-		 * ftrace. get_cycles() use RDTSC behind the scene and
-		 * this instruction is virtualized with low-overhead
-		 * (see cpu_has_vmx_rdtscp() for support, which can be
-		 * checked with the following command-line: `sudo
-		 * rdmsr 0x0000048b` (which is
-		 * MSR_IA32_VMX_PROCBASED_CTLS2), and it should have
-		 * 0x8 bit set (which is SECONDARY_EXEC_RDTSCP) in the
-		 * high word. For example, if we have 0x7cff00000000,
-		 * high word is 0x7cff, so 0x8 bit is set and it's
-		 * OK. */
-		t1 = get_cycles();
-		err = my_fib_lookup(&fl4, &res);
-		t2 = get_cycles();
-		if (err == -ENETUNREACH)
-			continue;
-		results[total] = t2 - t1;
-		average += results[total];
-		total++;
-	}
-	mutex_unlock(&kb_lock);
-
-	/* Compute statistics */
+static void display_statistics(char *buf,
+			       unsigned long long *results,
+			       unsigned long total,
+			       int verbose)
+{
 	sort(results, total, sizeof(*results), compare_ull, NULL);
 	if (total == 0) {
 		scnprintf(buf, PAGE_SIZE, "msg=\"no match\"\n");
 	} else {
+		unsigned long i, j, count, count2;
 		unsigned long long p95 = percentile(95, results, total);
 		unsigned long long p90 = percentile(90, results, total);
 		unsigned long long p50 = percentile(50, results, total);
-		average /= total;
+		unsigned long long avg = average(results, total);
 		scnprintf(buf, PAGE_SIZE,
 			  "min=%llu max=%llu count=%lu average=%llu 95th=%llu 90th=%llu 50th=%llu mad=%llu\n",
 			  results[0],
 			  results[total - 1],
 			  total,
-			  average,
+			  avg,
 			  p95,
 			  p90,
 			  p50,
@@ -272,7 +199,96 @@ static int do_bench(char *buf, int verbose)
 			}
 		}
 	}
+}
 
+static int do_bench(char *buf, int verbose)
+{
+	unsigned long long *results;
+	unsigned long long t1, t2;
+	struct fib_result res;
+	int err;
+	unsigned long i, total, delta = 0;
+	bool scan;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
+	struct flowi fl4;
+#else
+	struct flowi4 fl4;
+#endif
+
+	results = kmalloc(sizeof(*results) * loop_count, GFP_KERNEL);
+	if (!results)
+		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
+
+	mutex_lock(&kb_lock);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
+	memset(&fl4, 0, sizeof(fl4));
+	fl4.oif = flow_oif;
+	fl4.iif = flow_iif;
+	fl4.mark = flow_mark;
+	fl4.fl4_tos = flow_tos;
+	fl4.fl4_dst = flow_dst_ipaddr_s;
+	fl4.fl4_src = flow_src_ipaddr;
+#else
+	memset(&fl4, 0, sizeof(fl4));
+	fl4.flowi4_oif = flow_oif;
+	fl4.flowi4_iif = flow_iif;
+	fl4.flowi4_mark = flow_mark;
+	fl4.flowi4_tos = flow_tos;
+	fl4.daddr = flow_dst_ipaddr_s;
+	fl4.saddr = flow_src_ipaddr;
+#endif
+	if (ntohl(flow_dst_ipaddr_s) < ntohl(flow_dst_ipaddr_e)) {
+		scan = true;
+		delta = ntohl(flow_dst_ipaddr_e) - ntohl(flow_dst_ipaddr_s);
+	}
+
+	for (i = 0; i < warmup_count; i++) {
+		err = my_fib_lookup(&fl4, &res);
+		if (err && err != -ENETUNREACH && err != -ESRCH) {
+			kfree(results);
+			return scnprintf(buf, PAGE_SIZE, "err=%d msg=\"lookup error\"\n", err);
+		}
+	}
+
+	for (i = total = 0; i < loop_count; i++) {
+		if (scan) {
+			__be32 daddr;
+			if (delta < loop_count)
+				daddr = htonl(ntohl(flow_dst_ipaddr_s) + (i % delta));
+			else
+				daddr = htonl(ntohl(flow_dst_ipaddr_s) + delta / loop_count * i);
+			if (ipv4_is_loopback(daddr))
+				continue;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
+			fl4.fl4_dst = daddr;
+#else
+			fl4.daddr = daddr;
+#endif
+		}
+		/* Could use sched_clock() to get a number of
+		 * nanoseconds instead. This would be the one used for
+		 * ftrace. get_cycles() use RDTSC behind the scene and
+		 * this instruction is virtualized with low-overhead
+		 * (see cpu_has_vmx_rdtscp() for support, which can be
+		 * checked with the following command-line: `sudo
+		 * rdmsr 0x0000048b` (which is
+		 * MSR_IA32_VMX_PROCBASED_CTLS2), and it should have
+		 * 0x8 bit set (which is SECONDARY_EXEC_RDTSCP) in the
+		 * high word. For example, if we have 0x7cff00000000,
+		 * high word is 0x7cff, so 0x8 bit is set and it's
+		 * OK. */
+		t1 = get_cycles();
+		err = my_fib_lookup(&fl4, &res);
+		t2 = get_cycles();
+		if (err == -ENETUNREACH)
+			continue;
+		results[total] = t2 - t1;
+		total++;
+	}
+	mutex_unlock(&kb_lock);
+
+	/* Compute and display statistics */
+	display_statistics(buf, results, total, verbose);
 	kfree(results);
 	return strnlen(buf, PAGE_SIZE);
 }
