@@ -1,0 +1,36 @@
+#!/bin/sh
+
+LABNAME="bgp-bmp"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn juniper-vrr E networks 1
+spawn vm          R networks 1,oob
+
+run
+
+ip addr add 2001:db8:1::1/64 dev eth0
+
+log_begin_msg "Start gobgpd"
+gobgpd -t yaml -f /mnt/lab/gobgpd.yaml \
+       --syslog yes --disable-stdlog &
+sleep 1
+log_ok_msg "gobgpd started"
+
+log_begin_msg "Start gobmpd"
+gobmpd > bmp.json &
+sleep 1
+log_ok_msg "gobmpd started"
+
+set +e
+while true; do
+    for i in $(seq 5 100); do
+        gobgp global rib add 2001:db8:$i::/64 aspath 64900,$((65100+$i)) origin egp community 64900:$i -a ipv6
+        sleep 1
+    done
+    for i in $(seq 5 100); do
+        gobgp global rib del 2001:db8:$i::/64 -a ipv6
+        sleep 1
+    done
+done &
