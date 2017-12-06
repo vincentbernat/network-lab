@@ -13,8 +13,7 @@ run
 ip addr add 2001:db8:1::1/64 dev eth0
 
 log_begin_msg "Start gobgpd"
-gobgpd -t yaml -f /mnt/lab/gobgpd.yaml \
-       --syslog yes --disable-stdlog &
+gobgpd --syslog yes --disable-stdlog &
 sleep 1
 log_ok_msg "gobgpd started"
 
@@ -22,6 +21,10 @@ log_begin_msg "Start gobmpd"
 gobmpd > bmp.json &
 sleep 1
 log_ok_msg "gobmpd started"
+
+
+gobgp global as 65000 router-id 1.0.0.1
+gobgp neighbor add 2001:db8:1::ffff as 65000
 
 set +e
 while true; do
