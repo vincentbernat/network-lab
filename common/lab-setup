@@ -492,7 +492,7 @@ start_juniper_vrr () {
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vrr.img $TMP/junos-$name.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
-mkdir -p $TMP/metadata-$name
+mkdir -p $TMP/metadata-$name/boot
 cat - $TMP/ssh-junos.conf junos-$name.conf <<END > $TMP/metadata-$name/juniper.conf
 interfaces {
   em0 unit 0 {
