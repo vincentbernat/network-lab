@@ -11,6 +11,7 @@ spawn vm          R networks 1,oob
 run
 
 ip addr add 2001:db8:1::1/64 dev eth0
+ip addr add 203.0.113.1/24 dev eth0
 
 log_begin_msg "Start gobgpd"
 gobgpd --syslog yes --disable-stdlog &
@@ -25,15 +26,18 @@ log_ok_msg "gobmpd started"
 
 gobgp global as 65000 router-id 1.0.0.1
 gobgp neighbor add 2001:db8:1::ffff as 65000
+gobgp neighbor add 203.0.113.200 as 65000
 
 set +e
 while true; do
-    for i in $(seq 5 100); do
+    for i in $(seq 5 20); do
         gobgp global rib add 2001:db8:$i::/64 aspath 64900,$((65100+$i)) origin egp community 64900:$i -a ipv6
+        gobgp global rib add 192.0.2.$i/32 aspath 64900,$((65100+$i)) origin egp community 64900:$i -a ipv4
         sleep 1
     done
-    for i in $(seq 5 100); do
+    for i in $(seq 5 20); do
         gobgp global rib del 2001:db8:$i::/64 -a ipv6
+        gobgp global rib del 192.0.2.$i/32 -a ipv4
         sleep 1
     done
 done &
