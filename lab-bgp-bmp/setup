@@ -11,6 +11,7 @@ spawn vm          R networks 1,oob
 run
 
 ip addr add 2001:db8:1::1/64 dev eth0
+ip addr add 2001:db8:1::2/64 dev eth0
 ip addr add 203.0.113.1/24 dev eth0
 
 log_begin_msg "Start gobgpd"
@@ -26,6 +27,7 @@ log_ok_msg "gobmpd started"
 
 gobgp global as 65000 router-id 1.0.0.1
 gobgp neighbor add 2001:db8:1::ffff as 65000
+gobgp neighbor add 2001:db8:1::fffe as 65000
 gobgp neighbor add 203.0.113.200 as 65000
 
 set +e
