@@ -215,7 +215,8 @@ static int do_bench(char *buf, int verbose)
 	unsigned long long t1, t2;
 	struct fib_result res;
 	int err;
-	unsigned long i, total, delta = 0;
+	unsigned long i, total, count, delta = 0;
+	u32 start;
 	bool scan;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
 	struct flowi fl4;
@@ -223,11 +224,11 @@ static int do_bench(char *buf, int verbose)
 	struct flowi4 fl4;
 #endif
 
-	results = kmalloc(sizeof(*results) * loop_count, GFP_KERNEL);
-	if (!results)
-		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
 
 	mutex_lock(&kb_lock);
+	total = warmup_count;
+	count = loop_count;
+	start = flow_dst_ipaddr_s;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
 	memset(&fl4, 0, sizeof(fl4));
 	fl4.oif = flow_oif;
@@ -249,8 +250,13 @@ static int do_bench(char *buf, int verbose)
 		scan = true;
 		delta = ntohl(flow_dst_ipaddr_e) - ntohl(flow_dst_ipaddr_s);
 	}
+	results = kmalloc(sizeof(*results) * count, GFP_KERNEL);
+	mutex_unlock(&kb_lock);
+	if (!results)
+		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
 
-	for (i = 0; i < warmup_count; i++) {
+	/* Warmup */
+	for (i = total; i > 0; --i) {
 		err = my_fib_lookup(&fl4, &res);
 		if (err && err != -ENETUNREACH && err != -ESRCH) {
 			kfree(results);
@@ -258,13 +264,13 @@ static int do_bench(char *buf, int verbose)
 		}
 	}
 
-	for (i = total = 0; i < loop_count; i++) {
+	for (i = total = 0; i < count; i++) {
 		if (scan) {
 			__be32 daddr;
-			if (delta < loop_count)
-				daddr = htonl(ntohl(flow_dst_ipaddr_s) + (i % delta));
+			if (delta < count)
+				daddr = htonl(ntohl(start) + (i % delta));
 			else
-				daddr = htonl(ntohl(flow_dst_ipaddr_s) + delta / loop_count * i);
+				daddr = htonl(ntohl(start) + delta / count * i);
 			if (ipv4_is_loopback(daddr))
 				continue;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
@@ -298,7 +304,6 @@ static int do_bench(char *buf, int verbose)
 		results[total] = t2 - t1;
 		total++;
 	}
-	mutex_unlock(&kb_lock);
 
 	/* Compute and display statistics */
 	display_statistics(buf, results, total, verbose);
