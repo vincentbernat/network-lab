@@ -662,7 +662,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -nodefconfig -nodefaults \
      -display none \
      -m ${MEM:-1G} \
-     -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=VMX,product=VM-name-161-re-0,version=0.1.0 \
+     -cpu host \
      \
      -boot c \
      -drive file=$TMP/junos-$name-re.img,if=ide,media=disk \
@@ -717,6 +717,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -nodefconfig -nodefaults \
      -display none \
      -smp cpus=$vcpus \
+     -cpu host \
      -m ${MEM:-3G} \
      \
      -boot c \
