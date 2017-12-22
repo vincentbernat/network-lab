@@ -652,9 +652,10 @@ vm_retype="RE-VMX"
 vm_i2cid="0xBAA"
 vm_chassis_i2cid="161"
 vm_instance="0"
+console="vidconsole,comconsole"
 END
 tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
-mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vmx-config.tgz
+mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vmm-config.tgz
 exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
@@ -697,6 +698,19 @@ EOF
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-pfe.img $TMP/junos-$name-pfe.img
+truncate -s 10M $TMP/metadata-$name-pfe.img
+mkfs.vfat $TMP/metadata-$name-pfe.img
+mkdir -p $TMP/metadata-$name-pfe/boot
+cat <<END > $TMP/metadata-$name-pfe/boot/loader.conf
+vmtype="1"
+vm_retype="RE-VMX"
+vm_i2cid="0xBAA"
+vm_chassis_i2cid="161"
+vm_instance="0"
+console="vidconsole,comconsole"
+END
+tar -C $TMP/metadata-$name-pfe -zcf $TMP/metadata-$name-pfe.tgz .
+mcopy -i $TMP/metadata-$name-pfe.img $TMP/metadata-$name-pfe.tgz ::/vmx-config.tgz
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
@@ -707,7 +721,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      \
      -boot c \
      -drive file=$TMP/junos-$name-pfe.img,if=ide,media=disk \
-     -drive if=ide,media=cdrom \
+     -usb -usbdevice disk:format=raw:$TMP/metadata-$name-pfe.img \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
