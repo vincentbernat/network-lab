@@ -1173,6 +1173,7 @@ EOF
 
         log_info_msg "Setup interfaces"
         modprobe dummy 2>/dev/null || true
+        ip link add dummy0 type dummy 2> /dev/null || true
         sleep 0.5               # Some interfaces may take some time to appear
         i=0
         for intf in /sys/class/net/*; do
