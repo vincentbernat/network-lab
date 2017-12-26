@@ -160,13 +160,20 @@ EOF
             iptables -t mangle -A OUTPUT -o $vmiface -p udp --dport 68 -j CHECKSUM --checksum-fill
         done
 
-        # Don't accept redirects and don't generate them (we don't
-        # control how much time it takes for them to expire). As a
-        # router, we should not accept redirects, but better safe than
-        # sorry.
+        # As a router, we should not accept redirects, but better safe
+        # than sorry.
+        #
         # accept_redirects is "AND" when forwarding is enabled
         sysctl -qw net.ipv4.conf.all.accept_redirects=0
         sysctl -qw net.ipv6.conf.all.accept_redirects=0
+
+        # We shouldn't need to generate them either but there are some
+        # situations where we will (by configuring the wrong route on
+        # an interface). This should be harmless as the host will then
+        # try to do an ARP request which will be answered by the
+        # hypervisor. However, we don't want to trigger some edge case
+        # where an OS is confused by the bogus redirect.
+        #
         # send_redirects is "OR"
         sysctl -qw net.ipv4.conf.all.send_redirects=0
         sysctl -qw net.ipv4.conf.default.send_redirects=0
