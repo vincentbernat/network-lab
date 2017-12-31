@@ -621,16 +621,12 @@ start_juniper_vmx () {
     setup_switch $name-internal
     log_info_msg "Start Juniper vMX $name (RE)"
     netargs=""
-    netcount=0
     ssh=$(tcp_port)
     netargs="$netargs -net nic,model=e1000,macaddr=$oobmac,vlan=4090" # OOB
     netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
     add_ssh_config $NAME $ssh juniper
     netargs="$netargs -net nic,model=virtio,macaddr=$(mac_address),vlan=1000" # PFE
     netargs="$netargs -net vde,sock=$TMP/switch-$name-internal.sock,vlan=1000"
-    for net in $NET; do
-        netcount=$((netcount+1))
-    done
     cat <<EOF > "$TMP/vm-$name-re.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-re.img $TMP/junos-$name-re.img
@@ -647,7 +643,6 @@ interfaces {
 chassis {
   fpc 0 {
     lite-mode;
-    number-of-ports $netcount;
   }
 }
 END
