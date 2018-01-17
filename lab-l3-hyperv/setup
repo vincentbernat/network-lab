@@ -160,8 +160,9 @@ EOF
             iptables -t mangle -A OUTPUT -o $vmiface -p udp --dport 68 -j CHECKSUM --checksum-fill
         done
 
-        # As a router, we should not accept redirects, but better safe
-        # than sorry.
+        # As a router, we should not accept redirects: enabling
+        # forwarding should disable redirect acceptance. However,
+        # better safe than sorry.
         #
         # accept_redirects is "AND" when forwarding is enabled
         sysctl -qw net.ipv4.conf.all.accept_redirects=0
