@@ -493,7 +493,7 @@ qemu-img create -q -f qcow2 -b $PWD/../images/junos-vrr.img $TMP/junos-$name.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
-cat - $TMP/ssh-junos.conf junos-$name.conf <<END > $TMP/metadata-$name/juniper.conf
+cat - $TMP/ssh-junos.conf junos-common.conf junos-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
 interfaces {
   em0 unit 0 {
     family inet dhcp;
@@ -554,7 +554,7 @@ qemu-img create -q -f qcow2 -b $PWD/../images/junos-vqfx-re.img $TMP/junos-$name
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name
-cp junos-$name.conf $TMP/metadata-$name/juniper.conf
+cat junos-common.conf junos-$name.conf 2>/dev/null > $TMP/metadata-$name/juniper.conf
 tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
 mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vqfx-config.tgz
 exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
@@ -634,7 +634,7 @@ qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-re-hdd.img $TMP/junos-$n
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
-cat - $TMP/ssh-junos.conf junos-$name.conf <<END > $TMP/metadata-$name/juniper.conf
+cat - $TMP/ssh-junos.conf junos-common.conf junos-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
 interfaces {
   fxp0 unit 0 {
     family inet dhcp;
@@ -759,7 +759,7 @@ qemu-img create -q -f qcow2 -b $PWD/../images/junos-vsrx.img $TMP/junos-$name.im
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
-cat - $TMP/ssh-junos.conf junos-$name.conf <<END > $TMP/metadata-$name/juniper.conf
+cat - $TMP/ssh-junos.conf junos-common.conf junos-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
 interfaces {
   fxp0 {
     unit 0 {
@@ -817,7 +817,7 @@ start_juniper_firefly () {
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-firefly.img $TMP/junos-$name.img
 mkdir -p $TMP/tftp
-ln -s $PWD/junos-$name.conf $TMP/tftp/$name.conf
+cat junos-common.conf junos-$name.conf 2>/dev/null > $TMP/tftp/$name.conf
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
