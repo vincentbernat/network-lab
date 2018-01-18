@@ -296,6 +296,12 @@ static int do_bench(char *buf, int verbose)
 		 * to the function. On my test machine, I get an
 		 * overhead of 28 instructions (which is less than 10
 		 * ns). */
+		/* There is also a risk for instructions to be
+		 * reordered. On amd64, get_cycles() just use rtdsc()
+		 * which just wraps RTDSC. Intel recommends using
+		 * RTDSCP. On Linux, you also have rtdsc_ordered()
+		 * which puts a fence. However, those methods increase
+		 * overhead. */
 		t1 = get_cycles();
 		err = my_fib_lookup(&fl4, &res);
 		t2 = get_cycles();
