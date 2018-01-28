@@ -31,11 +31,15 @@ run
 mount --bind rt_tables /etc/iproute2/rt_tables
 case $uts in
     HV*)
-        # We add some VLAN
-        ip link add name eth0.private link eth0 type vlan id 20
-        ip link add name eth1.private link eth1 type vlan id 20
-        ip link add name eth0.public link eth0 type vlan id 90
-        ip link add name eth1.public link eth1 type vlan id 90
+        # We add some VLAN.  We ensure socket priority 6 and 7 (~
+        # CS6/CS7) is mapped to IEEE 802.1p IC/NC. Many equipments
+        # have default CoS settings for IEEE 802.1p while they don't
+        # consider DS-field when BIRD does the right thing for BFD if
+        # you apply commit d6cf99615130.
+        ip link add name eth0.private link eth0 type vlan id 20 egress-qos-map 6:6 7:7 ingress-qos-map 6:6 7:7
+        ip link add name eth1.private link eth1 type vlan id 20 egress-qos-map 6:6 7:7 ingress-qos-map 6:6 7:7
+        ip link add name eth0.public link eth0 type vlan id 90  egress-qos-map 6:6 7:7 ingress-qos-map 6:6 7:7
+        ip link add name eth1.public link eth1 type vlan id 90  egress-qos-map 6:6 7:7 ingress-qos-map 6:6 7:7
         ip link set up dev eth0.private
         ip link set up dev eth1.private
         ip link set up dev eth0.public
@@ -314,8 +318,8 @@ EOF
         ip link set up dev vx1
         ;;
     RR*)
-        ip link add name eth0.public link eth0 type vlan id 90
-        ip link add name eth0.private link eth0 type vlan id 20
+        ip link add name eth0.public link eth0 type vlan id 90  egress-qos-map 6:6 7:7 ingress-qos-map 6:6 7:7
+        ip link add name eth0.private link eth0 type vlan id 20 egress-qos-map 6:6 7:7 ingress-qos-map 6:6 7:7
         ip link set up dev eth0.public
         ip link set up dev eth0.private
 
@@ -365,8 +369,8 @@ EOF
         ;;
 
     internet)
-        ip link add name eth0.public link eth0 type vlan id 90
-        ip link add name eth1.public link eth1 type vlan id 90
+        ip link add name eth0.public link eth0 type vlan id 90 egress-qos-map 6:6 7:7 ingress-qos-map 6:6 7:7
+        ip link add name eth1.public link eth1 type vlan id 90 egress-qos-map 6:6 7:7 ingress-qos-map 6:6 7:7
         ip link set up dev eth0.public
         ip link set up dev eth1.public
 
