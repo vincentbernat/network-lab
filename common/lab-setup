@@ -1264,6 +1264,9 @@ EOF
         ROOT="$(readlink -f "${ROOT:-/}")" # Root filesystem
         KERNEL="$(readlink -f "${1:-/boot/vmlinuz-$(uname -r)}")" # Kernel
         PATH="$PATH":/usr/local/sbin:/usr/sbin:/sbin
+        LABNAME="${LABNAME:-${PROGNAME##*/lab-}}"
+        LABNAME="${LABNAME%/*}"
+        LABNAME="${LABNAME:-lab}"
         [ $# -lt 1 ] || shift
         check_dependencies
         setup_screen
