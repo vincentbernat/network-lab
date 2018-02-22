@@ -495,7 +495,7 @@ mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
 cat - $TMP/ssh-junos.conf junos-common.conf junos-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
 interfaces {
-  em0 unit 0 {
+  protect: em0 unit 0 {
     family inet dhcp;
   }
 }
@@ -636,13 +636,13 @@ mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
 cat - $TMP/ssh-junos.conf junos-common.conf junos-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
 interfaces {
-  fxp0 unit 0 {
+  protect: fxp0 unit 0 {
     family inet dhcp;
   }
 }
 chassis {
   fpc 0 {
-    lite-mode;
+    protect: lite-mode;
   }
 }
 END
@@ -761,7 +761,7 @@ mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
 cat - $TMP/ssh-junos.conf junos-common.conf junos-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
 interfaces {
-  fxp0 {
+  protect: fxp0 {
     unit 0 {
       family inet dhcp;
     }
