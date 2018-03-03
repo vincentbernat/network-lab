@@ -257,9 +257,21 @@ EOF
                     ;;
         esac
 
-        # We are a router
-        sysctl -qw net.ipv4.conf.all.forwarding=1
+        # We are a router. As a safety net, only enable forwarding on
+        # a selection of interfaces. default and all are by default at
+        # 0. all is special as it will also enable forwarding on all
+        # individual interfaces, including default.
+        for iface in $vmifaces eth0/public eth1/public; do
+                sysctl -qw net.ipv4.conf.$iface.forwarding=1
+                sysctl -qw net.ipv6.conf.$iface.forwarding=1
+        done
+        sysctl -qw net.ipv4.conf.eth0/private.forwarding=1
+        sysctl -qw net.ipv4.conf.eth1/private.forwarding=1
+
+        # For some reason, forwarding with IPv6 only works when all
+        # forwarding is enabled. To be investigated...
         sysctl -qw net.ipv6.conf.all.forwarding=1
+
         # IPv6 maximum number of routes is ridiculously low. We don't
         # care for this lab, but this is important to know.
         sysctl -qw net.ipv6.route.max_size=4194304
