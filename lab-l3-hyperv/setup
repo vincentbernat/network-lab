@@ -261,15 +261,12 @@ EOF
         # a selection of interfaces. default and all are by default at
         # 0. all is special as it will also enable forwarding on all
         # individual interfaces, including default.
-        for iface in $vmifaces eth0/public eth1/public; do
+        for iface in $vmifaces eth0/public eth1/public eth0/private eth1/private; do
                 sysctl -qw net.ipv4.conf.$iface.forwarding=1
-                sysctl -qw net.ipv6.conf.$iface.forwarding=1
         done
-        sysctl -qw net.ipv4.conf.eth0/private.forwarding=1
-        sysctl -qw net.ipv4.conf.eth1/private.forwarding=1
 
-        # For some reason, forwarding with IPv6 only works when all
-        # forwarding is enabled. To be investigated...
+        # For some reason, IPv6 doesn't work like IPv4 and global
+        # forwarding needs to be enabled.
         sysctl -qw net.ipv6.conf.all.forwarding=1
 
         # IPv6 maximum number of routes is ridiculously low. We don't
