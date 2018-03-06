@@ -1,0 +1,32 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm VM1 network 1
+spawn vm R   network 1,2
+spawn vm VM2 network 2
+
+run
+
+case $uts in
+    VM1)
+        ip addr add 2001:db8:1::10/64 dev eth0
+        ip route add ::/0 via 2001:db8:1::1
+        ;;
+    VM2)
+        ip addr add 2001:db8:2::10/64 dev eth0
+        ip route add ::/0 via 2001:db8:2::1
+        ;;
+    R)
+        ip addr add 2001:db8:1::1/64 dev eth0
+        ip addr add 2001:db8:2::1/64 dev eth1
+        sysctl -qw net.ipv6.conf.eth0.forwarding=1
+        sysctl -qw net.ipv6.conf.eth1.forwarding=1
+        # But in fact, we need this (as documented in
+        # Documentation/networking/ip-sysctl.txt):
+        #  sysctl -qw net.ipv6.conf.all.forwarding=1
+        ;;
+esac
+
+service nginx
