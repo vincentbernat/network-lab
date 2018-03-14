@@ -43,10 +43,10 @@ case $uts in
         ip netns exec private sysctl -qw net.ipv6.conf.all.forwarding=1
         ip link set netns private dev eth1
         ip link set netns private dev eth2
-        ip netns exec private ip link set up dev eth1
-        ip netns exec private ip link set up dev eth2
-        ip netns exec private ip link add type dummy
-        ip netns exec private ip link set up dev dummy0
+        ip -n private link set up dev eth1
+        ip -n private link set up dev eth2
+        ip -n private link add type dummy
+        ip -n private link set up dev dummy0
 
         ip addr add 2001:db8:$asn::$vpn/128 dev dummy0
 
@@ -70,9 +70,8 @@ case $uts in
                 template wg.Vx-y.conf wg$rmark.$uts.conf rasn=$rasn rvpn=$rvpn lmark=$lmark rmark=$rmark pubkey="'$pubkey'" privkey="'$privkey'"
                 wg setconf wg$rmark wg$rmark.$uts.conf
                 ip link set netns private dev wg$rmark
-                ip netns exec private ip addr add $me/127 dev wg$rmark
-                # ip netns exec private ip link set wg$rmark mtu 1500
-                ip netns exec private ip link set wg$rmark up
+                ip -n private addr add $me/127 dev wg$rmark
+                ip -n private link set wg$rmark up
             done
         done
 
