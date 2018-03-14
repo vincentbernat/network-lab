@@ -1,0 +1,82 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+asns=3                          # number of AS
+vpns=2                          # number of VPNs per AS
+
+# Which VM to spawn
+for asn in $(seq 1 $asns); do
+    for vpn in $(seq 1 $vpns); do
+        networks=1,$(( asn*2 )),$(( asn*2 + 1))
+        spawn vm V$asn-$vpn networks $networks
+    done
+done
+
+spawn vm Rx networks $(seq -s, 3 2 $(( asns*2 + 1 )))
+
+run
+
+case $uts in
+    Rx)
+        for i in $(seq 1 $asns); do
+            ip netns add R$i
+            ip link set netns R$i dev eth$((i-1))
+            ip netns exec R$i ip link set name eth0 dev eth$((i-1))
+            ip netns exec R$i ip link set up dev eth0
+            ip netns exec R$i ip link add type dummy
+            ip netns exec R$i ip link set up dev dummy0
+            ip netns exec R$i ip addr add 2001:db8:a$i::1/64 dev dummy0
+            template bird6.Rx.Ry.conf bird6.Rx.R$i.conf asn=$i
+            netns=R$i service bird
+        done
+        ;;
+    V*)
+        asn=${uts#V}
+        asn=${asn%-*}
+        vpn=${uts#*-}
+
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+
+        ip netns add private
+        ip netns exec private sysctl -qw net.ipv6.conf.all.forwarding=1
+        ip link set netns private dev eth1
+        ip link set netns private dev eth2
+        ip netns exec private ip link set up dev eth1
+        ip netns exec private ip link set up dev eth2
+        ip netns exec private ip link add type dummy
+        ip netns exec private ip link set up dev dummy0
+
+        ip addr add 2001:db8:$asn::$vpn/128 dev dummy0
+
+        # We order asn,vpn,rasn,rvpn pairs such that we can get an IP address by getting the index
+        pairs=$(python -c 'import itertools;print(":".join([",".join((str(y) for y in x)) for x in itertools.chain(*[((asn,vpn,rasn,rvpn),(rasn,rvpn,asn,vpn)) for asn in range(1,'$asns'+1) for vpn in range(1,'$vpns'+1) for rasn in range(1,'$asns'+1) for rvpn in range(1,'$vpns'+1) if asn < rasn])]))')
+
+        template bird6.Vx-y.public.conf  bird6.$uts.conf asn=$asn vpn=$vpn
+        template bird6.Vx-y.private.conf bird6.$uts.private.conf asn=$asn vpn=$vpn asns=$asns vpns=$vpns pairs='"'$pairs'"'
+
+        for rasn in $(seq 1 $asns); do
+            [ $rasn -ne $asn ] || continue
+            for rvpn in $(seq 1 $vpns); do
+                rmark=$(( (rasn-1)*vpns + rvpn ))
+                lmark=$(( (asn-1)*vpns + vpn ))
+                idx=$(echo $pairs | tr ':' '\n' | grep -Fxn $asn,$vpn,$rasn,$rvpn | cut -f1 -d:)
+                me=2001:db8:ff::$((idx-1))
+                privkey="$(printf %03d $lmark)CiWM8Klnl/ATecTMAYj0sq+wogo4aCEj+tDRkkRY="
+                pubkey="$(echo "$(printf %03d $rmark)CiWM8Klnl/ATecTMAYj0sq+wogo4aCEj+tDRkkRY=" | wg pubkey)"
+                ip link add dev wg$rmark type wireguard
+
+                template wg.Vx-y.conf wg$rmark.$uts.conf rasn=$rasn rvpn=$rvpn lmark=$lmark rmark=$rmark pubkey="'$pubkey'" privkey="'$privkey'"
+                wg setconf wg$rmark wg$rmark.$uts.conf
+                ip link set netns private dev wg$rmark
+                ip netns exec private ip addr add $me/127 dev wg$rmark
+                # ip netns exec private ip link set wg$rmark mtu 1500
+                ip netns exec private ip link set wg$rmark up
+            done
+        done
+
+        service bird
+        netns=private service bird
+        ;;
+esac
