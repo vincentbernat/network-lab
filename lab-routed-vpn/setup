@@ -53,10 +53,10 @@ case $uts in
         ip netns exec private sysctl -qw net.ipv6.conf.all.forwarding=1
         ip link set netns private dev eth1
         ip link set netns private dev eth2
-        ip netns exec private ip link set up dev eth1
-        ip netns exec private ip link set up dev eth2
-        ip netns exec private ip link add type dummy
-        ip netns exec private ip link set up dev dummy0
+        ip -n private link set up dev eth1
+        ip -n private link set up dev eth2
+        ip -n private link add type dummy
+        ip -n private link set up dev dummy0
 
         ip addr add 2001:db8:$asn::$vpn/128 dev dummy0
 
@@ -78,11 +78,11 @@ case $uts in
                    remote 2001:db8:$rasn::$rvpn \
                    key $rmark
                 ip link set netns private dev vti$rmark
-                ip netns exec private ip addr add $me/127 dev vti$rmark
+                ip -n private addr add $me/127 dev vti$rmark
                 ip netns exec private sysctl -qw "net.ipv4.conf.vti$rmark.disable_policy=1"
                 ip netns exec private sysctl -qw "net.ipv4.conf.vti$rmark.disable_xfrm=1"
-                ip netns exec private ip link set vti$rmark mtu 1500
-                ip netns exec private ip link set vti$rmark up
+                ip -n private link set vti$rmark mtu 1500
+                ip -n private link set vti$rmark up
             done
         done
 
