@@ -3,11 +3,10 @@
 This lab runs a standalone vQFX making some OSPFv3 adjacencies and
 also acting as a switch (IRB) on two interfaces.
 
-Currently, the vQFX images are only available as VMDK images. You need
-to convert them to QCOW2:
-
-    $ qemu-img convert -c -O qcow2 vqfx10k-re-15.1X53-D60.vmdk vqfx10k-re-15.1X53-D60.img
-    $ qemu-img convert -c -O qcow2 vqfx10k-pfe-20160609-2.vmdk vqfx10k-pfe-20160609-2.img
+The PFE is from the Vagrant package for VirtualBox. You need to
+extract the qcow image from it. However, the RE is from the
+non-Vagrant package. The Vagrant package has its RE with
+autoconfiguration disabled...
 
 Default passwords for root are "no" for the PFE and "Juniper" for the
 RE. It seems the PFE will eat all your available CPU (`pechip_main`

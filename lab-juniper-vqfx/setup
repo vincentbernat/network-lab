@@ -1,7 +1,5 @@
 #!/bin/sh
 
-LABNAME="l3-vqfx"
-
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
