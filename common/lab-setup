@@ -572,7 +572,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -enable-kvm \
      -nodefconfig -nodefaults \
      -display none \
-     -m ${MEM:-1G} \
+     -m ${MEM:-768M} \
      -cpu host \
      \
      -boot c \
