@@ -557,8 +557,17 @@ mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
 cat - $TMP/ssh-junos.conf junos-common.conf junos-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
 interfaces {
-  protect: em0 unit 0 {
-    family inet dhcp;
+  protect: em0 {
+    unit 0 {
+      family inet dhcp;
+    }
+  }
+  protect: em1 {
+    unit 0 {
+      family inet {
+        address 169.254.0.2/24;
+      }
+    }
   }
 }
 END
