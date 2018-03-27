@@ -27,6 +27,9 @@ This lab is also compatible with IPv6 but there are small drawbacks:
    they'll use a non-loopback IP that would depend on the
    corresponding interface state.
 
+ - Customers should not enable privacy extensions. Otherwise, their
+   IPv6 address is not predictable and we cannot route them.
+
 IPv6 was broken with commit 8c14586fc320 (part of 4.7) and fixed with
 a435a07f9164 (part of 4.8). Other interesting commits for IPv6:
 
