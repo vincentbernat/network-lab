@@ -1,0 +1,45 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm C1 network 1
+spawn vm LB network 1,2
+
+NB=7
+for i in $(seq 1 $NB); do
+    spawn vm S$i network 2
+done
+
+run
+
+# Executed on each VM
+case $uts in
+    C1)
+        for i in $(seq 100 200); do
+            ip addr add 203.0.113.$i/24 dev eth0
+        done
+        # Restrict the possibility for the available ports
+        sysctl -qw net.ipv4.ip_local_port_range='33000 33101'
+        ;;
+    LB)
+        ip addr add 203.0.113.15/24 dev eth0
+        ip addr add 10.234.79.1/24 dev eth1
+        ipvsadm -A -t 203.0.113.15:80 -s sh -b sh-port
+        for i in $(seq 1 $NB); do
+            ipvsadm -a -t 203.0.113.15:80 -r 10.234.79.$((10+i)):80 -m
+        done
+        echo 1 > /proc/sys/net/ipv4/ip_forward
+        ;;
+    S*)
+        ip addr add 10.234.79.$((10 + ${uts#S}))/24 dev eth0
+        ip route add default via 10.234.79.1
+        ;;
+esac
+service nginx
+
+# To test, use:
+#  for i in $(seq 1 2000); do
+#    curl --interface 203.0.113.$((RANDOM%100+100)) -s 203.0.113.15
+#  done | sort | uniq -c
