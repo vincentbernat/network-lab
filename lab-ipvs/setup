@@ -7,7 +7,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 spawn vm C1 network 1
 spawn vm LB network 1,2
 
-NB=7
+NB=5
 for i in $(seq 1 $NB); do
     spawn vm S$i network 2
 done
@@ -17,11 +17,7 @@ run
 # Executed on each VM
 case $uts in
     C1)
-        for i in $(seq 100 200); do
-            ip addr add 203.0.113.$i/24 dev eth0
-        done
-        # Restrict the possibility for the available ports
-        sysctl -qw net.ipv4.ip_local_port_range='33000 33101'
+        ip addr add 203.0.113.10/24 dev eth0
         ;;
     LB)
         ip addr add 203.0.113.15/24 dev eth0
@@ -38,8 +34,3 @@ case $uts in
         ;;
 esac
 service nginx
-
-# To test, use:
-#  for i in $(seq 1 2000); do
-#    curl --interface 203.0.113.$((RANDOM%100+100)) -s 203.0.113.15
-#  done | sort | uniq -c
