@@ -3,30 +3,37 @@
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
-# Which VM to spawn
-spawn vm C1 network 1
-spawn vm LB network 1,2
+spawn vm C1 network 1           # Clients
+spawn vm LB network 1,2         # LB
 
-NB=5
+# Backends
+NB=3
 for i in $(seq 1 $NB); do
     spawn vm S$i network 2
 done
 
 run
 
-# Executed on each VM
 case $uts in
     C1)
         ip addr add 203.0.113.10/24 dev eth0
+
+        # Additional IP to be used as source
+        for i in $(seq 100 200); do
+            ip addr add 203.0.113.$i/32 dev lo
+        done
         ;;
     LB)
         ip addr add 203.0.113.15/24 dev eth0
         ip addr add 10.234.79.1/24 dev eth1
+        ip route add default via 203.0.113.10
+        echo 1 > /proc/sys/net/ipv4/ip_forward
+
+        # Setup IPVS
         ipvsadm -A -t 203.0.113.15:80 -s sh -b sh-port
         for i in $(seq 1 $NB); do
             ipvsadm -a -t 203.0.113.15:80 -r 10.234.79.$((10+i)):80 -m
         done
-        echo 1 > /proc/sys/net/ipv4/ip_forward
         ;;
     S*)
         ip addr add 10.234.79.$((10 + ${uts#S}))/24 dev eth0
