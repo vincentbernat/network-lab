@@ -27,10 +27,11 @@ case $uts in
         ip addr add 203.0.113.15/24 dev eth0
         ip addr add 10.234.79.1/24 dev eth1
         ip route add default via 203.0.113.10
-        echo 1 > /proc/sys/net/ipv4/ip_forward
+        sysctl -qw net/ipv4/ip_forward=1
 
         # Setup IPVS
-        ipvsadm -A -t 203.0.113.15:80 -s sh -b sh-port
+        sysctl -qw net/ipv4/vs/debug_level=7
+        ipvsadm -A -t 203.0.113.15:80 -s csh
         for i in $(seq 1 $NB); do
             ipvsadm -a -t 203.0.113.15:80 -r 10.234.79.$((10+i)):80 -m
         done
@@ -41,3 +42,10 @@ case $uts in
         ;;
 esac
 service nginx
+
+
+# Checking CSH table:
+#  =dmesg --notime | tac \
+#      | sed -n '0,/Enter: ip_vs_new_dest/p' \
+#      | grep  CSH  | awk '{print $5" "$7}' \
+#      | sort -n
