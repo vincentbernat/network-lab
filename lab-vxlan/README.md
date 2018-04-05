@@ -401,6 +401,63 @@ Here is the output from the Juniper side:
        50:54:33:00:00:0d   D        vtep.32770             203.0.113.2
        50:54:33:00:00:0f   D        ge-0/0/1.0
 
+More recent versions of the vMX seem to care about the Ethernet tag
+that should be set. They also seem to care abouth the PMSI in the IMET
+route. With GoBGP, we can tune the routes to get the exact kind of
+routes accepted.
+
+With that:
+
+    gobgp global rib -a evpn add multicast 203.0.113.1 \
+       rd 203.0.113.1:100 \
+       etag 100 \
+       label 100 \
+       esi 0 \
+       encap vxlan \
+       nexthop 203.0.113.1 \
+       origin igp \
+       rt 65000:268435556 \
+       pmsi ingress-repl 100 203.0.113.1
+
+We get:
+
+    juniper@S3> show l2-learning vxlan-tunnel-end-point remote
+    Logical System Name       Id  SVTEP-IP         IFL   L3-Idx
+    <default>                 0   203.0.113.3      lo0.0    0
+     RVTEP-IP         IFL-Idx   NH-Id
+     203.0.113.1      335       594
+        VNID          MC-Group-IP
+        200           0.0.0.0
+        100           0.0.0.0
+
+Why 200? And we get the same output when we don't include etag, label
+or PMSI. Logs always mention a VNI 0 in addition to VNI 100. To add a
+MAC address, we can use:
+
+    gobgp global rib -a evpn add macadv 50:54:33:00:00:01 0.0.0.0 \
+       rd 203.0.113.1:100 \
+       etag 100 \
+       label 100 \
+       esi 0 \
+       encap vxlan \
+       nexthop 203.0.113.1 \
+       origin igp \
+       rt 65000:268435556
+
+So, it seems we mostly need PMSI, which is implemented in FRR.
+
+The other issue we have is that ESI and tags are ignored. They are
+part of the prefix and provide its unicity. Juniper uses a single
+route distinguishier and the prefix is unique by its Ethernet Tag
+ID. This doesn't work with Quagga. No patch in FRR for that...
+
+So, to summarize:
+
+ - Quagga needs to attach a PMSI to type 3 routes (done).
+ - Quagga should not ignore ETI (not done)
+ - Juniper should not include all VNI for a remote VTEP, only the ones
+   advertised in type 3 routes.
+
 [Ansible playbook]: https://github.com/JNPRAutomate/ansible-junos-evpn-vxlan/tree/master/roles/overlay-evpn-mx-l3
 [BaGPipe BGP]: https://github.com/Orange-OpenSource/bagpipe-bgp
 [3]: http://murat1985.github.io/kubernetes/cni/2016/05/15/bagpipe-gobgp.html
