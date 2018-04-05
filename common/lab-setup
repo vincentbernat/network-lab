@@ -145,7 +145,7 @@ Host $1.lab
 EOF
     cat <<EOF > $TMP/ssh-junos.conf
 system {
-  login {
+  protect: login {
     user ${3:-root} {
       uid 2000;
       class super-user;
@@ -154,16 +154,16 @@ system {
       }
     }
   }
-  root-authentication {
+  protect: root-authentication {
     encrypted-password "\$1\$C.KNZIWW\$3tov9xZ5wolEhW1PjdbDV0"; ## SECRET-DATA
   }
-  syslog {
+  protect: syslog {
     file messages {
       any any;
       authorization info;
     }
   }
-  services {
+  protect: services {
     ssh {
       root-login allow;
     }
