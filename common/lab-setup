@@ -1023,9 +1023,21 @@ service () {
             ;;
         quagga)
             log_begin_msg "Running quagga"
-            mkdir -p /var/log/quagga
-            mkdir -p /var/run/quagga
-            chown quagga:quagga /var/log/quagga /var/run/quagga
+            rm /etc/gshadow /etc/shadow
+            touch /etc/gshadow /etc/shadow
+            for name in quagga frr; do
+                addgroup --quiet --system ${name}vty
+                addgroup --quiet --system ${name}
+                adduser --quiet \
+                    --system \
+                    --ingroup $name \
+                    --home /var/run/${name}/ \
+                    --no-create-home \
+                    ${name}
+                mkdir -p /var/log/quagga /var/run/quagga
+                mkdir -p /var/log/frr /var/run/frr
+                chown ${name}:${name} /var/log/quagga /var/run/quagga /var/log/frr /var/run/frr
+            done
             for svc in zebra bgpd ospfd isisd ospf6d ripd ripngd; do
                 if [ -f /mnt/lab/quagga-$svc.$uts.conf ]; then
                     eval set -- \$${svc}_args
