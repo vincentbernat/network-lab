@@ -9,29 +9,22 @@ cd "$(dirname "$(readlink -f "$0")")"
 # 6 = Cumulus to H2
 # 7 = Cumulus to H2
 
-spawn juniper-vqfx QFX1 networks 2,4
+#spawn juniper-vqfx QFX1 networks 2,4
 #spawn juniper-vqfx QFX2 networks 3,4
-spawn cumulus-vx CN networks 6,7,4
+spawn vm S1 networks 6,7,4
 spawn vm H1 networks 2,3
 spawn vm H2 networks 6,7
+spawn vm RR networks 4
 
 run
 
 case $uts in
-    H*)
+    H*|S1)
         ip link add name lag1 type bond
         ip link set down dev eth0
         ip link set down dev eth1
-        case $uts in
-            H2)
-                ethtool -s eth0 speed 1000 duplex full
-                ethtool -s eth1 speed 1000 duplex full
-                ;;
-            H1)
-                ethtool -s eth0 speed 10000 duplex full
-                ethtool -s eth1 speed 10000 duplex full
-                ;;
-        esac
+        ethtool -s eth0 speed 10000 duplex full
+        ethtool -s eth1 speed 10000 duplex full
         >/sys/class/net/lag1/bonding/mode      echo 802.3ad
         >/sys/class/net/lag1/bonding/lacp_rate echo fast
         >/sys/class/net/lag1/bonding/miimon    echo 100
@@ -42,13 +35,47 @@ case $uts in
         ip link set up dev lag1
         ip link set up dev eth0
         ip link set up dev eth1
+        ;;
+esac
 
+case $uts in
+    H*)
         ip link add name lag1.654 link lag1 type vlan id 654
         ip link add name lag1.655 link lag1 type vlan id 655
         ip link set up dev lag1.654
         ip link set up dev lag1.655
-
         ip addr add 192.168.1.${uts#H}/24 dev lag1.654
         ip addr add 192.168.2.${uts#H}/24 dev lag1.655
+        ;;
+    S1)
+        ip addr add 192.0.2.13/32 dev lo
+        ip addr add 203.0.113.13/24 dev eth2
+
+        ip link add vni654 type vxlan dstport 4789 id 654 ttl 5 local 192.0.2.13 nolearning
+        ip link add vni655 type vxlan dstport 4789 id 655 ttl 5 local 192.0.2.13 nolearning
+
+        ip link add name bridge1 type bridge vlan_filtering 1 stp_state 0
+        ip link set dev lag1 master bridge1
+        ip link set dev vni654 master bridge1
+        ip link set dev vni655 master bridge1
+        bridge vlan del dev bridge1 vid 1 self
+        bridge vlan add dev lag1 vid 654
+        bridge vlan add dev lag1 vid 655
+        bridge vlan del dev lag1 vid 1
+        bridge vlan add dev vni654 vid 654 untagged
+        bridge vlan add dev vni655 vid 655 untagged
+        bridge vlan del dev vni654 vid 1
+        bridge vlan del dev vni655 vid 1
+        ip link set up dev bridge1
+        ip link set up dev vni654
+        ip link set up dev vni655
+
+        service quagga
+        ;;
+    RR)
+        ip addr add 192.0.2.100/32 dev lo
+        ip addr add 203.0.113.100/24 dev eth0
+        service quagga
+        service gobgp
         ;;
 esac
