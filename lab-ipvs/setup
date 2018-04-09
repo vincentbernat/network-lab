@@ -30,8 +30,10 @@ case $uts in
         sysctl -qw net/ipv4/ip_forward=1
 
         # Setup IPVS
-        sysctl -qw net/ipv4/vs/debug_level=7
-        ipvsadm -A -t 203.0.113.15:80 -s csh
+        modprobe ip_vs
+        [ ! -f ip_vs_mh.ko ] || insmod ./ip_vs_mh.ko
+        sysctl -qw net/ipv4/vs/debug_level=7 || true
+        ipvsadm -A -t 203.0.113.15:80 -s mh
         for i in $(seq 1 $NB); do
             ipvsadm -a -t 203.0.113.15:80 -r 10.234.79.$((10+i)):80 -m
         done
