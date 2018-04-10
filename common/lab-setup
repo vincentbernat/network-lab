@@ -1286,7 +1286,7 @@ EOF
 
         while true; do
             log_info_msg "Spawning a shell"
-            cd $HOME
+            cd /mnt/lab
             export SSH_TTY=$(tty)
             if [ -f $HOME/.zshrc ]; then
                 /bin/zsh -i
