@@ -155,10 +155,12 @@ static void display_statistics(char *buf,
 		unsigned long long p50 = percentile(50, results, total);
 		unsigned long long avg = average(results, total);
 		scnprintf(buf, PAGE_SIZE,
-			  "min=%llu max=%llu count=%lu average=%llu 95th=%llu 90th=%llu 50th=%llu mad=%llu\n",
+			  "min=%llu max=%llu count=%lu batch=%lu "
+			  "average=%llu 95th=%llu 90th=%llu 50th=%llu mad=%llu\n",
 			  results[0],
 			  results[total - 1],
 			  total*batch,
+			  batch,
 			  avg,
 			  p95,
 			  p90,
