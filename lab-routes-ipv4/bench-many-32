@@ -21,6 +21,7 @@ for routes in 100 1000 10000 20000 50000 100000 200000 500000 1000000 2000000; d
             echo 2.0.0.0 > /sys/kernel/kbench/flow_dst_ipaddr_s
             echo 2.0.16.0 > /sys/kernel/kbench/flow_dst_ipaddr_e
             echo 100000 > /sys/kernel/kbench/loop_count
+            echo 5 > /sys/kernel/kbench/batch_count
             cat /sys/kernel/kbench/run_verbose > stats/32/kbench.$routes-$density
         }
     done

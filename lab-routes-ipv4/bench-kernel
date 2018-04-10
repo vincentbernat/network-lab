@@ -126,6 +126,7 @@ for i in 1 2 3 4 5; do
 done
 insmod /kbench_mod.ko
 echo 100000 > /sys/kernel/kbench/loop_count
+echo 5 > /sys/kernel/kbench/batch_count
 cat /proc/version | tee /dev/ttyS1
 ip a l
 for f in /rtdump*; do

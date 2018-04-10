@@ -33,6 +33,7 @@
 
 #define DEFAULT_WARMUP_COUNT	100000
 #define DEFAULT_LOOP_COUNT	5000
+#define DEFAULT_BATCH_COUNT	1
 #define DEFAULT_OIF		0
 #define DEFAULT_IIF		0
 #define DEFAULT_MARK		0x00000000
@@ -46,6 +47,7 @@
 
 static unsigned long	warmup_count	= DEFAULT_WARMUP_COUNT;
 static unsigned long	loop_count	= DEFAULT_LOOP_COUNT;
+static unsigned long	batch_count	= DEFAULT_BATCH_COUNT;
 static int		flow_oif	= DEFAULT_OIF;
 static int		flow_iif	= DEFAULT_IIF;
 static u8		flow_tos	= DEFAULT_TOS;
@@ -140,6 +142,7 @@ static unsigned long long average(unsigned long long *results,
 static void display_statistics(char *buf,
 			       unsigned long long *results,
 			       unsigned long total,
+			       unsigned long batch,
 			       int verbose)
 {
 	sort(results, total, sizeof(*results), compare_ull, NULL);
@@ -155,7 +158,7 @@ static void display_statistics(char *buf,
 			  "min=%llu max=%llu count=%lu average=%llu 95th=%llu 90th=%llu 50th=%llu mad=%llu\n",
 			  results[0],
 			  results[total - 1],
-			  total,
+			  total*batch,
 			  avg,
 			  p95,
 			  p90,
@@ -199,7 +202,7 @@ static void display_statistics(char *buf,
 				hist_buf += scnprintf(hist_buf, buf + PAGE_SIZE - hist_buf,
 						      "%*s %8lu\n",
 						      (int)(HIST_WIDTH - count2 * HIST_WIDTH / total), "",
-						      count);
+						      count*batch);
 				count = 0;
 				start += share;
 				if (i >= total) break;
@@ -211,23 +214,28 @@ static void display_statistics(char *buf,
 
 static int do_bench(char *buf, int verbose)
 {
-	unsigned long long *results;
+	unsigned long long *results = NULL;
 	unsigned long long t1, t2;
 	struct fib_result res;
 	int err;
-	unsigned long i, total, count, delta = 0;
+	unsigned long i, j, total, count, batch, delta = 0;
 	u32 start;
 	bool scan;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
 	struct flowi fl4;
+	struct flowi *batched_fl4 = NULL;
 #else
 	struct flowi4 fl4;
+	struct flowi4 *batched_fl4 = NULL;
 #endif
 
 
 	mutex_lock(&kb_lock);
 	total = warmup_count;
 	count = loop_count;
+	batch = batch_count;
+	if (batch > 1)
+		batched_fl4 = kmalloc(sizeof(*batched_fl4) * batch, GFP_KERNEL);
 	start = flow_dst_ipaddr_s;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
 	memset(&fl4, 0, sizeof(fl4));
@@ -237,6 +245,7 @@ static int do_bench(char *buf, int verbose)
 	fl4.fl4_tos = flow_tos;
 	fl4.fl4_dst = flow_dst_ipaddr_s;
 	fl4.fl4_src = flow_src_ipaddr;
+#define flowi4_oif oif
 #else
 	memset(&fl4, 0, sizeof(fl4));
 	fl4.flowi4_oif = flow_oif;
@@ -250,21 +259,25 @@ static int do_bench(char *buf, int verbose)
 		scan = true;
 		delta = ntohl(flow_dst_ipaddr_e) - ntohl(flow_dst_ipaddr_s);
 	}
-	results = kmalloc(sizeof(*results) * count, GFP_KERNEL);
+	results = kmalloc(sizeof(*results) * (count / batch + 1), GFP_KERNEL);
 	mutex_unlock(&kb_lock);
-	if (!results)
+	if (!results || (batch > 0 && !batched_fl4)) {
+		kfree(batched_fl4);
+		kfree(results);
 		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
+	}
 
 	/* Warmup */
 	for (i = total; i > 0; --i) {
 		err = my_fib_lookup(&fl4, &res);
 		if (err && err != -ENETUNREACH && err != -ESRCH) {
 			kfree(results);
+			kfree(batched_fl4);
 			return scnprintf(buf, PAGE_SIZE, "err=%d msg=\"lookup error\"\n", err);
 		}
 	}
 
-	for (i = total = 0; i < count; i++) {
+	for (i = j = total = 0; i < count; i++) {
 		if (scan) {
 			__be32 daddr;
 			if (delta < count)
@@ -302,18 +315,46 @@ static int do_bench(char *buf, int verbose)
 		 * RTDSCP. On Linux, you also have rtdsc_ordered()
 		 * which puts a fence. However, those methods increase
 		 * overhead. */
-		t1 = get_cycles();
-		err = my_fib_lookup(&fl4, &res);
-		t2 = get_cycles();
-		if (err == -ENETUNREACH)
-			continue;
-		results[total] = t2 - t1;
-		total++;
+		if (batch <= 1) {
+			t1 = get_cycles();
+			err = my_fib_lookup(&fl4, &res);
+			t2 = get_cycles();
+			if (err == -ENETUNREACH)
+				continue;
+			results[total] = t2 - t1;
+			total++;
+		} else {
+			/* Ideally, we would like to test the result
+			 * before putting it in the batch. We can't do
+			 * that, this would warm the cache. */
+			memcpy(&batched_fl4[j], &fl4, sizeof(fl4));
+			if (++j != batch)
+				continue;
+			t1 = get_cycles();
+			for (j = 0; j < batch; j++)
+				/* Store the result in the flow directly to increase locality. */
+				batched_fl4[j].flowi4_oif = my_fib_lookup(&batched_fl4[j], &res);
+			t2 = get_cycles();
+			for (err = 0, j = 0; j < batch; j++) {
+				if (batched_fl4[j].flowi4_oif == -ENETUNREACH) {
+					err = -ENETUNREACH;
+					break;
+				}
+			}
+			if (err == -ENETUNREACH) {
+				j = 0;
+				continue;
+			}
+			results[total] = (t2 - t1)/batch;
+			total++;
+			j = 0;
+		}
 	}
 
 	/* Compute and display statistics */
-	display_statistics(buf, results, total, verbose);
+	display_statistics(buf, results, total, batch, verbose);
 	kfree(results);
+	kfree(batched_fl4);
 	return strnlen(buf, PAGE_SIZE);
 }
 
@@ -365,6 +406,31 @@ static ssize_t loop_count_store(struct kobject *kobj, struct kobj_attribute *att
 		return -EINVAL;
 	mutex_lock(&kb_lock);
 	loop_count = val;
+	mutex_unlock(&kb_lock);
+	return count;
+}
+
+static ssize_t batch_count_show(struct kobject *kobj, struct kobj_attribute *attr,
+				char *buf)
+{
+	ssize_t res;
+	mutex_lock(&kb_lock);
+	res = scnprintf(buf, PAGE_SIZE, "%lu\n", batch_count);
+	mutex_unlock(&kb_lock);
+	return res;
+}
+
+static ssize_t batch_count_store(struct kobject *kobj, struct kobj_attribute *attr,
+				 const char *buf, size_t count)
+{
+	unsigned long val;
+	int err = kstrtoul(buf, 0, &val);
+	if (err < 0)
+		return err;
+	if (val < 1)
+		return -EINVAL;
+	mutex_lock(&kb_lock);
+	batch_count = val;
 	mutex_unlock(&kb_lock);
 	return count;
 }
@@ -569,6 +635,7 @@ static ssize_t run_verbose_show(struct kobject *kobj, struct kobj_attribute *att
 
 static struct kobj_attribute	warmup_count_attr      = __ATTR_RW(warmup_count);
 static struct kobj_attribute	loop_count_attr	       = __ATTR_RW(loop_count);
+static struct kobj_attribute	batch_count_attr       = __ATTR_RW(batch_count);
 static struct kobj_attribute	flow_oif_attr	       = __ATTR_RW(flow_oif);
 static struct kobj_attribute	flow_iif_attr	       = __ATTR_RW(flow_iif);
 static struct kobj_attribute	flow_tos_attr	       = __ATTR_RW(flow_tos);
@@ -582,6 +649,7 @@ static struct kobj_attribute	run_verbose_attr       = __ATTR_RO(run_verbose);
 static struct attribute *bench_attributes[] = {
 	&warmup_count_attr.attr,
 	&loop_count_attr.attr,
+	&batch_count_attr.attr,
 	&flow_oif_attr.attr,
 	&flow_iif_attr.attr,
 	&flow_tos_attr.attr,
