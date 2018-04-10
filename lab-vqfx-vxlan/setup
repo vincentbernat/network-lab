@@ -2,6 +2,7 @@
 
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
+SWITCH_MON=1
 
 # 2 = QFX1 to H1
 # 3 = QFX2 to H1
@@ -9,9 +10,13 @@ cd "$(dirname "$(readlink -f "$0")")"
 # 6 = Cumulus to H2
 # 7 = Cumulus to H2
 
-spawn juniper-vqfx QFX1 networks 2,4
-#spawn juniper-vqfx QFX2 networks 3,4
-spawn vm S1 networks 6,7,4
+spawn juniper-vqfx QFX1 networks 4,2
+spawn juniper-vqfx QFX2 networks 4,3
+
+# Choose one of those:
+#spawn vm S1 networks 6,7,4
+spawn juniper-vqfx QFX3 networks 4,6,7
+
 spawn vm H1 networks 2,3
 spawn vm H2 networks 6,7
 spawn vm RR networks 4
