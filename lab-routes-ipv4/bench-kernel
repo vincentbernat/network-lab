@@ -186,30 +186,39 @@ done
 mkdir -p ${DESTDIR}/proc ${DESTDIR}/dev ${DESTDIR}/sys
 (cd "${DESTDIR}" && find . | cpio --quiet -R 0:0 -o -H newc) | gzip > $TMP/initrd.gz
 
-# Boot
-${QEMU} \
-            -enable-kvm \
-            -nodefconfig -nodefaults \
-            -display none \
-            -m 1024 \
-            -cpu host \
-            -chardev stdio,id=charserial0,signal=off \
-            -device isa-serial,chardev=charserial0,id=serial0 \
-            -chardev file,id=charserial1,path=${TMP}/output \
-            -device isa-serial,chardev=charserial1,id=serial1 \
-            -gdb unix:$TMP/gdb.pipe,server,nowait \
-            -no-reboot \
-            -kernel $TMP/vmlinuz* \
-            -initrd $TMP/initrd.gz \
-            -append "console=ttyS0 panic=1 oops=panic 8250.nr_uarts=4" || :
+run() {
+    name="$1"
+    shift
+    args="$*"
+    ${QEMU} \
+        -enable-kvm \
+        -nodefconfig -nodefaults \
+        -display none \
+        -m 1024 \
+        -cpu host \
+        -chardev stdio,id=charserial0,signal=off \
+        -device isa-serial,chardev=charserial0,id=serial0 \
+        -chardev file,id=charserial1,path=${TMP}/output \
+        -device isa-serial,chardev=charserial1,id=serial1 \
+        -gdb unix:$TMP/gdb.pipe,server,nowait \
+        -no-reboot \
+        -kernel $TMP/vmlinuz* \
+        -initrd $TMP/initrd.gz \
+        -append "console=ttyS0 panic=1 oops=panic 8250.nr_uarts=4 $args" || :
 
-mkdir -p stats/kernel
-[ ! -s ${TMP}/output ] || {
-    cp ${TMP}/output stats/kernel/${VERSION}
-    (
-        echo --- Host
-        ${QEMU} --version
-        lscpu
-        grep . /sys/devices/system/cpu/vulnerabilities/*
-    ) >> stats/kernel/${VERSION}
+    mkdir -p stats/kernel
+    [ ! -s ${TMP}/output ] || {
+        cp ${TMP}/output stats/kernel/${VERSION}-${name}
+        (
+            echo --- Host
+            ${QEMU} --version
+            lscpu
+            grep . /sys/devices/system/cpu/vulnerabilities/*
+        ) >> stats/kernel/${VERSION}-${name}
+    }
 }
+
+run "default"
+run "nopti" nopti
+run "nospectre" nospectre_v2
+run "nopti-nospectre" nopti nospectre_v2
