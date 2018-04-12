@@ -9,3 +9,4 @@
 /*.mod.c
 /*.symvers
 /*.order
+/.cache.mk
