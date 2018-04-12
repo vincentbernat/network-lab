@@ -209,6 +209,7 @@ static void display_statistics(char *buf,
 				start += share;
 				if (i >= total) break;
 				if (results[i] > p95) break;
+				if (hist_buf >= buf + PAGE_SIZE - HIST_WIDTH - 20) break;
 			}
 		}
 	}
