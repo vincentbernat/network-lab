@@ -411,14 +411,14 @@ start_vm () {
         case $net in
             oob)
                 ssh=$(tcp_port)
-                netargs="$netargs -net nic,model=virtio,macaddr=$oobmac,vlan=4090"
-                netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+                netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+                netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
                 add_ssh_config $NAME $ssh
                 ;;
             *)
                 mac=$(mac_address)
-                netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
-                netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+                netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+                netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
                 ;;
         esac
     done
@@ -477,13 +477,13 @@ start_juniper_vrr () {
     log_info_msg "Start Juniper VRR $name"
     netargs=""
     ssh=$(tcp_port)
-    netargs="$netargs -net nic,model=e1000,macaddr=$oobmac,vlan=4090"
-    netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -device e1000,mac=$oobmac,netdev=oob"
     add_ssh_config $NAME $ssh juniper
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -net nic,model=e1000,macaddr=$mac,vlan=$net"
-        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net$net"
     done
 
     # Have a look at /etc/rc.vmguest for what is done
@@ -540,15 +540,16 @@ start_juniper_vqfx () {
     log_info_msg "Start Juniper vQFX $name (RE)"
     netargs=""
     ssh=$(tcp_port)
-    netargs="$netargs -net nic,model=e1000,macaddr=$oobmac,vlan=4090" # OOB
-    netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -device e1000,mac=$oobmac,netdev=oob"
     add_ssh_config $NAME $ssh juniper
-    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=1000" # PFE
-    netargs="$netargs -net vde,sock=$TMP/switch-$name-internal.sock,vlan=1000"
-    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=1001" # unused
+    netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=pfe"
+    netargs="$netargs -device e1000,mac=$(mac_address),netdev=pfe"  # PFE
+    netargs="$netargs -device e1000,mac=$(mac_address)" # unused
     for net in $NET; do
-        netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=$net"
-        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+        mac=$(mac_address)
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net$net"
     done
     cat <<EOF > "$TMP/vm-$name-re.exec"
 #!/bin/sh
@@ -606,9 +607,9 @@ EOF
 
     log_info_msg "Start Juniper vQFX $name (PFE)"
     netargs=""
-    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=4090" # OOB
-    netargs="$netargs -net nic,model=e1000,macaddr=$(mac_address),vlan=1000" # RE
-    netargs="$netargs -net vde,sock=$TMP/switch-$name-internal.sock,vlan=1000"
+    netargs="$netargs -device e1000,mac=$(mac_address)" # OOB (not used)
+    netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=re"
+    netargs="$netargs -device e1000,mac=$(mac_address),netdev=re"  # RE
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vqfx-pfe.img $TMP/junos-$name-pfe.img
@@ -654,11 +655,11 @@ start_juniper_vmx () {
     log_info_msg "Start Juniper vMX $name (RE)"
     netargs=""
     ssh=$(tcp_port)
-    netargs="$netargs -net nic,model=e1000,macaddr=$oobmac,vlan=4090" # OOB
-    netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -device e1000,mac=$oobmac,netdev=oob"
     add_ssh_config $NAME $ssh juniper
-    netargs="$netargs -net nic,model=virtio,macaddr=$(mac_address),vlan=1000" # PFE
-    netargs="$netargs -net vde,sock=$TMP/switch-$name-internal.sock,vlan=1000"
+    netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=pfe"
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=pfe"  # PFE
     cat <<EOF > "$TMP/vm-$name-re.exec"
 #!/bin/sh
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-re.img $TMP/junos-$name-re.img
@@ -720,14 +721,14 @@ EOF
     log_info_msg "Start Juniper vMX $name (PFE)"
     vcpus=2
     netargs=""
-    netargs="$netargs -net nic,model=virtio,macaddr=$(mac_address),vlan=1001" # OOB
-    netargs="$netargs -net nic,model=virtio,macaddr=$(mac_address),vlan=1000" # RE
-    netargs="$netargs -net vde,sock=$TMP/switch-$name-internal.sock,vlan=1000"
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address)" # OOB (unused)
+    netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=re"
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=re"  # RE
     for net in $NET; do
         mac=$(mac_address)
         vcpus=$((vcpus + 1))
-        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
-        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
     done
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
@@ -779,13 +780,13 @@ start_juniper_vsrx () {
     log_info_msg "Start Juniper vSRX $name"
     netargs=""
     ssh=$(tcp_port)
-    netargs="$netargs -net nic,model=virtio,macaddr=$oobmac,vlan=4090" # OOB
-    netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
     add_ssh_config $NAME $ssh juniper
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
-        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
     done
 
     cat <<EOF > "$TMP/vm-$name.exec"
@@ -842,10 +843,12 @@ start_juniper_firefly () {
     # This is not the same as VSRX as the provisioning is different
     name=$NAME
     netargs=""
+    netargs="$netargs -netdev user,id=tftp,tftp=$TMP/tftp,hostname=$name"
+    netargs="$netargs -device e1000,mac=$(mac_address),netdev=tftp"
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -net nic,model=e1000,macaddr=$mac,vlan=$net"
-        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net$net"
     done
 
     log_info_msg "Start Juniper vSRX $name"
@@ -876,8 +879,6 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
      -mon chardev=con0,mode=readline \
      \
-     -net nic,model=e1000,macaddr=$(mac_address),vlan=4095 \
-     -net user,vlan=4095,tftp=$TMP/tftp,hostname=$name \
      $netargs
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
@@ -892,13 +893,13 @@ start_cumulus_vx () {
     log_info_msg "Start Cumulus VX $name"
     netargs=""
     ssh=$(tcp_port)
-    netargs="$netargs -net nic,model=virtio,macaddr=$oobmac,vlan=4090"
-    netargs="$netargs -net user,vlan=4090,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
     add_ssh_config $NAME $ssh cumulus
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -net nic,model=virtio,macaddr=$mac,vlan=$net"
-        netargs="$netargs -net vde,sock=$TMP/switch-$net.sock,vlan=$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
     done
 
     cat <<EOF > "$TMP/vm-$name.exec"
