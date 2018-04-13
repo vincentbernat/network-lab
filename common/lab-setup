@@ -1036,7 +1036,7 @@ service () {
                     ${name}
                 mkdir -p /var/log/quagga /var/run/quagga
                 mkdir -p /var/log/frr /var/run/frr
-                chown ${name}:${name} /var/log/quagga /var/run/quagga /var/log/frr /var/run/frr
+                setfacl -m u:${name}:rwx /var/log/quagga /var/run/quagga /var/log/frr /var/run/frr
             done
             for svc in zebra bgpd ospfd isisd ospf6d ripd ripngd; do
                 if [ -f /mnt/lab/quagga-$svc.$uts.conf ]; then
