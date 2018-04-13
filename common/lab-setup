@@ -516,7 +516,8 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -boot c \
      -drive file=$TMP/junos-$name.img,if=ide,media=disk \
-     -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
+     -drive file=$TMP/metadata-$name.img,format=raw,if=none,media=disk,id=metadata \
+     -usb -device usb-storage,drive=metadata \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
@@ -586,7 +587,8 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      \
      -boot c \
      -drive file=$TMP/junos-$name-re.img,if=ide,media=disk \
-     -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
+     -drive file=$TMP/metadata-$name.img,format=raw,if=none,media=disk,id=metadata \
+     -usb -device usb-storage,drive=metadata \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
@@ -628,7 +630,8 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      \
      -boot c \
      -drive file=$TMP/junos-$name-pfe.img,if=ide,media=disk \
-     -usb -usbdevice disk:format=raw:$TMP/metadata-$name-pfe.img \
+     -drive file=$TMP/metadata-$name-pfe.img,format=raw,if=none,media=disk,id=metadata \
+     -usb -device usb-storage,drive=metadata \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
@@ -697,7 +700,8 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -boot c \
      -drive file=$TMP/junos-$name-re.img,if=ide,media=disk \
      -drive file=$TMP/junos-$name-re-hdd.img,if=ide,media=disk \
-     -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
+     -drive file=$TMP/metadata-$name.img,format=raw,if=none,media=disk,id=metadata \
+     -usb -device usb-storage,drive=metadata \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
@@ -752,7 +756,8 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      \
      -boot c \
      -drive file=$TMP/junos-$name-pfe.img,if=ide,media=disk \
-     -usb -usbdevice disk:format=raw:$TMP/metadata-$name-pfe.img \
+     -drive file=$TMP/metadata-$name-pfe.img,format=raw,if=none,media=disk,id=metadata \
+     -usb -device usb-storage,drive=metadata \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
@@ -815,7 +820,8 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -boot c \
      -drive file=$TMP/junos-$name.img,if=ide,media=disk \
-     -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
+     -drive file=$TMP/metadata-$name.img,format=raw,if=none,media=disk,id=metadata \
+     -usb -device usb-storage,drive=metadata \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
@@ -937,7 +943,8 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -boot c \
      -drive file=$TMP/cumulus-$name.img,if=ide,media=disk \
-     -usb -usbdevice disk:format=raw:$TMP/metadata-$name.img \
+     -drive file=$TMP/metadata-$name.img,format=raw,if=none,media=disk,id=metadata \
+     -usb -device usb-storage,drive=metadata \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
