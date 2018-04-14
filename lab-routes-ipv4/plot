@@ -23,7 +23,7 @@ STATRE = re.compile(r"""Main:
 \s+ Total\ size:     \s+ (?P<size>\d+) \s+ kB
         """, re.VERBOSE)
 
-FREQ = 3.7  # GHz (frequency of CPU while the tests were run)
+FREQ = 3.4  # GHz (frequency of CPU while the tests were run)
 
 
 def extract_stats(t1, t2, t3):
