@@ -57,6 +57,11 @@ git tag -l --sort='-taggerdate'  --format='%(taggerdate:short) %(refname:lstrip=
     """, shell=True).split()
            if version]
 
+
+def versionize(x):
+    return [int(y) for y in x.split(".")]
+
+
 with plt.style.context([
         'fivethirtyeight', {'axes.labelsize': 'small',
                             'axes.titleweight': 'medium',
@@ -74,7 +79,9 @@ with plt.style.context([
     i = 0
     for host in {'protected', 'unprotected'}:
         for guest in ['PTI + spectre', 'no PTI', 'no spectre v2', 'unprotected']:
-            x = [v for v in kernels if v in kernel_bgp[host][guest].keys()]
+            x = [v
+                 for v in sorted(kernels, key=versionize)
+                 if v in kernel_bgp[host][guest].keys()]
             y1 = [kernel_bgp[host][guest][k]["50th"]/FREQ for k in x]
             err1 = np.array([kernel_bgp[host][guest][k]["mad"]/FREQ for k in x])/2
             color = "#{}".format(colors[i])
@@ -87,18 +94,33 @@ with plt.style.context([
             i %= len(colors)
 
     ax.set_title("route lookup time with 500k BGP routes")
-    ax.set_xticks(range(len(x)))
-    ax.set_xticklabels(x, rotation=60, ha='right', fontdict={'fontsize': '8'})
+    xticks = [x.index(v)
+              for v in x
+              if x.index(v) == 0 or
+              x[x.index(v) - 1].split('.')[1] != v.split('.')[1]]
+    xlabels = [v
+               for v in x
+               if x.index(v) == 0 or
+               x[x.index(v) - 1].split('.')[1] != v.split('.')[1]]
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xlabels, rotation=60, ha='right')
     ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
     ax.set_ylim(bottom=22, top=45)
     ax.legend(loc='lower center', ncol=2)
 
+    start = 0
+    end = 0
     for idx in range(len(x)):
-        if x[idx] == '4.14.11':
-            ax.axvspan(0, idx-.5, alpha=0.5, color='#cccccc')
+        if kernels.index(x[idx]) < kernels.index('4.14.11'):
+            end += 1
+        else:
+            if start != end:
+                ax.axvspan(start, end-.5, alpha=0.5, color='#cccccc')
+            end += 1
+            start = end
 
     save(fig, ax, "kernels-meltdown",
-         mxin=len(x)/30.5,
+         mxin=len(x)/55.,
          myin=1.)
 
 # plt.show()
