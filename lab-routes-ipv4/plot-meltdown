@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+
+"""Plot results from the lab."""
+
+import os
+import glob
+import collections
+import subprocess
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import ticker
+
+FREQ = 3.4  # GHz (frequency of CPU while the tests were run)
+
+# Kernel variations
+kernel_bgp = collections.defaultdict(lambda: collections.defaultdict(dict))
+for t in glob.glob("stats/kernel-host-*/*"):
+    directory = os.path.basename(os.path.dirname(t))
+    host = directory.split('-')[-1]
+    basename = os.path.basename(t)
+    version = basename.split('-')[0]
+    guest = {'default': 'PTI + spectre',
+             'nopti': 'no PTI',
+             'nospectre': 'no spectre v2',
+             'nopti-nospectre': 'unprotected'}[basename.split('-', 1)[1]]
+    with open(t) as f:
+        b, m = [{f[0]: int(f[1])
+                 for f in (f.split("=", 1)
+                           for f in l.strip().split(" "))}
+                for l in f
+                if l.startswith("min=")]
+        kernel_bgp[host][guest][version] = b
+
+
+def save(fig, ax, name, mxin=1., myin=1.):
+    """Save a figure after adding the legend."""
+    axes = fig.get_axes()
+    cols = max(a.colNum + 1 for a in axes)
+    rows = max(a.rowNum + 1 for a in axes)
+    xin, yin = cols*4, rows*3
+    xin *= mxin
+    yin *= myin
+    fig.set_size_inches(xin, yin)
+    fig.savefig("stats/stats-{}.svg".format(name),
+                facecolor='white',
+                dpi=96,
+                bbox_inches='tight')
+
+
+kernels = [version.decode('utf8')[1:]
+           for version in subprocess.check_output(r"""
+cd /home/bernat/code/deezer/linux
+git tag -l --sort='-taggerdate'  --format='%(taggerdate:short) %(refname:lstrip=2)' v4\* \
+  | grep -v -- -rc \
+  | awk '{print $2}' \
+  | tac
+    """, shell=True).split()
+           if version]
+
+with plt.style.context([
+        'fivethirtyeight', {'axes.labelsize': 'small',
+                            'axes.titleweight': 'medium',
+                            'axes.titlesize': 'large',
+                            'axes.facecolor': 'white',
+                            'axes.linewidth': 0.0,
+                            'font.size': 10.0,
+                            'grid.linewidth': 0.75,
+                            'font.family': ['Roboto', 'sans-serif'],
+                            'font.weight': 'light'}]):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    colors = ('55aa55 116611 477286 113c51 '
+              'd4a36a 804e15 d46a6a 801515').split()
+    i = 0
+    for host in {'protected', 'unprotected'}:
+        for guest in ['PTI + spectre', 'no PTI', 'no spectre v2', 'unprotected']:
+            x = [v for v in kernels if v in kernel_bgp[host][guest].keys()]
+            y1 = [kernel_bgp[host][guest][k]["50th"]/FREQ for k in x]
+            err1 = np.array([kernel_bgp[host][guest][k]["mad"]/FREQ for k in x])/2
+            color = "#{}".format(colors[i])
+            ax.plot(range(len(x)), y1,
+                    '-',
+                    lw=1, ms=4,
+                    label="Host: {}, Guest: {}".format(host, guest),
+                    color=color)
+            i += 1
+            i %= len(colors)
+
+    ax.set_title("route lookup time with 500k BGP routes")
+    ax.set_xticks(range(len(x)))
+    ax.set_xticklabels(x, rotation=60, ha='right', fontdict={'fontsize': '8'})
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
+    ax.set_ylim(bottom=22, top=45)
+    ax.legend(loc='lower center', ncol=2)
+
+    for idx in range(len(x)):
+        if x[idx] == '4.14.11':
+            ax.axvspan(0, idx-.5, alpha=0.5, color='#cccccc')
+
+    save(fig, ax, "kernels-meltdown",
+         mxin=len(x)/30.5,
+         myin=1.)
+
+# plt.show()
