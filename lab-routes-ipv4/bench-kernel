@@ -208,17 +208,18 @@ run() {
 
     mkdir -p stats/kernel
     [ ! -s ${TMP}/output ] || {
-        cp ${TMP}/output stats/kernel/${VERSION}-${name}
+        cp ${TMP}/output stats/kernel/${VERSION}${name:+-}${name}
         (
             echo --- Host
             ${QEMU} --version
             lscpu
             grep . /sys/devices/system/cpu/vulnerabilities/*
-        ) >> stats/kernel/${VERSION}-${name}
+        ) >> stats/kernel/${VERSION}${name:+-}${name}
     }
 }
 
-run "default"
-run "nopti" nopti
-run "nospectre" nospectre_v2
-run "nopti-nospectre" nopti nospectre_v2
+run
+# run "default"
+# run "nopti" nopti
+# run "nospectre" nospectre_v2
+# run "nopti-nospectre" nopti nospectre_v2
