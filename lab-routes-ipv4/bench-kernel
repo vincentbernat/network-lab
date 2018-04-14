@@ -40,6 +40,14 @@
 # git tag -l --sort='-taggerdate' --format='%(taggerdate:short) %(refname:lstrip=2)' v4\* \
 #   | grep -v -- -rc \
 #   | grep -E '(2017-12|2018-)'
+#
+# Or, to select latest stable kernels:
+#
+# git tag -l --sort='-taggerdate'  --format='%(taggerdate:short) %(refname:lstrip=2)' v4\* \
+#     | grep -v -- -rc \
+#     | awk '{print $2}' \
+#     | sort -rV  \
+#     | awk -F'\.' '($2!=last) {last=$2;print}'
 
 set -e
 
@@ -52,6 +60,22 @@ shift
 VERSION=$(make --no-print-directory -C "$TREE" kernelversion)
 [ -n "$VERSION" ] || {
     >&2 echo "Cannot found version for $TREE"
+    exit 1
+}
+
+# Check governor and turbo
+[ ! -f /sys/devices/system/cpu/intel_pstate/no_turbo ] \
+    || [ $(cat /sys/devices/system/cpu/intel_pstate/no_turbo) -eq 1 ] \
+    || {
+    >&2 echo "Disable turbo for more reliable benchmarks"
+    >&2 echo "echo 1 | sudo tee /sys/devices/system/cpu/intel_pstate/no_turbo"
+    exit 1
+}
+[ ! -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor ] \
+    || [ $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor) = performance ] \
+    || {
+    >&2 echo "Set governor to performance for more reliable benchmarks"
+    >&2 echo "sudo cpupower frequency-set -g performance"
     exit 1
 }
 
@@ -113,7 +137,7 @@ make -j3 -C "$TREE" O=${TMP}/kernel CC=${CC}
 make -C "$TREE" O=${TMP}/kernel CC=${CC} INSTALL_PATH=${TMP} install
 
 # Compile the benchmark module
-rm -f kbench_mod.ko
+rm -f kbench_mod.*o kbench_mod.mod.*
 make KDIR=${TMP}/kernel O=${TMP}/kernel CC=${CC}
 
 # init script
@@ -208,17 +232,18 @@ run() {
 
     mkdir -p stats/kernel
     [ ! -s ${TMP}/output ] || {
-        cp ${TMP}/output stats/kernel/${VERSION}${name:+-}${name}
         (
             echo --- Host
             ${QEMU} --version
+            ${CC} --version
             lscpu
             grep . /sys/devices/system/cpu/vulnerabilities/*
-        ) >> stats/kernel/${VERSION}${name:+-}${name}
+        ) >> ${TMP}/output
+        cp ${TMP}/output stats/kernel/${VERSION}${name:+-}${name}
     }
 }
 
-run
+run ""
 # run "default"
 # run "nopti" nopti
 # run "nospectre" nospectre_v2
