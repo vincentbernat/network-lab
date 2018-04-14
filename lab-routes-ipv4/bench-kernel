@@ -19,6 +19,11 @@
 #  - 510458cb7da6 (3.14.x)
 #  - e4037eb7c531 (3.12.x)
 #  - 4800af91229e (3.10.x)
+#
+# On non-LTS 4.x kernels, and recent gcc, you may need the following
+# patches:
+#  - 85f687708c81 and 8de6ea44af5c (ilog2_NaN)
+#  - 56df604296c2 (PIC mode)
 
 # As additional arguments, we should have the output of "ip route save"
 # that will be used to restore the same routes. This only works if the
