@@ -1,2 +1,2 @@
 ifreload -a
-service quagga restart
+service frr restart

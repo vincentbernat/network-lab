@@ -1,7 +1,5 @@
 #!/bin/sh
 
-LABNAME="generic"
-
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
@@ -26,6 +24,7 @@ run
 modprobe bonding
 ethtool -s eth1 speed 1000 duplex full
 ethtool -s eth2 speed 1000 duplex full
+ip link add name bond0 type bond
 echo 802.3ad > /sys/class/net/bond0/bonding/mode
 echo 100 > /sys/class/net/bond0/bonding/miimon
 echo 1 > /sys/class/net/bond0/bonding/lacp_rate
