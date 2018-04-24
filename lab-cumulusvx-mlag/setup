@@ -31,6 +31,7 @@ echo 1 > /sys/class/net/bond0/bonding/lacp_rate
 echo layer3+4 > /sys/class/net/bond0/bonding/xmit_hash_policy
 ifenslave bond0 eth1 eth2
 ip link set up dev bond0
+service nginx
 
 case $uts in
     server01)
