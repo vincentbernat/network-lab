@@ -1,0 +1,167 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+users=200                       # number of users
+routers=2                       # number of routers (first tier)
+lb4s=3                          # number of L4 load-balancers (second tier)
+lb7s=4                          # number of L7 load-balancers (third tier)
+rrs=2                           # number of route reflectors for BGP
+servers=5                       # number of application servers/frontends
+
+spawn vm users    network 1
+spawn vm internet networks 1,2
+for i in $(seq $routers); do
+    spawn vm R${i} networks 2,3
+done
+for i in $(seq $rrs); do
+    spawn vm RR${i} networks 3
+done
+for i in $(seq $lb4s); do
+    spawn vm LB4-${i} network 3
+done
+for i in $(seq $lb7s); do
+    spawn vm LB7-${i} network 3,4
+done
+for i in $(seq $servers); do
+    spawn vm S${i} network 4
+done
+
+# network 3 is internal network for infrastructure (192.0.2.128/25),
+# could use private addressing to save space.
+
+# network 4 is IPv6-only for application servers. Could use private
+# IPv4 address space as well if we want to use IPv4.
+
+run
+
+case $uts in
+    users)
+        ip addr add 192.0.2.2/29 dev eth0
+        ip addr add 2001:db8::192.0.2.2/125 dev eth0
+        for i in $(seq $users); do
+            ip addr add 203.0.113.${i}/32 dev lo
+            ip addr add 2001:db8::203.0.113.${i}/128 dev lo
+        done
+        ip route add default via 192.0.2.1
+        ip route add ::/0 via 2001:db8::192.0.2.1
+        ;;
+    internet)
+        ip addr add 192.0.2.1/29 dev eth0
+        ip addr add 2001:db8::192.0.2.1/125 dev eth0
+        ip addr add 192.0.2.9/27 dev eth1
+        ip addr add 2001:db8::192.0.2.9/123 dev eth0
+        ip route add 203.0.113.0/24 via 192.0.2.2
+        ip route add 2001:db8::203.0.113.0/120 via 2001:db8::192.0.2.2
+
+        # Static routes to edge routers. Should be BGP but this is not
+        # the part we want to test.
+        ip route add 198.51.100.0/24 \
+           $(for i in $(seq $routers); do
+                 echo "nexthop via 192.0.2.$((9 + i))"
+             done)
+        ip route add 2001:db8::198.51.100.0/120 \
+           $(for i in $(seq $routers); do
+                 echo "nexthop via 2001:db8::192.0.2.$((9 + i))"
+             done)
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        ;;
+    RR*)
+        ipv4=192.0.2.$((255 - ${uts#RR}))
+        ip addr add $ipv4/25 dev eth0
+        ip addr add 2001:db8::$ipv4/121 dev eth0
+
+        template gobgp.RRx.conf gobgp.$uts.conf ipv4="'$ipv4'"
+        service gobgp
+        ;;
+    R*)
+        ip addr add 192.0.2.$((9 + ${uts#R}))/27 dev eth0
+        ip addr add 2001:db8::192.0.2.$((9 + ${uts#R}))/123 dev eth0
+        ip route add default via 192.0.2.9
+        ip route add ::/0 via 2001:db8::192.0.2.9
+        ipv4=192.0.2.$((129 + ${uts#R}))
+        ip addr add $ipv4/25 dev eth1
+        ip addr add 2001:db8::$ipv4/121 dev eth1
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        sysctl -qw net.ipv4.fib_multipath_use_neigh=1
+        sysctl -qw net.ipv4.fib_multipath_hash_policy=1
+
+        template bird.Rx.conf  bird.$uts.conf  ipv4="'$ipv4'" rrs=$rrs
+        template bird6.Rx.conf bird6.$uts.conf ipv4="'$ipv4'" rrs=$rrs
+        service bird
+        ;;
+    LB4-*)
+        ipv4=192.0.2.$((129 + $routers + ${uts#LB4-}))
+        ip addr add $ipv4/25 dev eth0
+        ip addr add 2001:db8::$ipv4/121 dev eth0
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        sysctl -qw net.ipv4.fib_multipath_use_neigh=1
+        sysctl -qw net.ipv4.fib_multipath_hash_policy=1
+
+        # Return path (for diagnostic purpose). This should be BGP too.
+        ip route add 203.0.113.0/24 \
+           $(for i in $(seq $routers); do
+                 echo "nexthop via 192.0.2.$((129 + i))"
+             done)
+        ip route add 2001:db8::198.51.100.0/120 \
+           $(for i in $(seq $routers); do
+                 echo "nexthop via 2001:db8::192.0.2.$((129 + i))"
+             done)
+
+        # ExaBGP
+        ip addr add 198.51.100.1/32 dev lo label lo:v4-1
+        ip addr add 2001:db8::198.51.100.1/128 dev lo label lo:v6-1
+        ip addr add 198.51.100.2/32 dev lo label lo:v4-2
+        ip addr add 2001:db8::198.51.100.2/128 dev lo label lo:v6-2
+        template exabgp.LB4-x.conf exabgp.$uts.conf ipv4="'$ipv4'" rrs=$rrs
+        export exabgp_log_destination=syslog
+        export exabgp_api_cli=false
+        export exabgp_daemon_daemonize=true # only work if parent is not PID 1
+        (service exabgp exabgp.$uts.conf)
+
+        # IPVS
+        template keepalived.LB4-x.conf keepalived.$uts.conf lb7s=$lb7s offset=$((129 + $routers + $lb4s))
+        service keepalived -C -f $PWD/keepalived.$uts.conf
+        ;;
+    LB7-*)
+        ipv4=192.0.2.$((129 + $routers + $lb4s + ${uts#LB7-}))
+        ip addr add $ipv4/25 dev eth0
+        ip addr add 2001:db8::$ipv4/121 dev eth0
+        ip addr add 2001:db8:1:0:1::${uts#LB7-}/64 dev eth1
+
+        # Return path. This should be BGP too.
+        sysctl -qw net.ipv4.fib_multipath_use_neigh=1
+        sysctl -qw net.ipv4.fib_multipath_hash_policy=1
+        ip route add 203.0.113.0/24 \
+           $(for i in $(seq $routers); do
+                 echo "nexthop via 192.0.2.$((129 + i))"
+             done)
+        ip route add 2001:db8::198.51.100.0/120 \
+           $(for i in $(seq $routers); do
+                 echo "nexthop via 2001:db8::192.0.2.$((129 + i))"
+             done)
+
+        ip tunnel add tunlv4 mode ipip local $ipv4
+        ip tunnel add tunlv6 mode ip6ip6 local 2001:db8::$ipv4
+        ip link set up dev tunlv4
+        ip link set up dev tunlv6
+        ip addr add 198.51.100.1/32 dev tunlv4
+        ip addr add 2001:db8::198.51.100.1/128 dev tunlv6
+        ip addr add 198.51.100.2/32 dev tunlv4
+        ip addr add 2001:db8::198.51.100.2/128 dev tunlv6
+
+        template haproxy.LB7-x.conf haproxy.$uts.conf servers=$servers ipv4="'$ipv4'"
+        service haproxy -D -f haproxy.$uts.conf
+        ;;
+    S*)
+        # Could use a private address space for IPv4. However, we just
+        # make the servers IPv6-only.
+        ip addr add 2001:db8:1:0:2::${uts#S}/64 dev eth0
+
+        service nginx
+        ;;
+esac
