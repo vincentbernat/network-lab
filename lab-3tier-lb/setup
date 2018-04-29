@@ -124,6 +124,9 @@ case $uts in
         (service exabgp exabgp.$uts.conf)
 
         # IPVS
+        modprobe ip_vs
+        sysctl -qw net.ipv4.vs.sloppy_tcp=1 # schedule non-SYN packets
+        sysctl -qw net.ipv4.vs.pmtu_disc=0  # packets are silently fragmented
         template keepalived.LB4-x.conf keepalived.$uts.conf lb7s=$lb7s offset=$((129 + $routers + $lb4s))
         service keepalived -C -f $PWD/keepalived.$uts.conf
         ;;
