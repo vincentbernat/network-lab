@@ -113,6 +113,7 @@ case $uts in
              done)
 
         # ExaBGP
+        mkdir /etc/lb
         ip addr add 198.51.100.1/32 dev lo label lo:v4-1
         ip addr add 2001:db8::198.51.100.1/128 dev lo label lo:v6-1
         ip addr add 198.51.100.2/32 dev lo label lo:v4-2
@@ -127,6 +128,10 @@ case $uts in
         modprobe ip_vs
         sysctl -qw net.ipv4.vs.sloppy_tcp=1 # schedule non-SYN packets
         sysctl -qw net.ipv4.vs.pmtu_disc=0  # packets are silently fragmented
+        # do NOT reschedule a connection when dest doesn't exist
+        # anymore (needed to drain properly a LB7):
+        sysctl -qw net.ipv4.vs.expire_nodest_conn=0
+        sysctl -qw net.ipv4.vs.expire_quiescent_template=0
         template keepalived.LB4-x.conf keepalived.$uts.conf lb7s=$lb7s offset=$((129 + $routers + $lb4s))
         service keepalived -C -f $PWD/keepalived.$uts.conf
         ;;
@@ -157,6 +162,9 @@ case $uts in
         ip addr add 198.51.100.2/32 dev tunlv4
         ip addr add 2001:db8::198.51.100.2/128 dev tunlv6
 
+        mkdir /etc/lb
+        echo UP > /etc/lb/agent-check
+        socat -ly TCP-LISTEN:5555,bind=127.0.0.1,reuseaddr,fork OPEN:/etc/lb/agent-check,rdonly &
         template haproxy.LB7-x.conf haproxy.$uts.conf servers=$servers ipv4="'$ipv4'"
         service haproxy -D -f haproxy.$uts.conf
         ;;
@@ -165,6 +173,9 @@ case $uts in
         # make the servers IPv6-only.
         ip addr add 2001:db8:1:0:2::${uts#S}/64 dev eth0
 
+        mkdir /etc/lb
+        echo UP > /etc/lb/agent-check
+        socat -ly TCP6-LISTEN:5555,ipv6only=0,reuseaddr,fork OPEN:/etc/lb/agent-check,rdonly &
         service nginx
         ;;
 esac
