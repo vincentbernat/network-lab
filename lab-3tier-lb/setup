@@ -51,7 +51,7 @@ case $uts in
         ip addr add 192.0.2.1/29 dev eth0
         ip addr add 2001:db8::192.0.2.1/125 dev eth0
         ip addr add 192.0.2.9/27 dev eth1
-        ip addr add 2001:db8::192.0.2.9/123 dev eth0
+        ip addr add 2001:db8::192.0.2.9/123 dev eth1
         ip route add 203.0.113.0/24 via 192.0.2.2
         ip route add 2001:db8::203.0.113.0/120 via 2001:db8::192.0.2.2
 
@@ -148,7 +148,7 @@ case $uts in
            $(for i in $(seq $routers); do
                  echo "nexthop via 192.0.2.$((129 + i))"
              done)
-        ip route add 2001:db8::198.51.100.0/120 \
+        ip route add 2001:db8::203.0.113.0/120 \
            $(for i in $(seq $routers); do
                  echo "nexthop via 2001:db8::192.0.2.$((129 + i))"
              done)
