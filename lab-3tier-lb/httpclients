@@ -65,11 +65,13 @@ async def main(sources, destinations):
                 else:
                     successes += 1
                 if failures + successes == 8:
-                    if successes == 8:
-                        c = "\033[1;32m_\033[0;0m"
+                    if successes == 0:
+                        c = "\033[1;31m_\033[0;0m"
+                    elif successes == 8:
+                        c = "\033[1;32m⣿\033[0;0m"
                     else:
                         c = "\033[1;31m{}\033[0;0m".format(
-                            chr(0x2800 + (1 << 8) - (1 << successes)))
+                            chr(0x2800 + (1 << 8) - (1 << failures)))
                     print(c, end='', flush=True)
                     failures = 0
                     successes = 0
