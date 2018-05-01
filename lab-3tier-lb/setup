@@ -10,7 +10,7 @@ lb7s=4                          # number of L7 load-balancers (third tier)
 rrs=2                           # number of route reflectors for BGP
 servers=5                       # number of application servers/frontends
 
-spawn vm users    network 1
+MEM=1G spawn vm users    network oob,1
 spawn vm internet networks 1,2
 for i in $(seq $routers); do
     spawn vm R${i} networks 2,3
@@ -38,12 +38,14 @@ run
 
 case $uts in
     users)
-        ip addr add 192.0.2.2/29 dev eth0
-        ip addr add 2001:db8::192.0.2.2/125 dev eth0
+        ip addr add 192.0.2.2/29 dev eth1
+        ip addr add 2001:db8::192.0.2.2/125 dev eth1
         for i in $(seq $users); do
             ip addr add 203.0.113.${i}/32 dev lo
             ip addr add 2001:db8::203.0.113.${i}/128 dev lo
         done
+        ip route del default
+        ip route del ::/0
         ip route add default via 192.0.2.1
         ip route add ::/0 via 2001:db8::192.0.2.1
         ;;

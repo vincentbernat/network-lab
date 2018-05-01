@@ -29,19 +29,17 @@ async def fetch(source, destination):
     url = f'http://[{host}]:{port}/10M'
     conn = aiohttp.TCPConnector(local_addr=(source, 0))
     async with aiohttp.ClientSession(connector=conn) as client:
-        start = loop.time()
         async with client.get(url) as resp:
-            status = resp.status
             while True:
-                got = await resp.content.readany()
-                if not got:
+                await asyncio.sleep(random.random()*5)
+                got = await asyncio.wait_for(resp.content.readany(), timeout=2)
+                if not got or random.random() > 0.95:
                     break
-            end = loop.time()
-            elapsed = (end - start) * 1000
+                del got
 
 
 async def main(sources, destinations):
-    parallel = 10
+    parallel = 50
     pending = set()
     failures = 0
     successes = 0
@@ -52,7 +50,7 @@ async def main(sources, destinations):
             continue
         if ':' in destination[0] and ':' not in source:
             continue
-        pending.add(asyncio.wait_for(fetch(source, destination), timeout=20))
+        pending.add(fetch(source, destination))
         if len(pending) >= parallel:
             done, pending = await asyncio.wait(
                 pending,
