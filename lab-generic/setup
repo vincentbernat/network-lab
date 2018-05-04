@@ -7,11 +7,30 @@ cd "$(dirname "$(readlink -f "$0")")"
 spawn vm R1 network oob,1
 spawn vm R2 network oob,1
 
+# Namespaces. Network setup must be done in the supporting VM. SSH
+# access must be enabled on the supporting VM.
+spawn ns R2/NS1
+spawn ns R2/NS2
+
 run
 
 # Executed on each VM
 case $uts in
     R1) ip addr add 10.234.78.65/27 dev eth1 ;;
-    R2) ip addr add 10.234.78.66/27 dev eth1 ;;
+    R2)
+        ip addr add 10.234.78.66/27 dev eth1
+
+        # Setup namespaces
+        ip netns add NS1
+        ip netns add NS2
+        ip link add name veth0 type veth peer netns NS1
+        ip link add name veth1 type veth peer netns NS2
+        ip link set up dev veth0
+        ip link set up dev veth1
+        ip addr add 10.234.60.1/27 dev veth0
+        ip addr add 10.234.61.1/27 dev veth1
+        ;;
+    NS1) ip addr add 10.234.60.3/27 dev veth0 ;;
+    NS2) ip addr add 10.234.61.3/27 dev veth0 ;;
 esac
 service nginx
