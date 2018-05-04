@@ -416,6 +416,50 @@ setup_initrd () {
     log_ok_msg "initrd built in $TMP/initrd.gz"
 }
 
+link () {
+    case ${#@} in
+        0|1)
+            log_error_msg "Missing arguments for link"
+            ;;
+        2)
+            ip link add type veth peer netns $2
+            last=$(ip -o l l | tail -1 | awk  -F'(: |@)' '{print $2}')
+            case $1 in
+                main)
+                    ip link set up dev $last
+                    ;;
+                *)
+                    ip link set netns $1 dev $last
+                    ;;
+            esac
+            ;;
+        *)
+            ip link add type bridge
+            bridge=$(ip -o l l | tail -1 | awk  -F'(: |@)' '{print $2}')
+            ip link set up dev $bridge
+            for l in "$@"; do
+                case $l in
+                    main)
+                        ip link add type veth
+                        last=$(ip -o l l | tail -1 | awk  -F'(: |@)' '{print $2}')
+                        ip link set master $bridge dev $last
+                        ip link set up dev $last
+                        last=$(ip -o l l | tail -2 | head -1 | awk  -F'(: |@)' '{print $2}')
+                        ip link set up dev $last
+                        ;;
+                    *)
+                        ip link add type veth peer netns $l
+                        last=$(ip -o l l | tail -1 | awk  -F'(: |@)' '{print $2}')
+                        ip link set master $bridge dev $last
+                        ip link set up dev $last
+                        ;;
+                esac
+            done
+            ;;
+    esac
+}
+
+
 start_ns () {
     vm=${NAME%%/*}
     ns=${NAME#*/}
