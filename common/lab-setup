@@ -1316,15 +1316,12 @@ EOF
         done
         sysctl -qw net/ipv6/conf/default/accept_dad=0
 
-        [ -S /dev/log ] || {
-            log_begin_msg "Start syslog"
-            cat <<EOF > /tmp/rsyslogd.conf
+        log_info_msg "Start syslog"
+        cat <<EOF > /tmp/rsyslogd.conf
 module(load="imuxsock")
 *.*   -/var/log/syslog
 EOF
-            rsyslogd -f /tmp/rsyslogd.conf
-            log_ok_msg "Syslog started"
-        }
+        rsyslogd -f /tmp/rsyslogd.conf
 
         for intf in /sys/class/net/*; do
             case $(cat $intf/address) in
