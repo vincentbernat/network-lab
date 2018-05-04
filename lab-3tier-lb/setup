@@ -10,22 +10,23 @@ lb7s=4                          # number of L7 load-balancers (third tier)
 rrs=2                           # number of route reflectors for BGP
 servers=5                       # number of application servers/frontends
 
-MEM=1G spawn vm users    network oob,1
-spawn vm internet networks 1,2
+MEM=4G spawn vm V network oob
+spawn ns V/users
+spawn ns V/internet
 for i in $(seq $routers); do
-    spawn vm R${i} networks 2,3
+    spawn ns V/R${i}
 done
 for i in $(seq $rrs); do
-    spawn vm RR${i} networks 3
+    spawn ns V/RR${i}
 done
 for i in $(seq $lb4s); do
-    spawn vm LB4-${i} network 3
+    spawn ns V/LB4-${i}
 done
 for i in $(seq $lb7s); do
-    spawn vm LB7-${i} network 3,4
+    spawn ns V/LB7-${i}
 done
 for i in $(seq $servers); do
-    spawn vm S${i} network 4
+    spawn ns V/S${i}
 done
 
 # network 3 is internal network for infrastructure (192.0.2.128/25),
@@ -37,23 +38,27 @@ done
 run
 
 case $uts in
+    V)
+        link users internet
+        link internet $(seq -f R%.0f $routers)
+        link $(seq -f R%.0f $routers) $(seq -f RR%.0f $rrs) $(seq -f LB4-%.0f $lb4s) $(seq -f LB7-%.0f $lb7s)
+        link $(seq -f LB7-%.0f $lb7s) $(seq -f S%.0f $servers)
+        ;;
     users)
-        ip addr add 192.0.2.2/29 dev eth1
-        ip addr add 2001:db8::192.0.2.2/125 dev eth1
+        ip addr add 192.0.2.2/29 dev veth0
+        ip addr add 2001:db8::192.0.2.2/125 dev veth0
         for i in $(seq $users); do
             ip addr add 203.0.113.${i}/32 dev lo
             ip addr add 2001:db8::203.0.113.${i}/128 dev lo
         done
-        ip route del default
-        ip route del ::/0
         ip route add default via 192.0.2.1
         ip route add ::/0 via 2001:db8::192.0.2.1
         ;;
     internet)
-        ip addr add 192.0.2.1/29 dev eth0
-        ip addr add 2001:db8::192.0.2.1/125 dev eth0
-        ip addr add 192.0.2.9/27 dev eth1
-        ip addr add 2001:db8::192.0.2.9/123 dev eth1
+        ip addr add 192.0.2.1/29 dev veth0
+        ip addr add 2001:db8::192.0.2.1/125 dev veth0
+        ip addr add 192.0.2.9/27 dev veth1
+        ip addr add 2001:db8::192.0.2.9/123 dev veth1
         ip route add 203.0.113.0/24 via 192.0.2.2
         ip route add 2001:db8::203.0.113.0/120 via 2001:db8::192.0.2.2
 
@@ -72,20 +77,20 @@ case $uts in
         ;;
     RR*)
         ipv4=192.0.2.$((255 - ${uts#RR}))
-        ip addr add $ipv4/25 dev eth0
-        ip addr add 2001:db8::$ipv4/121 dev eth0
+        ip addr add $ipv4/25 dev veth0
+        ip addr add 2001:db8::$ipv4/121 dev veth0
 
         template gobgp.RRx.conf gobgp.$uts.conf ipv4="'$ipv4'"
         service gobgp
         ;;
     R*)
-        ip addr add 192.0.2.$((9 + ${uts#R}))/27 dev eth0
-        ip addr add 2001:db8::192.0.2.$((9 + ${uts#R}))/123 dev eth0
+        ip addr add 192.0.2.$((9 + ${uts#R}))/27 dev veth0
+        ip addr add 2001:db8::192.0.2.$((9 + ${uts#R}))/123 dev veth0
         ip route add default via 192.0.2.9
         ip route add ::/0 via 2001:db8::192.0.2.9
         ipv4=192.0.2.$((129 + ${uts#R}))
-        ip addr add $ipv4/25 dev eth1
-        ip addr add 2001:db8::$ipv4/121 dev eth1
+        ip addr add $ipv4/25 dev veth1
+        ip addr add 2001:db8::$ipv4/121 dev veth1
         sysctl -qw net.ipv4.ip_forward=1
         sysctl -qw net.ipv6.conf.all.forwarding=1
         sysctl -qw net.ipv4.fib_multipath_use_neigh=1
@@ -97,8 +102,8 @@ case $uts in
         ;;
     LB4-*)
         ipv4=192.0.2.$((129 + $routers + ${uts#LB4-}))
-        ip addr add $ipv4/25 dev eth0
-        ip addr add 2001:db8::$ipv4/121 dev eth0
+        ip addr add $ipv4/25 dev veth0
+        ip addr add 2001:db8::$ipv4/121 dev veth0
         sysctl -qw net.ipv4.ip_forward=1
         sysctl -qw net.ipv6.conf.all.forwarding=1
         sysctl -qw net.ipv4.fib_multipath_use_neigh=1
@@ -115,7 +120,8 @@ case $uts in
              done)
 
         # ExaBGP
-        mkdir /etc/lb
+        mkdir -p /etc/lb
+        mount -t tmpfs tmpfs /etc/lb
         ip addr add 198.51.100.1/32 dev lo label lo:v4-1
         ip addr add 2001:db8::198.51.100.1/128 dev lo label lo:v6-1
         ip addr add 198.51.100.2/32 dev lo label lo:v4-2
@@ -139,9 +145,9 @@ case $uts in
         ;;
     LB7-*)
         ipv4=192.0.2.$((129 + $routers + $lb4s + ${uts#LB7-}))
-        ip addr add $ipv4/25 dev eth0
-        ip addr add 2001:db8::$ipv4/121 dev eth0
-        ip addr add 2001:db8:1:0:1::${uts#LB7-}/64 dev eth1
+        ip addr add $ipv4/25 dev veth0
+        ip addr add 2001:db8::$ipv4/121 dev veth0
+        ip addr add 2001:db8:1:0:1::${uts#LB7-}/64 dev veth1
 
         # Return path. This should be BGP too.
         sysctl -qw net.ipv4.fib_multipath_use_neigh=1
@@ -164,7 +170,8 @@ case $uts in
         ip addr add 198.51.100.2/32 dev tunlv4
         ip addr add 2001:db8::198.51.100.2/128 dev tunlv6
 
-        mkdir /etc/lb
+        mkdir -p /etc/lb
+        mount -t tmpfs tmpfs /etc/lb
         echo UP > /etc/lb/agent-check
         socat -ly TCP-LISTEN:5555,bind=127.0.0.1,reuseaddr,fork OPEN:/etc/lb/agent-check,rdonly &
         template haproxy.LB7-x.conf haproxy.$uts.conf servers=$servers ipv4="'$ipv4'"
@@ -173,9 +180,10 @@ case $uts in
     S*)
         # Could use a private address space for IPv4. However, we just
         # make the servers IPv6-only.
-        ip addr add 2001:db8:1:0:2::${uts#S}/64 dev eth0
+        ip addr add 2001:db8:1:0:2::${uts#S}/64 dev veth0
 
-        mkdir /etc/lb
+        mkdir -p /etc/lb
+        mount -t tmpfs tmpfs /etc/lb
         echo UP > /etc/lb/agent-check
         socat -ly TCP6-LISTEN:5555,ipv6only=0,reuseaddr,fork OPEN:/etc/lb/agent-check,rdonly &
         service nginx
