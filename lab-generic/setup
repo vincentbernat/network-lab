@@ -21,8 +21,6 @@ case $uts in
         ip addr add 10.234.78.66/27 dev eth1
 
         # Setup namespaces
-        ip netns add NS1
-        ip netns add NS2
         ip link add name veth0 type veth peer netns NS1
         ip link add name veth1 type veth peer netns NS2
         ip link set up dev veth0

@@ -199,8 +199,6 @@ cleanup () {
 #
 
 spawn () {
-    [ x"$STATE" != x"SETUP" ] || return 0
-
     kind=$1
     shift
 
@@ -208,6 +206,18 @@ spawn () {
     shift
 
     NET=""
+
+    case $STATE,$kind in
+        SETUP,ns)
+            if [ $uts = ${NAME%%/*} ]; then
+                ip netns add ${NAME#*/}
+            fi
+            return 0
+            ;;
+        SETUP,*)
+            return 0
+            ;;
+    esac
 
     while [ $# -gt 1 ]; do
         case $1 in
