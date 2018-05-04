@@ -5,10 +5,10 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 users=200                       # number of users
 routers=2                       # number of routers (first tier)
-lb4s=3                          # number of L4 load-balancers (second tier)
-lb7s=4                          # number of L7 load-balancers (third tier)
+lb4s=7                          # number of L4 load-balancers (second tier)
+lb7s=13                         # number of L7 load-balancers (third tier)
 rrs=2                           # number of route reflectors for BGP
-servers=5                       # number of application servers/frontends
+servers=10                      # number of application servers/frontends
 
 MEM=4G spawn vm V network oob
 spawn ns V/users
