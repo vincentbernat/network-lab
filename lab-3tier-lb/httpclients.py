@@ -7,7 +7,7 @@ the command-line.
 
 For example::
 
-    ./httpclients \
+    ./httpclients.py \
         198.51.100.1:80 \
         198.51.100.2:80 \
         [2001:db8::198.51.100.1]:80 \

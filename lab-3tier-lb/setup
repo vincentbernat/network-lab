@@ -10,7 +10,7 @@ lb7s=13                         # number of L7 load-balancers (third tier)
 rrs=2                           # number of route reflectors for BGP
 servers=10                      # number of application servers/frontends
 
-MEM=4G spawn vm V network oob
+CPUS=2 MEM=4G spawn vm V network oob
 spawn ns V/users
 spawn ns V/internet
 for i in $(seq $routers); do
