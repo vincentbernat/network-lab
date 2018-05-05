@@ -14,6 +14,10 @@ works as expected:
     $ curl --interface 203.0.113.164 198.51.100.1
     S4
 
+To enter a namespace from V, one can use:
+
+    # nsenter --all -t $(pidof sleep) -r -w
+
 ## Stateless to stateful
 
 The first tier (ECMP load-balancing) is mostly stateless: while
