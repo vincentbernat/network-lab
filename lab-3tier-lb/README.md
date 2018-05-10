@@ -18,6 +18,9 @@ To enter a namespace from V, one can use:
 
     # nsenter --all -t $(pidof sleep) -r -w
 
+There is also a fourth tier with DNS. You can query
+`{www,www1,www2}.example.org`.
+
 ## Stateless to stateful
 
 The first tier (ECMP load-balancing) is mostly stateless: while

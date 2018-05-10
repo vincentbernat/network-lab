@@ -1,0 +1,6 @@
+@ SOA ns1 dns.example.org. 1 7200 1800 259200 900
+@ NS ns1.example.com.
+
+www  60 DYNA multifo!web1
+www1 60 DYNA multifo!web1
+www2 60 DYNA multifo!web2

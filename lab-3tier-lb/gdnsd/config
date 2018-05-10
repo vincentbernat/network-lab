@@ -1,0 +1,33 @@
+options => {
+  listen => any
+  zones_rfc1035_auto => true
+}
+
+service_types => {
+  web => {
+    plugin => http_status
+    url_path => /healthcheck
+    down_thresh => 5
+    interval => 5
+  }
+  ext => {
+    plugin => extfile
+    file => /etc/lb/ext
+    def_down => true
+  }
+}
+
+plugins => {
+  multifo => {
+    web1 => {
+      service_types => [ ext, web ]
+      addrs_v4 => [ 198.51.100.1, 198.51.100.2 ]
+      addrs_v6 => [ 2001:db8::198.51.100.1, 2001:db8::198.51.100.2 ]
+    }
+    web2 => {
+      service_types => [ ext, web ]
+      addrs_v4 => [ 198.51.100.3, 198.51.100.4 ]
+      addrs_v6 => [ 2001:db8::198.51.100.3, 2001:db8::198.51.100.4 ]
+    }
+  }
+}
