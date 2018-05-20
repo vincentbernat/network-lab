@@ -23,6 +23,6 @@ case $uts in
 
         # Problem: ping 2001:db8:1::1 doesn't work because neighbor
         # solicitations are filtered by RP filtering. This is a bug
-        # introduced in Linux 4.16.
+        # introduced in Linux 4.16 (in 47b7e7f82802).
         ;;
 esac
