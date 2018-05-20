@@ -1,0 +1,29 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm R1 network 1,2
+spawn vm C1 network 1
+
+run
+
+# Executed on each VM
+case $uts in
+    R1)
+        ip addr add 2001:db8:1::1/64 dev eth1
+        service radvd
+        ;;
+    C1)
+        sysctl -qw net.ipv6.conf.eth0.use_tempaddr=2
+        # Accept router advertisements
+        ip6tables -t raw -A PREROUTING -p icmpv6 --icmpv6-type 134 -j ACCEPT
+        # Everything else should pass the RP filter
+        ip6tables -t raw -A PREROUTING -m rpfilter --invert -j DROP
+
+        # Problem: ping 2001:db8:1::1 doesn't work because neighbor
+        # solicitations are filtered by RP filtering. This is a bug
+        # introduced in Linux 4.16.
+        ;;
+esac
