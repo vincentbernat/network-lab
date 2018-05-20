@@ -16,7 +16,6 @@ case $uts in
         service radvd
         ;;
     C1)
-        sysctl -qw net.ipv6.conf.eth0.use_tempaddr=2
         # Accept router advertisements
         ip6tables -t raw -A PREROUTING -p icmpv6 --icmpv6-type 134 -j ACCEPT
         # Everything else should pass the RP filter
