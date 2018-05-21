@@ -37,6 +37,9 @@ a435a07f9164 (part of 4.8). Other interesting commits for IPv6:
    update), part of 4.2. There are various companion commits to this
    one.
 
+RP filtering is also broken by 47b7e7f82802 (part of 4.16). It can be
+fixed with http://patchwork.ozlabs.org/patch/917128/
+
 ## Variations
 
 There are various iterations of this lab:
