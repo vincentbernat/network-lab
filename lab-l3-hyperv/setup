@@ -62,15 +62,13 @@ case $uts in
         for vmiface in $vmifaces; do
                 ip addr add 203.0.113.254/32 dev $vmiface scope link
 
-                # For IPv6, this is not needed (clients are expected
-                # to discover the default router through ICMPv6 RA),
-                # but in case someone wants to configure IPv6
-                # manually, we provide a fixed router address.
-                ip -6 addr add 2001:db8:cb00:7100::fe/128 dev $vmiface scope link
-                # Alternatively, a link-local gateway can also be
-                # used. fe80::1 cannot collide with an
-                # EUI-64-generated IP address as it doesn't have
-                # FF:FE bytes.
+                # This is also needed for IPv6. While everything can
+                # use the link-local address, some OS will not like ND
+                # coming from an arbitrary address (eg OpenBSD).
+                ip -6 addr add 2001:db8:cb00:7100::fe/64 dev $vmiface noprefixroute
+                # Additionally, a link-local gateway can also be used.
+                # fe80::1 cannot collide with an EUI-64-generated IP
+                # address as it doesn't have FF:FE bytes.
                 ip -6 addr add fe80::1/128 dev $vmiface scope link
         done
 
