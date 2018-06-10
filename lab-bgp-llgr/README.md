@@ -35,9 +35,10 @@ This has been tested with:
 
 ## Commands
 
-The lab has two nodes:
+The lab has 3 nodes:
 
  - a Juniper vRR split into two logical systems,
+ - a Linux node running GoBGP with LLGR enabled (it needs a patch for interop)
  - a Linux node acting as a switch and able to simulate some kind of
    control plane failure by dropping BFD and BGP packets.
 

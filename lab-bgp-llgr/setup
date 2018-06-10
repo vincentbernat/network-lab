@@ -4,19 +4,21 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 # Which VM to spawn
-spawn vm          S1  networks 1,2,3,4,5,6
-spawn juniper-vrr R   networks 1,2,3,4,5,6
+spawn vm          S1  networks 1,2,3,4,5,6,7,8,9,10
+spawn juniper-vrr R   networks 1,2,3,4,5,6,7,8 # R1 and R2
+spawn vm          R3  networks 9               # R3 with GoBGP
+spawn vm          R4  networks 10              # R4 with BIRD
 
 run
 
 # Executed on each VM
 case $uts in
     S1)
-        for b in 1 2 3; do
+        for b in 1 2 3 4 5; do
             ip link add wire$b type bridge
             ip link set up dev wire$b
             ip link set master wire$b eth$((b-1))
-            ip link set master wire$b eth$((b+2))
+            ip link set master wire$b eth$((b+4))
         done
 
         cat <<EOF > /tmp/tools/ddos
@@ -40,5 +42,17 @@ case "\${1:-all}" in
 esac
 EOF
         chmod +x /tmp/tools/ddos
+        ;;
+    R3)
+        # GoBGP
+        ip addr add 2001:db8:10::3/128 dev lo
+        ip addr add 2001:db8:4::2/120 dev eth0
+        service gobgp
+        sleep 1
+        gobgp global rib add 2001:db8:10::3/128 origin igp -a ipv6
+        ;;
+    R4)
+        # TODO
+        :
         ;;
 esac
