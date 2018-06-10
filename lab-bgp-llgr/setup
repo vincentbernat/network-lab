@@ -1,7 +1,5 @@
 #!/bin/sh
 
-LABNAME="bgpllgr"
-
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
