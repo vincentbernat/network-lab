@@ -16,7 +16,7 @@ case $uts in
     S1)
         # Link everyone with everyone. Twice (to get ECMP paths)
         count=$(echo /sys/class/net/eth* | wc -w)
-        for v in $(seq $count); do
+        for v in $(seq $((count * (count - 1) / 2))); do
             for offset in 100 200; do
                 vlan=$((v+offset))
                 ip link add wire$vlan type bridge
@@ -55,7 +55,7 @@ EOF
     R3)
         # GoBGP
         ip addr add 2001:db8:10::3/128 dev lo
-        for v in 102 202 103 203; do
+        for v in 102 202 103 203 106 206; do
             ip link add name eth0.$v link eth0 type vlan id $v
             ip link set up dev eth0.$v
             ip addr add 2001:db8:${v}::3/120 dev eth0.${v}
@@ -65,7 +65,13 @@ EOF
         gobgp global rib add 2001:db8:10::3/128 origin igp -a ipv6
         ;;
     R4)
-        # TODO
-        :
+        # BIRD
+        ip addr add 2001:db8:10::4/128 dev lo
+        for v in 104 204 105 205 106 206; do
+            ip link add name eth0.$v link eth0 type vlan id $v
+            ip link set up dev eth0.$v
+            ip addr add 2001:db8:${v}::4/120 dev eth0.${v}
+        done
+        service bird
         ;;
 esac
