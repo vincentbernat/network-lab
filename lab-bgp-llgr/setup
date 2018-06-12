@@ -4,21 +4,30 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 # Which VM to spawn
-spawn vm          S1  networks 1,2,3,4,5,6,7,8,9,10
-spawn juniper-vrr R   networks 1,2,3,4,5,6,7,8 # R1 and R2
-spawn vm          R3  networks 9               # R3 with GoBGP
-spawn vm          R4  networks 10              # R4 with BIRD
+spawn vm          S1  networks 1,2,3,4
+spawn juniper-vrr R   networks 1,2    # R1 and R2
+spawn vm          R3  networks 3      # R3 with GoBGP
+spawn vm          R4  networks 4      # R4 with BIRD
 
 run
 
 # Executed on each VM
 case $uts in
     S1)
-        for b in 1 2 3 4 5; do
-            ip link add wire$b type bridge
-            ip link set up dev wire$b
-            ip link set master wire$b eth$((b-1))
-            ip link set master wire$b eth$((b+4))
+        # Link everyone with everyone. Twice (to get ECMP paths)
+        count=$(echo /sys/class/net/eth* | wc -w)
+        for v in $(seq $count); do
+            for offset in 100 200; do
+                vlan=$((v+offset))
+                ip link add wire$vlan type bridge
+                ip link set up dev wire$vlan
+                for iface in $(seq $count); do
+                    iface=eth$((iface-1))
+                    ip link add name ${iface}.${vlan} link ${iface} type vlan id ${vlan}
+                    ip link set up dev ${iface}.${vlan}
+                    ip link set master wire${vlan} ${iface}.${vlan}
+                done
+            done
         done
 
         cat <<EOF > /tmp/tools/ddos
@@ -46,7 +55,11 @@ EOF
     R3)
         # GoBGP
         ip addr add 2001:db8:10::3/128 dev lo
-        ip addr add 2001:db8:4::2/120 dev eth0
+        for v in 102 202 103 203; do
+            ip link add name eth0.$v link eth0 type vlan id $v
+            ip link set up dev eth0.$v
+            ip addr add 2001:db8:${v}::3/120 dev eth0.${v}
+        done
         service gobgp
         sleep 1
         gobgp global rib add 2001:db8:10::3/128 origin igp -a ipv6
