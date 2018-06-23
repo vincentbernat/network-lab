@@ -203,14 +203,14 @@ EOF
         # Local lookups
         ip rule add iif lo lookup main      priority 21
         ip rule add iif lo lookup local-out priority 22 # mostly local-out = private + public
-        # Private lookups
-        ip rule add iif eth0.private lookup private priority 26
-        ip rule add iif eth1.private lookup private priority 28
-        # Public lookups (the remaining)
-        ip rule add lookup public priority 99
+        ip rule add lookup public suppress_ifgroup 80 priority 30
+        ip rule add lookup private                    priority 31
         # Remove other rules
         ip rule del lookup main    priority 32766
         ip rule del lookup default priority 32767
+
+        ip link set eth0.private group 80
+        ip link set eth1.private group 80
 
         # For IPv6, we don't have private stuff. So, simpler
         # rules. Also, route lookup is a bit different in IPv6. Routes
