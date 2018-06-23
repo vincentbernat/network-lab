@@ -64,7 +64,9 @@ case $uts in
 
                 # This is also needed for IPv6. While everything can
                 # use the link-local address, some OS will not like ND
-                # coming from an arbitrary address (eg OpenBSD).
+                # coming from an arbitrary address (eg OpenBSD), and
+                # ndppd which generates ND packets is not spoofing
+                # addresses.
                 ip -6 addr add 2001:db8:cb00:7100::fe/64 dev $vmiface noprefixroute
                 # Additionally, a link-local gateway can also be used.
                 # fe80::1 cannot collide with an EUI-64-generated IP
