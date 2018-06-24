@@ -565,10 +565,9 @@ start_juniper_vrr () {
     # Have a look at /etc/rc.vmguest for what is done
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
-# Main image
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vrr.img $TMP/junos-$name.img
-
-# Prepare metadata
+truncate -s 10M $TMP/metadata-$name.img
+mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
 cat - $TMP/ssh-junos.conf junos-common.conf junos-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
 interfaces {
@@ -582,9 +581,7 @@ console="comconsole"
 vm_retype="RE-VRR"
 END
 tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
-rm -rf $TMP/metadata-$name/*
-mv $TMP/metadata-$name.tgz $TMP/metadata-$name/vrr-config.tgz
-
+mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vrr-config.tgz
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
@@ -595,7 +592,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -boot c \
      -drive file=$TMP/junos-$name.img,if=ide,media=disk \
-     -drive file=fat:$TMP/metadata-$name,format=raw,if=none,media=disk,id=metadata \
+     -drive file=$TMP/metadata-$name.img,format=raw,if=none,media=disk,id=metadata \
      -usb -device usb-storage,drive=metadata \
      \
      -chardev stdio,id=charserial0,signal=off \
