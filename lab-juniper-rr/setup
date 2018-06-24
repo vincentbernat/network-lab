@@ -1,7 +1,5 @@
 #!/bin/sh
 
-LABNAME="juniper-rr"
-
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
