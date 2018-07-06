@@ -302,6 +302,10 @@ Juniper and Cisco.
 
 ## Interoperability
 
+I didn't try to get the value used for LLGR stale community in JunOS.
+This is only a minor compatibility problem if they differ between
+implementations.
+
 ### GoBGP
 
 GoBGP supports BGP LLGR since quite some time but can interoperate
@@ -493,5 +497,7 @@ sending an hold timer expired message). Also:
             BGP.local_pref: 100
             BGP.community: (65535,6)
 
-The route gets the community and the "stale" bit but not the reduced
-priority. We need to include that in the configuration ourselves.
+The route gets the community and the "stale" bit. The stale route is
+not used to build the ECMP route, except if we only have stale routes.
+
+    2001:db8:10::1 via 2001:db8:204::1 dev eth0.204 proto bird metric 1024 pref medium
