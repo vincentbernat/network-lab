@@ -1,0 +1,90 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm          S1  networks 1,2,3,4,5,6,7,8
+#spawn juniper-vrr RR1x networks 1,2
+spawn vm          RR11 network  1
+spawn vm          RR12 network  1
+spawn vm          RR21 network  3
+spawn vm          RR22 network  4
+spawn vm          C1   networks 5
+spawn vm          C2   networks 6
+spawn vm          C3   networks 7
+spawn vm          C4   networks 8
+
+run
+
+# Executed on each VM
+case $uts in
+    S1)
+        for sw in 1 2 11 12 21 22; do
+            ip link add sw$sw type bridge
+            ip link set up dev sw$sw
+        done
+        # Link everyone with everyone. On all bridges.
+        count=$(echo /sys/class/net/eth* | wc -w)
+        for vlan in 11 12 21 22; do
+            for iface in $(seq $count); do
+                iface=eth$((iface-1))
+                ip link add name ${iface}.${vlan} link ${iface} type vlan id ${vlan}
+                ip link set up dev ${iface}.${vlan}
+                ip link set master sw${vlan} ${iface}.${vlan}
+            done
+        done
+        # Link bridges between them
+        for sw in 11 12 21 22; do
+            ip link add to${sw} type veth peer name from${sw}
+            ip link set up dev to${sw}
+            ip link set up dev from${sw}
+            ip link set master sw${sw#?} to${sw}
+            ip link set master sw${sw} from${sw}
+        done
+
+        cat <<EOF > /tmp/tools/ddos
+#!/bin/sh
+case "\${1:-all}" in
+    sw*)
+        ebtables -A FORWARD --logical-in \$1 -p IPv6 --ip6-proto udp --ip6-destination-port 3784 -j DROP
+        ebtables -A FORWARD --logical-in \$1 -p IPv6 --ip6-proto udp --ip6-source-port 3784 -j DROP
+        ebtables -A FORWARD --logical-in \$1 -p IPv6 --ip6-proto tcp --ip6-destination-port 179 -j DROP
+        ebtables -A FORWARD --logical-in \$1 -p IPv6 --ip6-proto tcp --ip6-source-port 179 -j DROP
+        ebtables -A FORWARD --logical-in \$1 -p IPv6 --ip6-proto ipv6-icmp --limit 5/s -j ACCEPT
+        ebtables -A FORWARD --logical-in \$1 -p IPv6 --ip6-proto ipv6-icmp -j DROP
+        ;;
+    all)
+        ebtables -A FORWARD -p IPv6 --ip6-proto udp --ip6-destination-port 3784 -j DROP
+        ebtables -A FORWARD -p IPv6 --ip6-proto udp --ip6-source-port 3784 -j DROP
+        ebtables -A FORWARD -p IPv6 --ip6-proto tcp --ip6-destination-port 179 -j DROP
+        ebtables -A FORWARD -p IPv6 --ip6-proto tcp --ip6-source-port 179 -j DROP
+        ebtables -A FORWARD -p IPv6 --ip6-proto ipv6-icmp --limit 5/s -j ACCEPT
+        ebtables -A FORWARD -p IPv6 --ip6-proto ipv6-icmp -j DROP
+        ;;
+    off)
+        ebtables -F FORWARD
+        ;;
+esac
+EOF
+        chmod +x /tmp/tools/ddos
+        ;;
+    RR*)
+        sw=${uts#RR}
+        ip link add name eth0.$sw link eth0 type vlan id $sw
+        ip link set up dev eth0.$sw
+        ip addr add 2001:db8:${sw#?}::f${sw%?}/120 dev eth0.$sw
+        service bird
+        ;;
+    C*)
+        rack=$(( (${uts#C} - 1) / 2 + 1 ))
+        for sw in ${rack}1 ${rack}2; do
+            ip link add name eth0.$sw link eth0 type vlan id $sw
+            ip link set up dev eth0.$sw
+            ip addr add 2001:db8:${sw#?}::${uts#C}/120 dev eth0.$sw
+        done
+        ip addr add 2001:db8:ff::${uts#C}/128 dev lo # own IP
+        [ $uts = C4 ] || ip addr add 2001:db8:ff::ca/128 dev lo       # shared anycast IP
+        service bird
+        ;;
+esac
