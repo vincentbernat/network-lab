@@ -116,8 +116,8 @@ contains the logic) which is too low. It appears this is a bug fixed
 in a32452366b72 for IPv4 and c6741fbed6dc for IPv6. We can however set
 it to 1500 and let the outer layer do its job:
 
-    $ ip netns exec R1 ping -M do -s 1472 -c2 2001:db8:a3::1
-    PING 2001:db8:a3::1(2001:db8:a3::1) 1472 data bytes
+    $ ip netns exec R1 ping -M do -s 1452 -c2 2001:db8:a3::1
+    PING 2001:db8:a3::1(2001:db8:a3::1) 1452 data bytes
     From 2001:db8:ff::8 icmp_seq=2 Packet too big: mtu=1406
     
     --- 2001:db8:a3::1 ping statistics ---
