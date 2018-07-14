@@ -80,7 +80,6 @@ case $uts in
                 ip link set netns private dev vti$rmark
                 ip -n private addr add $me/127 dev vti$rmark
                 ip netns exec private sysctl -qw "net.ipv4.conf.vti$rmark.disable_policy=1"
-                ip netns exec private sysctl -qw "net.ipv4.conf.vti$rmark.disable_xfrm=1"
                 ip -n private link set vti$rmark mtu 1500
                 ip -n private link set vti$rmark up
             done
