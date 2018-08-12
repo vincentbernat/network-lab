@@ -24,6 +24,9 @@
 # patches:
 #  - 85f687708c81 and 8de6ea44af5c (ilog2_NaN)
 #  - 56df604296c2 (PIC mode)
+#
+# Also have a look at bench-all-kernel in the IPv6 directory. There
+# are some patches cherry-picked for non-LTS kernels.
 
 # As additional arguments, we should have the output of "ip route save"
 # that will be used to restore the same routes. This only works if the

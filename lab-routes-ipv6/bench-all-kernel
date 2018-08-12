@@ -18,6 +18,14 @@ for version in $(git --git-dir="$TREE"/.git tag \
     version=${version#v}
     (cd "$TREE" ; git checkout v$version
      case $version in
+         4.15.*)
+             git cherry-pick 4b0110291ae1d618384cab105b1e2d208a31a6e3
+             git cherry-pick ad343a98e74e85aa91d844310e797f96fee6983b
+             ;;
+         4.13.*)
+             git cherry-pick cd696744d6d71fbb8b5f2728b25afb51cc3811d7
+             git cherry-pick 941bfd125c78713649eefb338e52300585fd6ec7
+             ;;
          4.0.*) git cherry-pick 99124e4db5b7 ;;
          3.9.*) git cherry-pick 4800af91229e ;;
          3.11.*) git cherry-pick e4037eb7c531 ;;
