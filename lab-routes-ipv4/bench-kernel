@@ -85,7 +85,7 @@ VERSION=$(make --no-print-directory -C "$TREE" kernelversion)
 }
 
 CC=${CC:-gcc-7}
-QEMU=${QEMU:-qemu-system-$(uname -r)}
+QEMU=${QEMU:-qemu-system-$(uname -m)}
 
 TMP=$(mktemp -d /tmp/bench-kernel.XXXXXXXX)
 trap "rm -rf $TMP" EXIT
