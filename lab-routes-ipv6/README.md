@@ -182,9 +182,10 @@ lookup is worse than its IPv4 counter-part. Use of `perf record -F
 9999 --all-kernel -g -- cat /sys/kernel/kbench/run` can help to
 pinpoint the problem:
 
- - Policy rules are always evaluated, even when they are
-   untouched. This is not the case for IPv4. With an almost empty
-   routing table, 30% of the time is spent in evaluating those rules.
+ - Policy rules are always evaluated, even when they are untouched.
+   This is not the case for IPv4. With an almost empty routing table,
+   30% of the time is spent in evaluating those rules. This is fixed
+   in 4.14.
 
  - Main and local tables are not merged. A first match is done against
    local, then a second one is done for main. About 10% of the time is
@@ -222,3 +223,163 @@ As for the evolution of the performance:
 
  - In 3.1, an important regression due to 21efcfa0ff27 which
    effectively ensure metrics are allocated for each cache entry.
+
+### Fairness of comparison with IPv4
+
+With IPv4, the `fib_lookup()` function is evaluated. For IPv6, we use
+`ip6_route_output()`. Is it fairer to use the `fib6_lookup()`
+function? Let's check the difference between the two functions (on a
+4.17 kernel).
+
+Here is `ip6_route_output()`, including the call to `fib6_lookup()`:
+
+    funcgraph_entry:                   |  ip6_route_output_flags() {
+    funcgraph_entry:        0.040 us   |    __ipv6_addr_type();
+    funcgraph_entry:        0.035 us   |    __ipv6_addr_type();
+    funcgraph_entry:                   |    fib6_rule_lookup() {
+    funcgraph_entry:                   |      ip6_pol_route_output() {
+    funcgraph_entry:                   |        ip6_pol_route() {
+    funcgraph_entry:                   |          fib6_lookup() {
+    funcgraph_entry:        0.595 us   |            fib6_lookup_1();
+    funcgraph_exit:         0.921 us   |          }
+    funcgraph_entry:        0.038 us   |          fib6_backtrack();
+    funcgraph_entry:        0.033 us   |          fib6_backtrack();
+    funcgraph_entry:                   |          rt6_find_cached_rt() {
+    funcgraph_entry:        0.103 us   |            __rt6_find_exception_rcu();
+    funcgraph_exit:         0.484 us   |          }
+    funcgraph_exit:         3.236 us   |        }
+    funcgraph_exit:         3.541 us   |      }
+    funcgraph_entry:        0.033 us   |      dst_release();
+    funcgraph_entry:                   |      ip6_pol_route_output() {
+    funcgraph_entry:                   |        ip6_pol_route() {
+    funcgraph_entry:                   |          fib6_lookup() {
+    funcgraph_entry:        0.308 us   |            fib6_lookup_1();
+    funcgraph_exit:         0.554 us   |          }
+    funcgraph_entry:                   |          find_match() {
+    funcgraph_entry:        0.108 us   |            rt6_check_expired();
+    funcgraph_entry:                   |            rt6_score_route() {
+    funcgraph_entry:        0.035 us   |              _raw_read_lock();
+    funcgraph_entry:        0.042 us   |              __local_bh_enable_ip();
+    funcgraph_exit:         1.119 us   |            }
+    funcgraph_entry:        0.019 us   |            __local_bh_enable_ip();
+    funcgraph_exit:         2.183 us   |          }
+    funcgraph_entry:                   |          rt6_find_cached_rt() {
+    funcgraph_entry:        0.028 us   |            __rt6_find_exception_rcu();
+    funcgraph_exit:         0.264 us   |          }
+    funcgraph_entry:        0.260 us   |          ip6_hold_safe();
+    funcgraph_entry:        0.027 us   |          __local_bh_enable_ip();
+    funcgraph_exit:         4.991 us   |        }
+    funcgraph_exit:         5.220 us   |      }
+    funcgraph_exit:         9.628 us   |    }
+    funcgraph_exit:       + 10.866 us  |  }
+
+`fib_lookup()` is an inline function, it's more difficult to trace. If
+it custom IP rules are used, it just jumps to `__fib_lookup()` which
+can be traced. Otherwise, it takes an RCU read lock and jumps to
+`fib_table_lookup()`, which is too small to trace. So, we seem to be
+unfair to IPv6. Looking at the stacktrace when calling
+`fib_table_lookup()`, we can notice a call to
+`ip_route_output_flow()`. Let's trace this one:
+
+    funcgraph_entry:                   |  ip_route_output_flow() {
+    funcgraph_entry:                   |    ip_route_output_key_hash() {
+    funcgraph_entry:                   |      ip_route_output_key_hash_rcu() {
+    funcgraph_entry:                   |        __ip_dev_find() {
+    funcgraph_entry:        0.148 us   |          inet_lookup_ifaddr_rcu();
+    funcgraph_exit:         0.453 us   |        }
+    funcgraph_entry:        0.067 us   |        fib_table_lookup();
+    funcgraph_entry:        0.039 us   |        find_exception();
+    funcgraph_exit:         1.293 us   |      }
+    funcgraph_exit:         1.538 us   |    }
+    funcgraph_entry:                   |    xfrm_lookup_route() {
+    funcgraph_entry:        0.086 us   |      xfrm_lookup();
+    funcgraph_exit:         0.324 us   |    }
+    funcgraph_exit:         2.460 us   |  }
+
+This time, we make the IPv4 function work more than the IPv6 one.
+Let's use `ip6_dst_lookup_flow()` for IPv6.
+
+    funcgraph_entry:                   |  ip6_dst_lookup_flow() {
+    funcgraph_entry:                   |    ip6_dst_lookup_tail() {
+    funcgraph_entry:                   |      ip6_route_output_flags() {
+    funcgraph_entry:        0.141 us   |        __ipv6_addr_type();
+    funcgraph_entry:        0.099 us   |        __ipv6_addr_type();
+    funcgraph_entry:                   |        fib6_rule_lookup() {
+    funcgraph_entry:                   |          ip6_pol_route_output() {
+    funcgraph_entry:                   |            ip6_pol_route() {
+    funcgraph_entry:                   |              fib6_lookup() {
+    funcgraph_entry:        1.160 us   |                fib6_lookup_1();
+    funcgraph_exit:         2.195 us   |              }
+    funcgraph_entry:        0.120 us   |              fib6_backtrack();
+    funcgraph_entry:        0.094 us   |              fib6_backtrack();
+    funcgraph_entry:                   |              rt6_find_cached_rt() {
+    funcgraph_entry:        0.124 us   |                __rt6_find_exception_rcu();
+    funcgraph_exit:         1.023 us   |              }
+    funcgraph_exit:         7.437 us   |            }
+    funcgraph_exit:         8.288 us   |          }
+    funcgraph_entry:        0.094 us   |          dst_release();
+    funcgraph_entry:                   |          ip6_pol_route_output() {
+    funcgraph_entry:                   |            ip6_pol_route() {
+    funcgraph_entry:                   |              fib6_lookup() {
+    funcgraph_entry:        0.474 us   |                fib6_lookup_1();
+    funcgraph_exit:         1.259 us   |              }
+    funcgraph_entry:                   |              find_match() {
+    funcgraph_entry:        0.226 us   |                rt6_check_expired();
+    funcgraph_entry:                   |                rt6_score_route() {
+    funcgraph_entry:        0.103 us   |                  _raw_read_lock();
+    funcgraph_entry:        0.164 us   |                  __local_bh_enable_ip();
+    funcgraph_exit:         2.838 us   |                }
+    funcgraph_entry:        0.080 us   |                __local_bh_enable_ip();
+    funcgraph_exit:         5.731 us   |              }
+    funcgraph_entry:                   |              rt6_find_cached_rt() {
+    funcgraph_entry:        0.080 us   |                __rt6_find_exception_rcu();
+    funcgraph_exit:         0.892 us   |              }
+    funcgraph_entry:        0.466 us   |              ip6_hold_safe();
+    funcgraph_entry:        0.084 us   |              __local_bh_enable_ip();
+    funcgraph_exit:       + 12.687 us  |            }
+    funcgraph_exit:       + 13.382 us  |          }
+    funcgraph_exit:       + 24.104 us  |        }
+    funcgraph_exit:       + 26.809 us  |      }
+    funcgraph_entry:                   |      ipv6_dev_get_saddr() {
+    funcgraph_entry:        0.080 us   |        __ipv6_addr_type();
+    funcgraph_entry:                   |        ipv6_addr_label() {
+    funcgraph_entry:        1.354 us   |          __ipv6_addr_label();
+    funcgraph_exit:         2.275 us   |        }
+    funcgraph_entry:        0.259 us   |        l3mdev_master_ifindex_rcu();
+    funcgraph_entry:                   |        __ipv6_dev_get_saddr() {
+    funcgraph_entry:        0.121 us   |          __ipv6_addr_type();
+    funcgraph_entry:        0.352 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.150 us   |          ipv6_get_saddr_eval();
+    funcgraph_exit:         3.173 us   |        }
+    funcgraph_entry:        0.073 us   |        l3mdev_master_ifindex_rcu();
+    funcgraph_entry:                   |        __ipv6_dev_get_saddr() {
+    funcgraph_entry:        0.098 us   |          __ipv6_addr_type();
+    funcgraph_entry:        0.113 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.138 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.145 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.109 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.164 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.146 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.127 us   |          __ipv6_addr_type();
+    funcgraph_entry:        0.113 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.120 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.110 us   |          ipv6_get_saddr_eval();
+    [interrupt]
+    funcgraph_entry:        0.124 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.124 us   |          ipv6_get_saddr_eval();
+    funcgraph_entry:        0.176 us   |          ipv6_get_saddr_eval();
+    funcgraph_exit:       + 75.621 us  |        }
+    funcgraph_exit:       + 86.953 us  |      }
+    funcgraph_entry:        0.080 us   |      __local_bh_enable_ip();
+    funcgraph_exit:       ! 116.541 us |    }
+    funcgraph_entry:                   |    xfrm_lookup_route() {
+    funcgraph_entry:        0.385 us   |      xfrm_lookup();
+    funcgraph_exit:         1.302 us   |    }
+    funcgraph_exit:       ! 119.913 us |  }
+
+For some reason, we cannot record a single trace without an interrupt.
+May it because the function is too slow?
+
+It's hard to find an exact function, but looking for a function higher
+in the stack is not to IPv6 advantage.
+
