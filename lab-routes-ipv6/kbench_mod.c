@@ -128,7 +128,11 @@ static void collect_depth(struct fib6_node *root,
 	unsigned long totdepth, depth;
 	unsigned int count;
 	struct fib6_node *fn, *pn, *node;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0)
+	struct fib6_info *leaf;
+#else
 	struct rt6_info *leaf;
+#endif
 	enum fib6_walk_state state;
 	for (node = root, leaf = NULL,
 		     depth = 0, totdepth = 0, count = 0, *maxdepth = 0, *avgdepth = 0,
