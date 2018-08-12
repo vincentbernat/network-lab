@@ -357,9 +357,17 @@ static int do_bench(char *buf, int verbose)
 		do {
 			unsigned long avgdepth, maxdepth;
 			struct fib6_table *table = init_net.ipv6.fib6_main_tbl;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
+			spin_lock_bh(&table->tb6_lock);
+#else
 			read_lock_bh(&table->tb6_lock);
+#endif
 			collect_depth(&table->tb6_root, &avgdepth, &maxdepth);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
+			spin_unlock_bh(&table->tb6_lock);
+#else
 			read_unlock_bh(&table->tb6_lock);
+#endif
 			scnprintf(buf + strnlen(buf, PAGE_SIZE), PAGE_SIZE - strnlen(buf, PAGE_SIZE),
 				  "table=%u avgdepth=%lu.%lu maxdepth=%lu\n",
 				  table->tb6_id, avgdepth/10, avgdepth%10, maxdepth);
