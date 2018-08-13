@@ -22,10 +22,26 @@ for version in $(git --git-dir="$TREE"/.git tag \
              git cherry-pick 4b0110291ae1d618384cab105b1e2d208a31a6e3
              git cherry-pick ad343a98e74e85aa91d844310e797f96fee6983b
              ;;
-         4.13.*)
+         4.13.*|4.12.*|4.11.*|4.10.*)
              git cherry-pick cd696744d6d71fbb8b5f2728b25afb51cc3811d7
              git cherry-pick 941bfd125c78713649eefb338e52300585fd6ec7
              git cherry-pick faf470583a5701c286c62f0dfaaa06964a8c4ed8
+             ;;
+         4.8.*)
+             git cherry-pick cd696744d6d71fbb8b5f2728b25afb51cc3811d7
+             git cherry-pick 941bfd125c78713649eefb338e52300585fd6ec7
+             git cherry-pick faf470583a5701c286c62f0dfaaa06964a8c4ed8
+             git cherry-pick 85f687708c81
+             git cherry-pick 8de6ea44af5c
+             ;;
+         4.7.*|4.6.*|4.5.*|4.3.*|4.2.*)
+             git cherry-pick cd696744d6d71fbb8b5f2728b25afb51cc3811d7
+             git cherry-pick 941bfd125c78713649eefb338e52300585fd6ec7
+             git cherry-pick faf470583a5701c286c62f0dfaaa06964a8c4ed8
+             git cherry-pick 85f687708c81
+             git cherry-pick 8de6ea44af5c
+             git cherry-pick -Xtheirs 1c7727d0bca0c620850834d8e4913a1f5bdc6cb7
+             git cherry-pick 56df604296c2
              ;;
          4.0.*) git cherry-pick 99124e4db5b7 ;;
          3.9.*) git cherry-pick 4800af91229e ;;
