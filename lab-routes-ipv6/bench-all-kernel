@@ -25,6 +25,7 @@ for version in $(git --git-dir="$TREE"/.git tag \
          4.13.*)
              git cherry-pick cd696744d6d71fbb8b5f2728b25afb51cc3811d7
              git cherry-pick 941bfd125c78713649eefb338e52300585fd6ec7
+             git cherry-pick faf470583a5701c286c62f0dfaaa06964a8c4ed8
              ;;
          4.0.*) git cherry-pick 99124e4db5b7 ;;
          3.9.*) git cherry-pick 4800af91229e ;;
