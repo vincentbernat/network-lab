@@ -120,7 +120,7 @@ CONFIG_IPV6_SIT=n
 CONFIG_DUMMY=y
 EOF
 yes "" | make -C "$TREE" O=${TMP}/kernel CC=${CC} oldconfig
-make -j3 -C "$TREE" O=${TMP}/kernel CC=${CC}
+make -j$(nproc) -C "$TREE" O=${TMP}/kernel CC=${CC}
 make -C "$TREE" O=${TMP}/kernel CC=${CC} INSTALL_PATH=${TMP} install
 
 # Compile the benchmark module
