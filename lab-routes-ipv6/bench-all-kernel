@@ -63,10 +63,11 @@ for version in $(git --git-dir="$TREE"/.git tag \
             (cd "$TREE"; git am) < 0001-netlink-ignore-unknown-attributes-3.patch
             ;;
     esac
-    rm -f stats/kernel/$version
+    VERSION=$(make --no-print-directory -C "$TREE" kernelversion)
+    rm -f stats/kernel/$VERSION
     printf "\033]1;$version\007"
     printf "\033]2;$version\007"
     printf "\033k$version\033\\"
     ./bench-kernel "$TREE" "$@" || true
-    [ -f ./stats/kernel/$version ] || break
+    [ -f ./stats/kernel/$VERSION ] || break
 done
