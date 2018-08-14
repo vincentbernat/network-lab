@@ -11,8 +11,8 @@ shift
 for version in $(git --git-dir="$TREE"/.git tag \
                      -l --sort='-taggerdate' --format='%(taggerdate:short) %(refname:lstrip=2)' \
                      v3\* v4\* \
-    | grep '^v[34][0-9.]*$' \
     | awk '{print $2}' \
+    | grep '^v[2-9][0-9.]*$' \
     | sort -Vr \
     | awk -F'.' '($2!=last) {last=$2;print}'); do
     version=${version#v}
