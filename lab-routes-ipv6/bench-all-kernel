@@ -64,7 +64,7 @@ for version in $(git --git-dir="$TREE"/.git tag \
             ;;
     esac
     VERSION=$(make --no-print-directory -C "$TREE" kernelversion)
-    rm -f stats/kernel/$VERSION
+    [ ! -f stats/kernel/$VERSION ] || continue
     printf "\033]1;$version\007"
     printf "\033]2;$version\007"
     printf "\033k$version\033\\"
