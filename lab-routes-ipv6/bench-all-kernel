@@ -16,7 +16,7 @@ for version in $(git --git-dir="$TREE"/.git tag \
     | sort -Vr \
     | awk -F'.' '($2!=last) {last=$2;print}'); do
     version=${version#v}
-    (cd "$TREE" ; git checkout v$version
+    (cd "$TREE" ; git clean -fd ; git reset --hard ; git checkout v$version
      case $version in
          4.15.*)
              git cherry-pick 4b0110291ae1d618384cab105b1e2d208a31a6e3
