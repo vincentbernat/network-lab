@@ -144,7 +144,7 @@ CONFIG_DUMMY=y
 EOF
 
 yes "" | make -C "$TREE" O=${TMP}/kernel CC=${CC} oldconfig
-make -j3 -C "$TREE" O=${TMP}/kernel CC=${CC}
+make -j$(nproc) -C "$TREE" O=${TMP}/kernel CC=${CC}
 make -C "$TREE" O=${TMP}/kernel CC=${CC} INSTALL_PATH=${TMP} install
 
 # Compile the benchmark module
@@ -225,6 +225,8 @@ run() {
     name="$1"
     shift
     args="$*"
+    now=$(date +%s)
+    set -x
     ${QEMU} \
         -enable-kvm \
         -nodefconfig -nodefaults \
@@ -239,7 +241,12 @@ run() {
         -no-reboot \
         -kernel $TMP/vmlinuz* \
         -initrd $TMP/initrd.gz \
-        -append "console=ttyS0 panic=1 oops=panic 8250.nr_uarts=4 $args" || :
+        -append "console=ttyS0 earlyprintk=serial,ttyS0 panic=1 oops=panic 8250.nr_uarts=4 $args" || :
+    set +x
+    if [ $(( $(date +%s) - now )) -le 5 ]; then
+        echo "Press enter to continue"
+        read nothing
+    fi
 
     mkdir -p stats/kernel
     [ ! -s ${TMP}/output ] || {
