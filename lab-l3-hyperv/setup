@@ -62,17 +62,10 @@ case $uts in
         for vmiface in $vmifaces; do
                 ip addr add 203.0.113.254/32 dev $vmiface scope link
 
-                # This is also needed for IPv6. While everything can
-                # use the link-local address, some OS will not like ND
-                # coming from an arbitrary address (eg OpenBSD), and
-                # ndppd which generates ND packets is not spoofing
-                # addresses. See
-                # https://github.com/DanielAdolfsson/ndppd/pull/43 for
-                # an alternative.
-                ip -6 addr add 2001:db8:cb00:7100::fe/64 dev $vmiface noprefixroute
-                # Additionally, a link-local gateway can also be used.
-                # fe80::1 cannot collide with an EUI-64-generated IP
-                # address as it doesn't have FF:FE bytes.
+                # For IPv6, no special address is needed. A link-local
+                # gateway can also be used. fe80::1 cannot collide
+                # with an EUI-64-generated IP address as it doesn't
+                # have FF:FE bytes.
                 ip -6 addr add fe80::1/128 dev $vmiface scope link
         done
 
@@ -198,10 +191,6 @@ EOF
                 sysctl -qw net.ipv4.neigh.$vmiface.proxy_delay=0
         done
 
-        # For IPv6, we use ndppd. Being stateless, it's safe
-        # enough. It may answer requests we don't have routes for, but
-        # that's not our problem.
-
         # Local lookups
         ip rule add iif lo lookup main      priority 21
         ip rule add iif lo lookup local-out priority 22 # mostly local-out = private + public
@@ -235,11 +224,11 @@ EOF
                        via 203.0.113.1 dev eth2 onlink \
                        table public metric 10
                     ip route add 203.0.113.2/32 dev eth3 table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:7/128 \
+                    ip -6 route add 2001:db8:cb00:7100::/64 \
                        via fe80::5254:33ff:fe00:7 dev eth2 table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 \
+                    ip -6 route add 2001:db8:cb00:710a::/64 \
                        via fe80::5254:33ff:fe00:7 dev eth2 table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:9/128 \
+                    ip -6 route add 2001:db8:cb00:7101::/64 \
                        via fe80::5254:33ff:fe00:9 dev eth3 table public metric 10
                     ;;
             2)
@@ -247,14 +236,14 @@ EOF
                     ip route add 203.0.113.10/32 \
                        via 203.0.113.3 dev eth2 onlink \
                        table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:f/128 \
+                    ip -6 route add 2001:db8:cb00:7102::/64 \
                        via fe80::5254:33ff:fe00:f dev eth2 table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 \
+                    ip -6 route add 2001:db8:cb00:710a::/64 \
                        via fe80::5254:33ff:fe00:f dev eth2 table public metric 10
                     ;;
             3)
                     ip route add 203.0.113.4/32 dev eth2 table public metric 10
-                    ip -6 route add 2001:db8:cb00:7100:5254:33ff:fe00:15/128 \
+                    ip -6 route add 2001:db8:cb00:7103::/64 \
                        via fe80::5254:33ff:fe00:15 dev eth2 table public metric 10
                     ;;
         esac
@@ -277,12 +266,18 @@ EOF
 
         service bird
 
+        case $uts in
+            HV1) i=0 ;;
+            HV2) i=2 ;;
+            HV3) i=3 ;;
+        esac
         for vmiface in $vmifaces; do
-                sed s/IFACE/$vmiface/ ndppd.HV.conf >> /tmp/ndppd.conf
-                sed s/IFACE/$vmiface/ radvd.HV.conf >> /tmp/radvd.conf
+                sed \
+                    -e s/IFACE/$vmiface/ radvd.HV.conf \
+                    -e s/@/$i/ >> /tmp/radvd.conf
+                i=$((i+1))
         done
         service radvd ../../tmp/radvd.conf
-        service ndppd ../../tmp/ndppd.conf
 
         service dnsmasq \
                 --no-ping \
@@ -371,13 +366,20 @@ EOF
         case $uts in
             VM1|VM3)
                 ip addr add 203.0.113.10/32 dev lo
-                ip -6 addr add 2001:db8:cb00:7100:5254:33ff:fe00:100/128 dev lo
+                ip -6 addr add 2001:db8:cb00:710a::1/128 dev lo
                 ;;
         esac
 
         # Private IP in overlay network
         ip link set up dev eth1
         ip addr add 192.168.5.${uts#VM}/24 dev eth1
+
+        # VM3 will use temporary address
+        case $uts in
+            VM3)
+                sysctl -qw net.ipv6.conf.eth0.use_tempaddr=2
+                ;;
+        esac
         ;;
 
     internet)

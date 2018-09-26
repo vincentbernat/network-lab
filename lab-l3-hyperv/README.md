@@ -17,28 +17,19 @@ This lab is also compatible with IPv6 but there are small drawbacks:
    `bird-common/rr-client6.conf`. This way, only one route gets
    installed.
 
- - NDP proxying in Linux requires the declaration of all IP that
-   should be proxied. To avoid that, a userland proxy (ndppd) is
-   used. Another option would be to program those IP using some daemon
-   listening to netlink messages for added/removed routes.
-
  - Hypervisor are not expected to do regular IPv6 traffic (they can do
    IPv4 for internal use using the private IP addresses). If they do,
    they'll use a non-loopback IP that would depend on the
    corresponding interface state.
 
- - Customers should not enable privacy extensions. Otherwise, their
-   IPv6 address is not predictable and we cannot route them.
+ - Each guest will get a whole /64. This enables us to not have a
+   proxy for NDP requests and make us compatible with any
+   autoconfiguration mechanism for IPv6.
 
 IPv6 was broken with commit 8c14586fc320 (part of 4.7) and fixed with
-a435a07f9164 (part of 4.8). Other interesting commits for IPv6:
-
- - 653437d02f1f (ipv6: Stop /128 route from disappearing after pmtu
-   update), part of 4.2. There are various companion commits to this
-   one.
-
-RP filtering is also broken by 47b7e7f82802 (part of 4.16). It can be
-fixed with http://patchwork.ozlabs.org/patch/917128/
+a435a07f9164 (part of 4.8). RP filtering is also broken by
+47b7e7f82802 (part of 4.16). It can be fixed with
+http://patchwork.ozlabs.org/patch/917128/
 
 ## Variations
 
@@ -77,6 +68,9 @@ There are various iterations of this lab:
    traffic. This is safer as not many things could remove those rules
    but this is less efficient than using a blackhole route in the
    routing table, like what is actually done.
+
+ - 106284d7f8b4 uses /128 for IPv6 routes and require the use of an
+   NDP proxy (ndppd).
 
 The current iteration uses multiple routing tables and "ip rules". The
 scalability issues are avoided by specifying "ip rules" for private
