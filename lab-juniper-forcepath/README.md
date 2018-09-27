@@ -8,5 +8,5 @@ There are several problems:
     cannot generate a route from an unrelated or shorter prefix. So,
     it doesn't work.
 
- 2. ECMP routes contributing to a generated route use all their next
-    hops, not just the one selected.
+ 2. It is not possible to have an inactive route as a contributing
+    route (`state inactive` is only for BGP exports).
