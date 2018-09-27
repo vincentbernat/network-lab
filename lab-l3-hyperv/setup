@@ -154,7 +154,11 @@ EOF
         ip46tables -t raw -A OUTPUT -p udp --dport 3784 -m addrtype --src-type LOCAL -j CT --notrack
 
         # When virnet-host is enabled, checksums of locally generated
-        # UDP packets to vnet interfaces are not computed.
+        # UDP packets to vnet interfaces are not computed. This should
+        # be handled by remote userspace when using AF_PACKET (notably
+        # dhclient), but on older versions, it is not. See:
+        #  https://www.spinics.net/lists/kvm/msg37660.html
+        #  https://lwn.net/Articles/396466/
         for vmiface in $vmifaces; do
             iptables -t mangle -A OUTPUT -o $vmiface -p udp --dport 68 -j CHECKSUM --checksum-fill
         done
