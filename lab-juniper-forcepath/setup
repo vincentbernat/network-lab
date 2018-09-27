@@ -1,0 +1,25 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm inside  network 1
+spawn juniper-vmx router network 1,2,3
+spawn vm outside network 2,3
+
+run
+
+case $uts in
+    inside)
+        ip addr add 203.0.113.0/31 dev eth0
+        ip addr add 198.51.100.1/32 dev dummy0
+        ip route add default via 203.0.113.1
+        ;;
+    outside)
+        ip addr add 203.0.113.2/31 dev eth0
+        ip addr add 203.0.113.4/31 dev eth1
+        ip addr add 198.51.100.33/29 dev dummy0
+        ip addr add 198.51.100.34/29 dev dummy0
+        ;;
+esac
+service bird
