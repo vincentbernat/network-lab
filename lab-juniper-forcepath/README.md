@@ -30,3 +30,7 @@ router2.inet.0: 10 destinations, 11 routes (10 active, 0 holddown, 0 hidden)
 198.51.100.34/32   *[Static/5] 00:04:50, metric2 0
                     > to 192.0.2.0 via lt-0/0/0.2
 ```
+
+There is a tentative to not redistribute the route into BGP in this
+case, but it seems next-hop is the protocol next-hop, not the resolved
+one...
