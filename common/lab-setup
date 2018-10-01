@@ -1201,7 +1201,7 @@ case $$,$STATE in
             mkdir /tmp/target
             mkdir /tmp/target/ro
             mkdir /tmp/target/overlay
-            mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro
+            mount -n -t 9p    rootshare /tmp/target/ro      -o trans=virtio,version=9p2000.u,ro,cache=loose
             mkdir /tmp/target/rw
             mount -n -t tmpfs tmpfs     /tmp/target/rw      -o rw
             mkdir /tmp/target/rw/workdir
@@ -1232,7 +1232,7 @@ case $$,$STATE in
 
         [ ! -f /init ] || {
             log_begin_msg "Mount /root"
-            mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=any,rw || \
+            mount -t 9p homeshare /tmp/target/overlay/root -o trans=virtio,version=9p2000.L,access=any,rw,cache=loose || \
                 log_error_msg "Unable to mount /root"
             [ ! -d /tmp/target/overlay/root/.ssh ] || {
                 mount -t tmpfs tmpfs /tmp/target/overlay/root/.ssh -o rw,nosuid,nodev
@@ -1240,21 +1240,21 @@ case $$,$STATE in
             }
             log_ok_msg "/root mounted"
             log_begin_msg "Mount /lib/modules"
-            mount -t 9p moduleshare /tmp/target/overlay/lib/modules -o trans=virtio,version=9p2000.L,access=0,ro || \
+            mount -t 9p moduleshare /tmp/target/overlay/lib/modules -o trans=virtio,version=9p2000.L,access=0,ro,cache=loose || \
                 log_error_msg "Unable to mount /lib/modules"
             log_ok_msg "/root and /lib/modules mounted"
 
             log_begin_msg "Mount /mnt/lab"
             mkdir /tmp/target/overlay/mnt/lab /tmp/target/overlay/mnt/common
-            mount -t 9p labshare /tmp/target/overlay/mnt/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
+            mount -t 9p labshare /tmp/target/overlay/mnt/lab -o trans=virtio,version=9p2000.L,access=any,rw,cache=loose || \
                 log_error_msg "Unable to mount /mnt/lab"
-            mount -t 9p commonshare /tmp/target/overlay/mnt/common -o trans=virtio,version=9p2000.L,access=any,ro || \
+            mount -t 9p commonshare /tmp/target/overlay/mnt/common -o trans=virtio,version=9p2000.L,access=any,ro,cache=loose || \
                 log_error_msg "Unable to mount /mnt/common"
             log_ok_msg "/mnt/lab and /mnt/common mounted"
 
             log_begin_msg "Mount /tmp/lab"
             mkdir /tmp/target/overlay/tmp/lab
-            mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=any,rw || \
+            mount -t 9p tmpshare /tmp/target/overlay/tmp/lab -o trans=virtio,version=9p2000.L,access=any,rw,cache=loose || \
                 log_error_msg "Unable to mount /tmp/lab"
             log_ok_msg "/tmp/lab mounted"
 
