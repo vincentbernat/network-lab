@@ -25,3 +25,12 @@
 /ipsec.V3-1.secrets
 /ipsec.V3-2.conf
 /ipsec.V3-2.secrets
+/bird.Rx.R1.conf
+/bird.Rx.R2.conf
+/bird.Rx.R3.conf
+/bird.V1-1.private.conf
+/bird.V1-2.private.conf
+/bird.V2-1.private.conf
+/bird.V2-2.private.conf
+/bird.V3-1.private.conf
+/bird.V3-2.private.conf

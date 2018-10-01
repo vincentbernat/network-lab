@@ -39,7 +39,12 @@ one namespace to another is to be encapsulated into an IPsec policy.
 The main namespace is using OSPFv3, but this doesn't really
 matter. This is just a way to let each VPN see each others.
 
-For a similar lab using IPv4, see commit 82d2cc0e4a33.
+For a similar lab using only IPv4, see commit 82d2cc0e4a33. However,
+this lab also transports IPv4 on top of IPv6. To test this aspect,
+use:
+
+    $ ip netns exec R1 ping -c2 10.0.3.1
+
 
 ## Troubleshooting
 
