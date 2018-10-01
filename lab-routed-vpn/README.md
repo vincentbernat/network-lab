@@ -43,8 +43,14 @@ For a similar lab using only IPv4, see commit 82d2cc0e4a33. However,
 this lab also transports IPv4 on top of IPv6. To test this aspect,
 use:
 
-    $ ip netns exec R1 ping -c2 10.0.3.1
-
+    $ ip netns exec R1 ping -c2 -I 10.0.1.1 10.0.3.1
+    PING 10.0.3.1 (10.0.3.1) from 10.0.1.1 : 56(84) bytes of data.
+    64 bytes from 10.0.3.1: icmp_seq=1 ttl=62 time=1.58 ms
+    64 bytes from 10.0.3.1: icmp_seq=2 ttl=62 time=2.99 ms
+    
+    --- 10.0.3.1 ping statistics ---
+    2 packets transmitted, 2 received, 0% packet loss, time 3ms
+    rtt min/avg/max/mdev = 1.577/2.283/2.990/0.708 ms
 
 ## Troubleshooting
 
