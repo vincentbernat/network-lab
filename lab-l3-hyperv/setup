@@ -253,7 +253,16 @@ EOF
             3)
                     ip route add 203.0.113.4/32 dev eth2 table public metric 10
                     ip -6 route add 2001:db8:cb00:7103::/64 \
-                       via fe80::5254:33ff:fe00:15 dev eth2 table public metric 10
+                       via fe80::5254:33ff:fe00:15 dev eth2 \
+                       table public metric 10
+                    # We also configure an additional IP that will be
+                    # NATed to the main IP. We keep the route to makes
+                    # RP filtering works.
+                    ip route add 203.0.113.11/32 dev eth2 table public metric 10
+                    iptables -t nat -I PREROUTING -d 203.0.113.11 \
+                             -j DNAT --to-destination 203.0.113.4
+                    # This should also work with IPv6 but as each host
+                    # has a /64, this makes less sense.
                     ;;
         esac
 
