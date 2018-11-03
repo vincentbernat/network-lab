@@ -1258,6 +1258,10 @@ case $$,$STATE in
                 log_error_msg "Unable to mount /tmp/lab"
             log_ok_msg "/tmp/lab mounted"
 
+            # Also, debugfs and configfs if they are available.
+            mount -n -t debugfs debugfs /tmp/target/overlay/sys/kernel/debug 2> /dev/null || true
+            mount -n -t configfs configfs /tmp/target/overlay/sys/kernel/config 2> /dev/null || true
+
             log_info_msg "Change root"
             export STATE=CHROOTED
             exec chroot /tmp/target/overlay /mnt/lab/setup
