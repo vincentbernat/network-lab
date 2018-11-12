@@ -122,6 +122,24 @@ are stored for the given route (you can check if a route has metrics
 associated to it with `ip route get`). A hash table is also kept to be
 able to find existing structs and reuse them.
 
+## Using histograms for microbenchmark
+
+This needs a 4.19+ kernel with `CONFIG_HIST_TRIGGERS=y`. We use the
+existing tracepoint `fib_table_lookup`. We create an additional kprobe
+with the return of the function:
+
+    cd /sys/kernel/debug/tracing
+    echo 'r:fib_table_lookup_ret fib_table_lookup $retval' > kprobe_events
+
+Then, we store timestamps for the `fib_table_lookup` tracepoint:
+
+    echo 'hist:keys=cpu:vals=$ts0:ts0=common_timestamp' > events/fib/fib_table_lookup/trigger
+
+Then, we store the difference when returning from the function:
+
+    echo 'hist:keys=cpu,ts1:ts1=common_timestamp-$ts0' > events/kprobes/fib_table_lookup_ret/trigger
+
+
 # References
 
  - https://www.kernel.org/doc/Documentation/networking/fib_trie.txt

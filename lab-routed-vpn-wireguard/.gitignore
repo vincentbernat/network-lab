@@ -1,3 +1,12 @@
+/bird.Rx.R1.conf
+/bird.Rx.R2.conf
+/bird.Rx.R3.conf
+/bird.V1-1.private.conf
+/bird.V1-2.private.conf
+/bird.V2-1.private.conf
+/bird.V2-2.private.conf
+/bird.V3-1.private.conf
+/bird.V3-2.private.conf
 /bird6.Rx.R1.conf
 /bird6.Rx.R2.conf
 /bird6.Rx.R3.conf

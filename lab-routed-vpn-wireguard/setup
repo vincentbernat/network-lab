@@ -23,12 +23,16 @@ case $uts in
         for i in $(seq 1 $asns); do
             ip netns add R$i
             ip link set netns R$i dev eth$((i-1))
+            ip netns exec R$i ip link set up dev lo
             ip netns exec R$i ip link set name eth0 dev eth$((i-1))
             ip netns exec R$i ip link set up dev eth0
             ip netns exec R$i ip link add type dummy
             ip netns exec R$i ip link set up dev dummy0
             ip netns exec R$i ip addr add 2001:db8:a$i::1/64 dev dummy0
+            ip netns exec R$i ip addr add 10.0.$i.1/24 dev dummy0
+            ip netns exec R$i ip addr add 192.168.$i.1/24 dev eth0
             template bird6.Rx.Ry.conf bird6.Rx.R$i.conf asn=$i
+            template bird.Rx.Ry.conf bird.Rx.R$i.conf asn=$i
             netns=R$i service bird
         done
         ;;
@@ -41,6 +45,7 @@ case $uts in
 
         ip netns add private
         ip netns exec private sysctl -qw net.ipv6.conf.all.forwarding=1
+        ip netns exec private sysctl -qw net.ipv4.conf.all.forwarding=1
         ip link set netns private dev eth1
         ip link set netns private dev eth2
         ip -n private link set up dev eth1
@@ -49,12 +54,15 @@ case $uts in
         ip -n private link set up dev dummy0
 
         ip addr add 2001:db8:$asn::$vpn/128 dev dummy0
+        ip -n private addr add 192.168.$((asn+100)).$((vpn + 10))/24 dev eth1 # with other VPNs
+        ip -n private addr add 192.168.$asn.$((vpn + 10))/24 dev eth2         # with router
 
         # We order asn,vpn,rasn,rvpn pairs such that we can get an IP address by getting the index
         pairs=$(python -c 'import itertools;print(":".join([",".join((str(y) for y in x)) for x in itertools.chain(*[((asn,vpn,rasn,rvpn),(rasn,rvpn,asn,vpn)) for asn in range(1,'$asns'+1) for vpn in range(1,'$vpns'+1) for rasn in range(1,'$asns'+1) for rvpn in range(1,'$vpns'+1) if asn < rasn])]))')
 
         template bird6.Vx-y.public.conf  bird6.$uts.conf asn=$asn vpn=$vpn
         template bird6.Vx-y.private.conf bird6.$uts.private.conf asn=$asn vpn=$vpn asns=$asns vpns=$vpns pairs='"'$pairs'"'
+        template bird.Vx-y.private.conf  bird.$uts.private.conf asn=$asn vpn=$vpn asns=$asns vpns=$vpns pairs='"'$pairs'"'
 
         for rasn in $(seq 1 $asns); do
             [ $rasn -ne $asn ] || continue
@@ -63,6 +71,7 @@ case $uts in
                 lmark=$(( (asn-1)*vpns + vpn ))
                 idx=$(echo $pairs | tr ':' '\n' | grep -Fxn $asn,$vpn,$rasn,$rvpn | cut -f1 -d:)
                 me=2001:db8:ff::$((idx-1))
+                me4=169.254.1.$((idx-1))
                 privkey="$(printf %03d $lmark)CiWM8Klnl/ATecTMAYj0sq+wogo4aCEj+tDRkkRY="
                 pubkey="$(echo "$(printf %03d $rmark)CiWM8Klnl/ATecTMAYj0sq+wogo4aCEj+tDRkkRY=" | wg pubkey)"
                 ip link add dev wg$rmark type wireguard
@@ -71,6 +80,7 @@ case $uts in
                 wg setconf wg$rmark wg$rmark.$uts.conf
                 ip link set netns private dev wg$rmark
                 ip -n private addr add $me/127 dev wg$rmark
+                ip -n private addr add $me4/31 dev wg$rmark
                 ip -n private link set wg$rmark up
             done
         done

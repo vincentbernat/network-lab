@@ -23,6 +23,11 @@ one namespace to another is to be encapsulated into an IPsec policy.
 The main namespace is using OSPFv3, but this doesn't really
 matter. This is just a way to let each VPN see each others.
 
+We also support transport IPv4 on top of IPv6. To test this aspect,
+use:
+
+    $ ip netns exec R1 ping -c2 10.0.3.1
+
 ## Troubleshooting
 
 Each VPN should see the `2001:db8:aX::/64` network through OSPF:
