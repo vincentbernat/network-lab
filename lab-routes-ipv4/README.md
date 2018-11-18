@@ -125,20 +125,63 @@ able to find existing structs and reuse them.
 ## Using histograms for microbenchmark
 
 This needs a 4.19+ kernel with `CONFIG_HIST_TRIGGERS=y`. We use the
-existing tracepoint `fib_table_lookup`. We create an additional kprobe
-with the return of the function:
+existing tracepoint `fib_table_lookup`. We also need to create an
+additional kprobe with the return of the function. Moreover, we need a
+synthetic event to store the duration.
 
     cd /sys/kernel/debug/tracing
-    echo 'r:fib_table_lookup_ret fib_table_lookup $retval' > kprobe_events
+    echo 'r:fib_table_lookup_ret fib_table_lookup $retval' >> kprobe_events
+    echo 'fn_duration unsigned int cpu; u64 duration' >> synthetic_events
+    echo 'hist:keys=cpu:ts0=common_timestamp' > events/fib/fib_table_lookup/trigger
+    echo 'hist:keys=cpu:lat=common_timestamp-$ts0:onmatch(fib.fib_table_lookup).fn_duration(cpu,$lat)' > events/kprobes/fib_table_lookup_ret/trigger
+    echo 'hist:keys=cpu,duration.log2:sort=cpu,duration' > events/synthetic/fn_duration/trigger
 
-Then, we store timestamps for the `fib_table_lookup` tracepoint:
+Look at the histogram with:
 
-    echo 'hist:keys=cpu:vals=$ts0:ts0=common_timestamp' > events/fib/fib_table_lookup/trigger
+    $ cat events/synthetic/fn_duration/hist
+    # event histogram
+    #
+    # trigger info: hist:keys=cpu,duration.log2:vals=hitcount:sort=cpu,duration.log2:size=2048 [active]
+    #
+    
+    { cpu:          0, duration: ~ 2^9  } hitcount:          2
+    { cpu:          0, duration: ~ 2^11 } hitcount:          1
+    { cpu:          0, duration: ~ 2^12 } hitcount:          1
+    { cpu:          0, duration: ~ 2^13 } hitcount:         19
+    { cpu:          0, duration: ~ 2^14 } hitcount:          6
+    
+    Totals:
+        Hits: 29
+        Entries: 5
+        Dropped: 0
 
-Then, we store the difference when returning from the function:
+The numbers don't match the ones we get with the microbenchmark
+module. I think there are two reasons (to be investigated):
 
-    echo 'hist:keys=cpu,ts1:ts1=common_timestamp-$ts0' > events/kprobes/fib_table_lookup_ret/trigger
+ - the overhead of using the histogram infrastructure,
+ - the cache not being as efficient since more code is executed and
+   more data is fetched.
 
+The latency with eBPF is the same:
+
+    $ funclatency-bpfcc fib_table_lookup
+    Tracing 1 functions for "fib_table_lookup"... Hit Ctrl-C to end.
+    
+         nsecs               : count     distribution
+             0 -> 1          : 0        |                                        |
+             2 -> 3          : 0        |                                        |
+             4 -> 7          : 0        |                                        |
+             8 -> 15         : 0        |                                        |
+            16 -> 31         : 0        |                                        |
+            32 -> 63         : 0        |                                        |
+            64 -> 127        : 0        |                                        |
+           128 -> 255        : 0        |                                        |
+           256 -> 511        : 0        |                                        |
+           512 -> 1023       : 0        |                                        |
+          1024 -> 2047       : 0        |                                        |
+          2048 -> 4095       : 0        |                                        |
+          4096 -> 8191       : 5        |****************************************|
+          8192 -> 16383      : 3        |************************                |
 
 # References
 
