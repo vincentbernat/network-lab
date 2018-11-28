@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+import socket
+import datetime
+
+socket.SOL_PACKET = 263
+socket.ETH_P_ALL = 3
+socket.PACKET_ORIGDEV = 9
+
+s = socket.socket(socket.AF_PACKET,
+                  socket.SOCK_RAW,
+                  socket.htons(socket.ETH_P_ALL))
+s.bind(('lag1', 0))
+s.setsockopt(socket.SOL_PACKET, socket.PACKET_ORIGDEV, 1)
+while True:
+    data, addrinfo = s.recvfrom(1500)
+    if addrinfo[2] == socket.PACKET_OUTGOING:
+        continue
+    print(f"{datetime.datetime.now().isoformat()}: "
+          f"Received {len(data)} bytes from {addrinfo}")
