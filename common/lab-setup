@@ -507,7 +507,7 @@ echo
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
-     -nodefconfig -nodefaults \
+     -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-128M} \
      -cpu host \
@@ -585,7 +585,7 @@ mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vrr-config.tgz
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
-     -nodefconfig -nodefaults \
+     -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-1G} \
      -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VRR \
@@ -657,7 +657,7 @@ mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vmm-config.tgz
 exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
-     -nodefconfig -nodefaults \
+     -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-1G} \
      -cpu host \
@@ -700,7 +700,7 @@ mcopy -i $TMP/metadata-$name-pfe.img $TMP/metadata-$name-pfe.tgz ::/vqfx-config.
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
-     -nodefconfig -nodefaults \
+     -no-user-config -nodefaults \
      -display none \
      -cpu host,level=9,-avx2 \
      -m ${MEM:-1G} \
@@ -768,7 +768,7 @@ mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vmm-config.tgz
 exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
-     -nodefconfig -nodefaults \
+     -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-1G} \
      -cpu host \
@@ -825,7 +825,7 @@ mcopy -i $TMP/metadata-$name-pfe.img $TMP/metadata-$name-pfe.tgz ::/vmx-config.t
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
-     -nodefconfig -nodefaults \
+     -no-user-config -nodefaults \
      -display none \
      -smp cpus=$vcpus \
      -cpu host \
@@ -888,7 +888,7 @@ mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vsrx-config.tgz
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
-     -nodefconfig -nodefaults \
+     -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-4G} \
      -cpu host \
@@ -936,7 +936,7 @@ cat junos-common.conf junos-$name.conf 2>/dev/null > $TMP/tftp/$name.conf
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
-     -nodefconfig -nodefaults \
+     -no-user-config -nodefaults \
      -display none \
      -machine pc \
      -cpu host \
@@ -1014,7 +1014,7 @@ mcopy -i $TMP/metadata-$name.img $TMP/ztp-$name ::/cumulus-ztp
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
-     -nodefconfig -nodefaults \
+     -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-512M} \
      \
