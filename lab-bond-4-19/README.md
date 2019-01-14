@@ -22,3 +22,5 @@ Date:   Mon Sep 24 14:39:42 2018 -0700
     Signed-off-by: Mahesh Bandewar <maheshb@google.com>
     Signed-off-by: David S. Miller <davem@davemloft.net>
 ```
+
+It is suspected to be useful for active/backup LAGs.
