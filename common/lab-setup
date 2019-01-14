@@ -316,6 +316,7 @@ NET_9P=[ym]
 NET_9P_VIRTIO=[ym]
 VIRTIO=[ym]
 VIRTIO_PCI=[ym]
+VIRTIO_NET=[ym]
 SERIAL_8250=y
 SERIAL_8250_CONSOLE=y
 TMPFS=y
@@ -382,7 +383,7 @@ setup_initrd () {
 
     # Add modules
     [ -z "$MODULES" ] || {
-        modules="9pnet_virtio 9p virtio_pci $UNION"
+        modules="9pnet_virtio 9p virtio_pci virtio_net $UNION"
         for mod in $modules; do
             base=${MODULES}/../../..
             cmd="modprobe --all --set-version=${VERSION} -d ${base} --ignore-install --quiet --show-depends $mod"
