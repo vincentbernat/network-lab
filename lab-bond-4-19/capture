@@ -5,14 +5,13 @@ import socket
 import datetime
 
 socket.SOL_PACKET = 263
-socket.ETH_P_ALL = 3
 socket.PACKET_ORIGDEV = 9
 
 interface = sys.argv[1] if len(sys.argv) > 1 else 'lag1'
 
 s = socket.socket(socket.AF_PACKET,
                   socket.SOCK_RAW,
-                  socket.htons(socket.ETH_P_ALL))
+                  socket.htons(0x88cc))
 s.bind((interface, 0))
 s.setsockopt(socket.SOL_PACKET, socket.PACKET_ORIGDEV, 1)
 while True:
