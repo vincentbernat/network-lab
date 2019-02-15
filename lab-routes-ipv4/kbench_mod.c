@@ -264,7 +264,7 @@ static int do_bench(char *buf, int verbose)
 	}
 	results = kmalloc(sizeof(*results) * (count / batch + 1), GFP_KERNEL);
 	mutex_unlock(&kb_lock);
-	if (!results || (batch > 0 && !batched_fl4)) {
+	if (!results || (batch > 1 && !batched_fl4)) {
 		kfree(batched_fl4);
 		kfree(results);
 		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
