@@ -232,6 +232,8 @@ static int do_bench(char *buf, int verbose)
 	struct flowi4 *batched_fl4 = NULL;
 #endif
 
+	if (ntohl(flow_dst_ipaddr_e) - ntohl(flow_dst_ipaddr_s) < 0)
+		swap(flow_dst_ipaddr_e, flow_dst_ipaddr_s);
 
 	mutex_lock(&kb_lock);
 	total = warmup_count;
