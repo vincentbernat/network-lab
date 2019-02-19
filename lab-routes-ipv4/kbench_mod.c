@@ -324,8 +324,10 @@ static int do_bench(char *buf, int verbose)
 			t1 = get_cycles();
 			err = my_fib_lookup(&fl4, &res);
 			t2 = get_cycles();
-			if (err == -ENETUNREACH)
+			if (err == -ENETUNREACH) {
+				printk_ratelimited(KERN_WARNING "not reachable\n");
 				continue;
+			}
 			results[total] = t2 - t1;
 			total++;
 		} else {
