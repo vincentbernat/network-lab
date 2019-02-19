@@ -288,7 +288,7 @@ static int do_bench(char *buf, int verbose)
 			if (delta < count)
 				daddr = htonl(ntohl(start) + (i % delta));
 			else
-				daddr = htonl(ntohl(start) + delta / count * i);
+				daddr = htonl(ntohl(start) + (delta / count) * i);
 			if (ipv4_is_loopback(daddr))
 				continue;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
