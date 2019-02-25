@@ -145,6 +145,7 @@ Host $1.lab
 EOF
     cat <<EOF > $TMP/ssh-junos.conf
 system {
+  protect: host-name $1;
   protect: login {
     user ${3:-root} {
       uid 2000;
