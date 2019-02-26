@@ -40,3 +40,7 @@ Checked with:
 
  - 18.1R3-S2.5 (also, on real hardware)
  - 17.4R1.16
+
+Enabling `proxy-macip-advertisement` helps to locally ping
+172.27.96.100 (from QFX2), but routed traffic is still not going
+through.
