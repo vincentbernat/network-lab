@@ -23,7 +23,13 @@ case $uts in
         ifenslave bond0 eth0
         ip link set up dev bond0
 
-        ip addr add 172.27.${uts#H}.10/24 dev bond0
+        case $uts in
+            H1) vlan=583 ;;
+            H2) vlan=584 ;;
+        esac
+        ip link add name bond0.${vlan} link bond0 type vlan id ${vlan}
+        ip link set up dev bond0.${vlan}
+        ip addr add 172.27.${uts#H}.10/24 dev bond0.${vlan}
         ip route add default via 172.27.${uts#H}.1
         ;;
     SW)
