@@ -7,7 +7,7 @@ spawn juniper-vqfx QFX1 networks 1,2
 spawn juniper-vqfx QFX2 networks 3,4
 spawn vm H1 network  1
 spawn vm H2 network  3
-spawn vm R  networks 2,4
+spawn vm SW networks 2,4
 
 run
 
@@ -26,11 +26,10 @@ case $uts in
         ip addr add 172.27.${uts#H}.10/24 dev bond0
         ip route add default via 172.27.${uts#H}.1
         ;;
-    R)
-        ip addr add 172.28.1.0/31 dev eth0
-        ip addr add 172.28.2.0/31 dev eth1
-        ip route add 172.29.1.1/32 via 172.28.1.1
-        ip route add 172.29.1.2/32 via 172.28.2.1
-        sysctl -qw net.ipv4.conf.all.forwarding=1
+    SW)
+        brctl addbr br0
+        brctl addif br0 eth0
+        brctl addif br0 eth1
+        ip link set up dev br0
         ;;
 esac
