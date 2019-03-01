@@ -1,0 +1,36 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn juniper-vqfx QFX1 networks 1,2
+spawn juniper-vqfx QFX2 networks 3,4
+spawn vm H1 network  1
+spawn vm H2 network  3
+spawn vm R  networks 2,4
+
+run
+
+case $uts in
+    H*)
+        modprobe bonding
+        ethtool -s eth0 speed 1000 duplex full
+        ip link add name bond0 type bond
+        echo 802.3ad > /sys/class/net/bond0/bonding/mode
+        echo 100 > /sys/class/net/bond0/bonding/miimon
+        echo 1 > /sys/class/net/bond0/bonding/lacp_rate
+        echo layer3+4 > /sys/class/net/bond0/bonding/xmit_hash_policy
+        ifenslave bond0 eth0
+        ip link set up dev bond0
+
+        ip addr add 172.27.${uts#H}.10/24 dev bond0
+        ip route add default via 172.27.${uts#H}.1
+        ;;
+    R)
+        ip addr add 172.28.1.0/31 dev eth0
+        ip addr add 172.28.2.0/31 dev eth1
+        ip route add 172.29.1.1/32 via 172.28.1.1
+        ip route add 172.29.1.2/32 via 172.28.2.1
+        sysctl -qw net.ipv4.conf.all.forwarding=1
+        ;;
+esac
