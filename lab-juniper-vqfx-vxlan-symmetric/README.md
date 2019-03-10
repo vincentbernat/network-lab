@@ -221,3 +221,7 @@ mostly, we also see the details in the previous `show route` command):
       Routing-table id: 0
 
 We can spot VNI 9001 as 0x23 0x29 bytes in the encap data.
+
+Also see [Type-2 and Type-5 EPVN on vQFX 10k in UnetLab][1].
+
+[1]: https://networkop.co.uk/blog/2016/10/26/qfx-unl/
