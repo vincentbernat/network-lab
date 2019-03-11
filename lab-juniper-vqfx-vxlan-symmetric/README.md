@@ -20,12 +20,12 @@ need to declare the IRB on all the VTEP:
       Prefix                  Nexthop              MED     Lclpref    AS path
       4:172.29.1.2:0::010400000000000019:172.29.1.2/296 ES
     *                         172.29.1.2                   100        I
-      5:172.29.1.2:1::0::172.27.2.0::24/248
+      5:172.29.10.2:1::0::172.27.2.0::24/248
     *                         172.29.1.2                   100        I
     
     VRF-OVERLAY.evpn.0: 2 destinations, 2 routes (2 active, 0 holddown, 0 hidden)
       Prefix                  Nexthop              MED     Lclpref    AS path
-      5:172.29.1.2:1::0::172.27.2.0::24/248
+      5:172.29.10.2:1::0::172.27.2.0::24/248
     *                         172.29.1.2                   100        I
     
     default-switch.evpn.0: 8 destinations, 8 routes (8 active, 0 holddown, 0 hidden)
