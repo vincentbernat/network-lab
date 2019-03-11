@@ -106,8 +106,9 @@ present in the FIB:
       Next-hop type: unicast               Index: 1761     Reference: 4
       Next-hop interface: xe-0/0/1.0
 
-We can ask the FPC for more details on the composite route (but
-mostly, we also see the details in the previous `show route` command):
+We can ask the FPC (`start shell pfe network fpc0`) for more details
+on the composite route (but mostly, we also see the details in the
+previous `show route` command):
 
     FXPC0(QFX1 vty)# show nhdb id 1765 extensive
        ID      Type      Interface    Next Hop Addr    Protocol       Encap     MTU               Flags  PFE internal Flags
