@@ -8,13 +8,13 @@ need to declare the IRB on all the VTEP:
     
     inet.0: 8 destinations, 9 routes (8 active, 1 holddown, 0 hidden)
     
-    VRF-TENANT-1.inet.0: 6 destinations, 6 routes (6 active, 0 holddown, 0 hidden)
+    VRF-OVERLAY.inet.0: 6 destinations, 6 routes (6 active, 0 holddown, 0 hidden)
     
     :vxlan.inet.0: 5 destinations, 5 routes (5 active, 0 holddown, 0 hidden)
     
     inet6.0: 2 destinations, 2 routes (2 active, 0 holddown, 0 hidden)
     
-    VRF-TENANT-1.inet6.0: 1 destinations, 1 routes (1 active, 0 holddown, 0 hidden)
+    VRF-OVERLAY.inet6.0: 1 destinations, 1 routes (1 active, 0 holddown, 0 hidden)
     
     bgp.evpn.0: 2 destinations, 2 routes (2 active, 0 holddown, 0 hidden)
       Prefix                  Nexthop              MED     Lclpref    AS path
@@ -23,7 +23,7 @@ need to declare the IRB on all the VTEP:
       5:172.29.1.2:1::0::172.27.2.0::24/248
     *                         172.29.1.2                   100        I
     
-    VRF-TENANT-1.evpn.0: 2 destinations, 2 routes (2 active, 0 holddown, 0 hidden)
+    VRF-OVERLAY.evpn.0: 2 destinations, 2 routes (2 active, 0 holddown, 0 hidden)
       Prefix                  Nexthop              MED     Lclpref    AS path
       5:172.29.1.2:1::0::172.27.2.0::24/248
     *                         172.29.1.2                   100        I
@@ -35,11 +35,11 @@ need to declare the IRB on all the VTEP:
       4:172.29.1.2:0::010400000000000019:172.29.1.2/296 ES
     *                         172.29.1.2                   100        I
 
-We can see the route is correctly installed into `VRF-TENANT-1` VRF:
+We can see the route is correctly installed into `VRF-OVERLAY` VRF:
 
-juniper@QFX1> show route table VRF-TENANT-1 172.27.2.10 extensive
+juniper@QFX1> show route table VRF-OVERLAY 172.27.2.10 extensive
 
-    VRF-TENANT-1.inet.0: 6 destinations, 6 routes (6 active, 0 holddown, 0 hidden)
+    VRF-OVERLAY.inet.0: 6 destinations, 6 routes (6 active, 0 holddown, 0 hidden)
     172.27.2.0/24 (1 entry, 1 announced)
     TSI:
     KRT in-kernel 172.27.2.0/24 -> {composite(1765)}
@@ -62,7 +62,7 @@ juniper@QFX1> show route table VRF-TENANT-1 172.27.2.10 extensive
                     State: <Active Int Ext>
                     Age: 7:40       Metric2: 1
                     Validation State: unverified
-                    Task: VRF-TENANT-1-EVPN-L3-context
+                    Task: VRF-OVERLAY-EVPN-L3-context
                     Announcement bits (1): 2-KRT
                     AS path: I
                     Composite next hops: 1
@@ -88,8 +88,8 @@ juniper@QFX1> show route table VRF-TENANT-1 172.27.2.10 extensive
 Note the destination VTEP and the encap/decap VNI. The route is also
 present in the FIB:
 
-    juniper@QFX1> show route forwarding-table table VRF-TENANT-1 destination 172.27.2.10 extensive
-    Routing table: VRF-TENANT-1.inet [Index 4]
+    juniper@QFX1> show route forwarding-table table VRF-OVERLAY destination 172.27.2.10 extensive
+    Routing table: VRF-OVERLAY.inet [Index 4]
     Internet:
     Enabled protocols: Bridging, All VLANs,
     
