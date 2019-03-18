@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# VMAC setup
+sysctl -qw net.ipv4.conf.${1}.arp_filter=0
+sysctl -qw net.ipv4.conf.${1}.accept_local=1
+sysctl -qw net.ipv4.conf.${1}.rp_filter=0
+
+# Conntrack sync
+conntrackd -C /mnt/lab/conntrackd.${uts}.conf -c
