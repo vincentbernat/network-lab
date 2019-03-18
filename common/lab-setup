@@ -91,6 +91,7 @@ EOF
 }
 
 # Setup a VDE switch
+SWITCH_HUB=1
 setup_switch() {
     nb=$1 ; shift
     [ ! -f "$TMP/switch-$nb.conf" ] || return 0
@@ -104,7 +105,7 @@ EOF
     start-stop-daemon -b --no-close --make-pidfile --pidfile "$TMP/switch-$nb.pid" \
         --start --startas $(which vde_switch) -- \
         --sock "$TMP/switch-$nb.sock" --mgmt "$TMP/switch-management-$nb.sock" \
-        --rcfile "$TMP/switch-$nb.conf" --hub # --hub is to make VLANs work
+        --rcfile "$TMP/switch-$nb.conf" ${SWITCH_HUB+--hub}
     # Management socket can be used with:
     #    socat - UNIX-CONNECT:"$TMP/switch-management-$nb.sock"
     log_ok_msg "Switch $nb started"
