@@ -82,9 +82,9 @@ case $uts in
         sysctl -qw net.netfilter.nf_conntrack_tcp_loose=1
 
         # Use conntrackd on top of that for almost seamless redundancy
-        ip addr add 172.22.35.25${uts#NAT}/24 dev eth2
+        ip addr add 169.254.100.${uts#NAT}/24 dev eth2
         template conntrackd.NATx.conf conntrackd.$uts.conf \
-                 ipv4="'172.22.35.25${uts#NAT}'" \
+                 ipv4="'169.254.100.${uts#NAT}'" \
                  hashlimit=$(( $(cat /proc/sys/net/netfilter/nf_conntrack_max) * 2 ))
         service conntrackd -C $PWD/conntrackd.$uts.conf -d
         ;;
