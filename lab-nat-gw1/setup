@@ -35,21 +35,21 @@ case $uts in
         ## NAT GW
         ip addr add 172.22.34.10/24 dev eth4
         # One routing table for each NAT gateway
-        ip rule add fwmark 100 table 100
-        ip rule add fwmark 101 table 101
+        ip rule add fwmark 0x10/0x70 table 100
+        ip rule add fwmark 0x20/0x70 table 101
         ip route add default via 172.22.34.1 table 100
         ip route add default via 172.22.34.2 table 101
         # Chain to use the NAT gateway. First one restore the mark and
         # second one put it on new connections.
         iptables -t mangle -N NATGW1
-        iptables -t mangle -A NATGW1 -j CONNMARK --restore-mark
-        iptables -t mangle -A NATGW1 -m conntrack --ctstate NEW -j MARK --set-mark 100
+        iptables -t mangle -A NATGW1 -j CONNMARK --restore-mark --mask 0x70
+        iptables -t mangle -A NATGW1 -m conntrack --ctstate NEW -j MARK --set-mark 0x10/0x70
         iptables -t mangle -N NATGW2
-        iptables -t mangle -A NATGW2 -j CONNMARK --restore-mark
-        iptables -t mangle -A NATGW2 -m conntrack --ctstate NEW -j MARK --set-mark 101
+        iptables -t mangle -A NATGW2 -j CONNMARK --restore-mark --mask 0x70
+        iptables -t mangle -A NATGW2 -m conntrack --ctstate NEW -j MARK --set-mark 0x20/0x70
         # SNAT for VMs using the NAT GW
         iptables -t nat -A POSTROUTING -o eth4 -j SNAT --to-source 172.22.34.10
-        iptables -t mangle -A POSTROUTING -m mark ! --mark 0 -j CONNMARK --save-mark
+        iptables -t mangle -A POSTROUTING -m mark ! --mark 0/0x70 -j CONNMARK --save-mark --mask 0x70
         # Second and third VM will use the NAT GW. The pool is chosen
         # randomly. This rule should be set by the orchestrator.
         iptables -t mangle -A PREROUTING -i eth1 -j NATGW$(shuf -i 1-2 -n 1)
@@ -75,10 +75,10 @@ case $uts in
         sysctl -qw net.ipv4.ip_forward=1
 
         # Choose the address pool depending on the source VRRP MAC address
-        iptables -t mangle -I PREROUTING -i vrrp.11 -j MARK --set-mark 11
-        iptables -t mangle -I PREROUTING -i vrrp.12 -j MARK --set-mark 12
-        iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 11 -j SNAT --to-source 203.0.113.128-203.0.113.132 --persistent
-        iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 12 -j SNAT --to-source 203.0.113.192-203.0.113.196 --persistent
+        iptables -t mangle -I PREROUTING -i vrrp.11 -j MARK --set-mark 0x10/0x70
+        iptables -t mangle -I PREROUTING -i vrrp.12 -j MARK --set-mark 0x20/0x70
+        iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 0x10/0x70 -j SNAT --to-source 203.0.113.128-203.0.113.132 --persistent
+        iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 0x20/0x70 -j SNAT --to-source 203.0.113.192-203.0.113.196 --persistent
         sysctl -qw net.netfilter.nf_conntrack_tcp_loose=1
 
         # Use conntrackd on top of that for almost seamless redundancy
