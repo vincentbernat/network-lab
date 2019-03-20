@@ -70,16 +70,18 @@ case $uts in
         sysctl -qw net.ipv4.conf.eth0.arp_filter=1
 
         ip addr add 172.22.34.25${uts#NAT}/24 dev eth0
-        ip addr add 203.0.113.25${uts#NAT}/24 dev eth1
+        ip addr add 203.0.113.1${uts#NAT}/24 dev eth1
         ip route add default via 203.0.113.1
         sysctl -qw net.ipv4.ip_forward=1
 
         # Choose the address pool depending on the source VRRP MAC address
         iptables -t mangle -I PREROUTING -i vrrp.11 -j MARK --set-mark 0x10/0x70
         iptables -t mangle -I PREROUTING -i vrrp.12 -j MARK --set-mark 0x20/0x70
-        iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 0x10/0x70 -j SNAT --to-source 203.0.113.128-203.0.113.132 --persistent
-        iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 0x20/0x70 -j SNAT --to-source 203.0.113.192-203.0.113.196 --persistent
+        iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 0x10/0x70 -j SNAT --to-source 203.0.113.129-203.0.113.190 --persistent
+        iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 0x20/0x70 -j SNAT --to-source 203.0.113.193-203.0.113.254 --persistent
         sysctl -qw net.netfilter.nf_conntrack_tcp_loose=1
+        sysctl -qw net.ipv4.conf.eth1.proxy_arp=1
+        sysctl -qw net.ipv4.neigh.eth1.proxy_delay=0
 
         # Use conntrackd on top of that for almost seamless redundancy
         ip addr add 169.254.100.${uts#NAT}/24 dev eth2
