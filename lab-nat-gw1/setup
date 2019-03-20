@@ -80,8 +80,8 @@ case $uts in
         iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 0x10/0x70 -j SNAT --to-source 203.0.113.129-203.0.113.190 --persistent
         iptables -t nat -A POSTROUTING -o eth1 -m mark --mark 0x20/0x70 -j SNAT --to-source 203.0.113.193-203.0.113.254 --persistent
         sysctl -qw net.netfilter.nf_conntrack_tcp_loose=1
-        sysctl -qw net.ipv4.conf.eth1.proxy_arp=1
-        sysctl -qw net.ipv4.neigh.eth1.proxy_delay=0
+        sysctl -qw net/ipv4/conf/vrrp.21/proxy_arp=1
+        sysctl -qw net/ipv4/neigh/vrrp.22/proxy_delay=0
 
         # Use conntrackd on top of that for almost seamless redundancy
         ip addr add 169.254.100.${uts#NAT}/24 dev eth2
