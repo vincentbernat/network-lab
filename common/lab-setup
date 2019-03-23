@@ -799,7 +799,7 @@ EOF
     tmux set -w -t $name/RE force-height 24
 
     log_info_msg "Start Juniper vMX $name (PFE)"
-    vcpus=2
+    vcpus=3
     netargs=""
     netargs="$netargs -device virtio-net-pci,mac=$(mac_address)" # OOB (unused)
     netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=re"
