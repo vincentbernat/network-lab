@@ -756,6 +756,7 @@ chassis {
   fpc 0 {
     protect: lite-mode;
   }
+  protect: network-services enhanced-ip;
 }
 END
 cat <<END > $TMP/metadata-$name/boot/loader.conf
