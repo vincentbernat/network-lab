@@ -2,3 +2,5 @@
 /keepalived.NAT2.conf
 /conntrackd.NAT1.conf
 /conntrackd.NAT2.conf
+/bird.NAT1.conf
+/bird.NAT2.conf
