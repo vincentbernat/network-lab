@@ -33,12 +33,12 @@ case $uts in
         iptables -t nat -A POSTROUTING -o eth3 -j SNAT --to-source 203.0.113.10
 
         ## NAT GW
-        ip addr add 172.22.34.10/24 dev eth4
+        ip addr add 169.254.34.10/24 dev eth4
         # One routing table for each NAT gateway
         ip rule add fwmark 0x10/0x70 table 100
         ip rule add fwmark 0x20/0x70 table 101
-        ip route add default via 172.22.34.1 table 100
-        ip route add default via 172.22.34.2 table 101
+        ip route add default via 169.254.34.1 table 100
+        ip route add default via 169.254.34.2 table 101
         # Chain to use the NAT gateway. First one restore the mark and
         # second one put it on new connections.
         iptables -t mangle -N NATGW1
@@ -48,7 +48,7 @@ case $uts in
         iptables -t mangle -A NATGW2 -j CONNMARK --restore-mark --mask 0x70
         iptables -t mangle -A NATGW2 -m conntrack --ctstate NEW -j MARK --set-mark 0x20/0x70
         # SNAT for VMs using the NAT GW
-        iptables -t nat -A POSTROUTING -o eth4 -j SNAT --to-source 172.22.34.10
+        iptables -t nat -A POSTROUTING -o eth4 -j SNAT --to-source 169.254.34.10
         iptables -t mangle -A POSTROUTING -m mark ! --mark 0/0x70 -j CONNMARK --save-mark --mask 0x70
         # Second and third VM will use the NAT GW. The pool is chosen
         # randomly. This rule should be set by the orchestrator.
@@ -69,7 +69,7 @@ case $uts in
         sysctl -qw net.ipv4.conf.all.arp_filter=0
         sysctl -qw net.ipv4.conf.eth0.arp_filter=1
 
-        ip addr add 172.22.34.25${uts#NAT}/24 dev eth0
+        ip addr add 169.254.34.25${uts#NAT}/24 dev eth0
         ip addr add 198.51.100.$(( ${uts#NAT} * 2 - 1 ))/31 dev eth1
         ip route add default via 198.51.100.$(( ${uts#NAT} * 2 - 2 ))
         sysctl -qw net.ipv4.ip_forward=1
