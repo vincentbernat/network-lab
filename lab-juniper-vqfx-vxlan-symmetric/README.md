@@ -226,3 +226,97 @@ We can spot VNI 9001 as 0x23 0x29 bytes in the encap data.
 Also see [Type-2 and Type-5 EPVN on vQFX 10k in UnetLab][1].
 
 [1]: https://networkop.co.uk/blog/2016/10/26/qfx-unl/
+
+## QoS
+
+There is also a small experiment with CoS. On Linux, we map the SKB
+priority 4 to 802.1p "CA" class (3):
+
+    # ip link set bond0.583 type vlan egress 4:3
+    # ip -d l l dev bond0.583
+    5: bond0.583@bond0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000
+      link/ether 50:54:33:00:00:0d brd ff:ff:ff:ff:ff:ff promiscuity 0 minmtu 0 maxmtu 65535
+      vlan protocol 802.1Q id 583 <REORDER_HDR>
+        egress-qos-map { 4:3 } addrgenmode eui64 numtxqueues 1 numrxqueues 1 gso_max_size 65536 gso_max_segs 65535
+
+On Linux, this is a bit complex to directly set SKB priority from ToS.
+Using `ping -Q 255` will lead to a SKB priority of 4, then translated
+to 802.1p 3:
+
+    10:15:24.475048 50:54:33:00:00:0d > 00:00:5e:00:01:01, ethertype 802.1Q (0x8100), length 102: vlan 583, p 3, ethertype IPv4, (tos 0xff,CE, ttl 64, id 50576, offset 0, flags [DF], proto ICMP (1), length 84)
+        172.27.1.10 > 172.27.2.10: ICMP echo request, id 404, seq 3, length 64
+
+SKB priority can also be set from Netfilter:
+
+    iptables -t mangle -A POSTROUTING [...] -j CLASSIFY --set-class 0:4
+
+Or directly from C:
+
+    setsockopt(s, SOL_SOCKET, SO_PRIORITY, &prio, sizeof(prio));
+
+On QFX, the classifier on a `family ethernet-switching` interface is
+`ieee8021p-default`:
+
+    juniper@QFX1> show class-of-service interface ae0.0
+      Logical interface: ae0.0, Index: 551
+    Object                  Name                   Type                    Index
+    Classifier              ieee8021p-default      ieee8021p                  11
+    juniper@QFX1> show class-of-service classifier name ieee8021p-default
+    Classifier: ieee8021p-default, Code point type: ieee-802.1, Index: 11
+      Code point         Forwarding class                    Loss priority
+      000                best-effort                         low
+      001                best-effort                         low
+      010                best-effort                         low
+      011                fcoe                                low
+      100                no-loss                             low
+      101                best-effort                         low
+      110                network-control                     low
+      111                network-control                     low
+    juniper@QFX1> show class-of-service forwarding-class
+    Forwarding class                       ID      Queue  Policing priority  No-Loss   PFC priority
+      best-effort                          0         0         normal        Disabled
+      fcoe                                 1         3         normal        Enabled
+      no-loss                              2         4         normal        Enabled
+      network-control                      3         7         normal        Disabled
+
+So, we should get in the queue 3. Unfortunately, it seems statistics
+on vQFX are messed up:
+
+    juniper@QFX1> show interfaces queue ae0 forwarding-class fcoe
+    Physical interface: ae0, Enabled, Physical link is Up
+      Interface index: 640, SNMP ifIndex: 501
+    Forwarding classes: 16 supported, 4 in use
+    Egress queues: 12 supported, 4 in use
+    Queue: 3, Forwarding classes: fcoe
+      Queued:
+        Packets              :  16045690984503098046                     0 pps
+        Bytes                :  17039393963205620466                     0 bps
+      Transmitted:
+        Packets              :                     0                     0 pps
+        Bytes                :                     0                     0 bps
+        Tail-dropped packets : Not Available
+        RL-dropped packets   :                     0                     0 pps
+        RL-dropped bytes     :                     0                     0 bps
+        Total-dropped packets:  16045690984503098046                     0 pps
+        Total-dropped bytes  :  17039393963205620466                     0 bps
+
+We need to setup a rewrite rule to copy the forwarding class to the
+DSCP. We can use this one:
+
+    juniper@QFX1> show class-of-service rewrite-rule name dscp-default
+    Rewrite rule: dscp-default, Code point type: dscp, Index: 31
+      Forwarding class                    Loss priority       Code point
+      best-effort                         low                 000000
+      best-effort                         high                000000
+      fcoe                                low                 101110
+      fcoe                                high                101110
+      no-loss                             low                 001010
+      no-loss                             high                001100
+      network-control                     low                 110000
+      network-control                     high                111000
+
+We should be able to use:
+
+    set class-of-service interfaces xe-0/0/1 unit 0 rewrite-rules dscp default
+
+However, it doesn't seem to work on vQFX...
