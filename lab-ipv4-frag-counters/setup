@@ -1,0 +1,44 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm H1 network 1
+spawn vm H2 network 3
+spawn vm R1 networks 1,2
+spawn vm R2 networks 3,2
+
+run
+
+# Executed on each VM
+case $uts in
+    H1)
+        ip addr add 203.0.113.2/25 dev eth0
+        ip route add default via 203.0.113.1
+        sysctl -qw net.ipv4.ip_no_pmtu_disc=1
+        sysctl -qw net.ipv4.route.min_pmtu=1500
+        ;;
+    H2)
+        ip addr add 203.0.113.130/25 dev eth0
+        ip route add default via 203.0.113.129
+        sysctl -qw net.ipv4.ip_no_pmtu_disc=1
+        sysctl -qw net.ipv4.route.min_pmtu=1500
+        service nginx
+        ;;
+    R1)
+        ip addr add 203.0.113.1/25 dev eth0
+        ip addr add 192.0.2.0/31 dev eth1
+        ip route add default via 192.0.2.1
+        ip link set mtu 1400 dev eth1
+        sysctl -qw net.ipv4.ip_forward=1
+        iptables -I FORWARD -p tcp
+        ;;
+    R2)
+        ip addr add 203.0.113.129/25 dev eth0
+        ip addr add 192.0.2.1/31 dev eth1
+        ip route add default via 192.0.2.0
+        ip link set mtu 1400 dev eth1
+        sysctl -qw net.ipv4.ip_forward=1
+        iptables -I FORWARD -p tcp
+        ;;
+esac
