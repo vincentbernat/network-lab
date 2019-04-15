@@ -95,6 +95,8 @@ case $uts in
         # NAT events logging with ulogd
         # https://home.regit.org/2014/02/logging-connection-tracking-event-with-ulogd/
         modprobe nf_conntrack_netlink
+        sysctl -qw net/netfilter/nf_conntrack_acct=1
+        sysctl -qw net/netfilter/nf_conntrack_timestamp=1
         service ulogd -d -c $PWD/ulogd.conf
         ;;
     ER)
