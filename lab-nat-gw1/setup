@@ -91,6 +91,11 @@ case $uts in
         # BIRD for routing public addresses
         template bird.NATx.conf bird.$uts.conf x=${uts#NAT}
         service bird
+
+        # NAT events logging with ulogd
+        # https://home.regit.org/2014/02/logging-connection-tracking-event-with-ulogd/
+        modprobe nf_conntrack_netlink
+        service ulogd -d -c $PWD/ulogd.conf
         ;;
     ER)
         ip addr add 203.0.113.1/24 dev eth0
