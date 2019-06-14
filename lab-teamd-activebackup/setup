@@ -1,0 +1,60 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm H1 network 1,2
+spawn vm H2 network 1,2
+
+run
+
+# Executed on each VM
+ip link set down dev eth0
+ip link set down dev eth1
+ethtool -s eth0 speed 1000 duplex full
+ethtool -s eth1 speed 1000 duplex full
+case $uts in
+    H1)
+        modprobe bonding
+        [ -d /sys/class/net/bond0 ] || \
+            ip link add name bond0 type bond
+        ip link set down dev bond0
+        echo active-backup > /sys/class/net/bond0/bonding/mode
+        echo 100 > /sys/class/net/bond0/bonding/miimon
+        echo 1 > /sys/class/net/bond0/bonding/fail_over_mac
+        echo 0 > /sys/class/net/bond0/bonding/primary_reselect
+        echo +eth0 > /sys/class/net/bond0/bonding/slaves
+        echo +eth1 > /sys/class/net/bond0/bonding/slaves
+        echo eth1 > /sys/class/net/bond0/bonding/primary
+        ip link set up dev bond0
+
+        ip addr add 203.0.113.10/24 dev bond0
+        # Simulate a problem with H1 believing it should still talk
+        # over eth1 with the old MAC address.
+        ip neigh replace dev bond0 203.0.113.11 lladdr 50:54:33:00:00:04
+
+        # that's what we want to simulate on the other side
+        echo 1 > /sys/class/net/bond0/bonding/all_slaves_active
+        ;;
+    H2)
+        teamd --daemonize --team-dev team0 --config '{
+   "runner": {
+     "name": "activebackup",
+     "hwaddr_policy": "by_active"
+   },
+   "notify_peers": {
+     "count": 4,
+     "interval": 500
+   }
+}'
+        teamdctl team0 port add eth0
+        teamdctl team0 port add eth1
+        ip link set up dev team0
+        ip addr add 203.0.113.11/24 dev team0
+
+        # Just because we may receive ARP replies on the wrong
+        # interface because we lack a switch.
+        ip neigh replace dev team0 203.0.113.10 lladdr 50:54:33:00:00:01
+        ;;
+esac
