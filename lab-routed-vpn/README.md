@@ -19,6 +19,10 @@ declared in addition to routing rules.
 With route-based VPN, we can establish a mesh between VPNs and
 distribute routes with BGP.
 
+See [Route-based IPsec VPN on Linux with
+strongSwan](https://vincent.bernat.ch/en/blog/2017-route-based-vpn)
+for more details.
+
 You can test the result from `Rx`:
 
     $ ip netns exec R1 ping -c2 2001:db8:a3::1
