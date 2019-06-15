@@ -1,7 +1,10 @@
 # Route-based VPN with Linux
 
 This is similar to `lab-routed-vpn` but it uses
-[WireGuard](https://www.wireguard.com/) instead of StrongSwan.
+[WireGuard](https://www.wireguard.com/) instead of StrongSwan. See
+[Route-based VPN on Linux with
+WireGuard](https://vincent.bernat.ch/en/blog/2018-route-based-vpn-wireguard)
+for more details.
 
 You can test the result from `Rx`:
 
