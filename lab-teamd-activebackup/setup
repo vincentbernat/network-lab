@@ -62,6 +62,9 @@ case $uts in
         # because of the non-matching MAC.
         #
         # tc qdisc add dev eth1 handle ffff: ingress
-        # tc filter add dev eth1 parent ffff: u32 match u32 0 0 action mirred egress redirect dev team0
+        # tc filter add dev eth1 parent ffff: u32 \
+        #    match u32 0 0 \
+        #    action pedit ex munge eth dst set 50:54:33:00:00:03 pipe \
+        #    action mirred ingress redirect dev team0
         ;;
 esac
