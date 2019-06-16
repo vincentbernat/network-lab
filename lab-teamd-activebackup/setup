@@ -57,14 +57,13 @@ case $uts in
         # interface because we lack a switch.
         ip neigh replace dev team0 203.0.113.10 lladdr 50:54:33:00:00:01
 
-        # An alternative to live patching would be to use tc. However,
-        # the MAC address stays the same and the packet is dropped
-        # because of the non-matching MAC.
+        # One solution is to use tc. However, the MAC address stays
+        # the same and the packet is dropped because of the
+        # non-matching MAC.
         #
         # tc qdisc add dev eth1 handle ffff: ingress
         # tc filter add dev eth1 parent ffff: u32 \
         #    match u32 0 0 \
-        #    action pedit ex munge eth dst set 50:54:33:00:00:03 pipe \
         #    action mirred ingress redirect dev team0
         ;;
 esac
