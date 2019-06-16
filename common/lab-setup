@@ -72,6 +72,7 @@ setup_screen() {
     tmux set-option -q set-remain-on-exit on
     tmux set-hook window-linked "set-window-option remain-on-exit on"
     tmux bind-key r respawn-window
+    printf "\e]2;main\a"
 }
 
 display_help() {
@@ -469,6 +470,7 @@ start_ns () {
     log_info_msg "Start namespace $ns in VM $vm"
 
     cat <<EOF  > "$TMP/ns-$vm--$ns.exec"
+printf "\e]2;$NAME\a"
 while true; do
     sleep 1
     ssh -n -F $TMP/ssh_config $vm.lab test -f /tmp/ready || continue
@@ -507,6 +509,7 @@ start_vm () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 echo
+printf "\e]2;$name\a"
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
@@ -568,6 +571,7 @@ start_juniper_vrr () {
     # Have a look at /etc/rc.vmguest for what is done
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
+printf "\e]2;$name\a"
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vrr.img $TMP/junos-$name.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
@@ -632,6 +636,7 @@ start_juniper_vqfx () {
     done
     cat <<EOF > "$TMP/vm-$name-re.exec"
 #!/bin/sh
+printf "\e]2;$name\a"
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vqfx-re.img $TMP/junos-$name-re.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
@@ -691,6 +696,7 @@ EOF
     netargs="$netargs -device e1000,mac=$(mac_address),netdev=re"  # RE
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
+printf "\e]2;$name\a"
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vqfx-pfe.img $TMP/junos-$name-pfe.img
 truncate -s 10M $TMP/metadata-$name-pfe.img
 mkfs.vfat $TMP/metadata-$name-pfe.img
@@ -741,6 +747,7 @@ start_juniper_vmx () {
     netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=pfe"  # PFE
     cat <<EOF > "$TMP/vm-$name-re.exec"
 #!/bin/sh
+printf "\e]2;$name\a"
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-re.img $TMP/junos-$name-re.img
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-re-hdd.img $TMP/junos-$name-re-hdd.img
 truncate -s 10M $TMP/metadata-$name.img
@@ -811,6 +818,7 @@ EOF
     done
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
+printf "\e]2;$name\a"
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-pfe.img $TMP/junos-$name-pfe.img
 truncate -s 10M $TMP/metadata-$name-pfe.img
 mkfs.vfat $TMP/metadata-$name-pfe.img
@@ -870,6 +878,7 @@ start_juniper_vsrx () {
 
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
+printf "\e]2;$name\a"
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-vsrx.img $TMP/junos-$name.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
@@ -933,6 +942,7 @@ start_juniper_firefly () {
     log_info_msg "Start Juniper vSRX $name"
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
+printf "\e]2;$name\a"
 qemu-img create -q -f qcow2 -b $PWD/../images/junos-firefly.img $TMP/junos-$name.img
 mkdir -p $TMP/tftp
 cat junos-common.conf junos-$name.conf 2>/dev/null > $TMP/tftp/$name.conf
@@ -983,6 +993,7 @@ start_cumulus_vx () {
 
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
+printf "\e]2;$name\a"
 qemu-img create -q -f qcow2 -b $PWD/../images/cumulus-vx.img $TMP/cumulus-$name.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
