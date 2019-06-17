@@ -58,8 +58,7 @@ case $uts in
         ip neigh replace dev team0 203.0.113.10 lladdr 50:54:33:00:00:01
 
         # One solution is to use tc. However, the MAC address stays
-        # the same and the packet is dropped because of the
-        # non-matching MAC.
+        # the same but it doesn't seem to bother Linux.
         #
         # tc qdisc add dev eth1 handle ffff: ingress
         # tc filter add dev eth1 parent ffff: u32 \
