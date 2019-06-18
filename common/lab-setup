@@ -1137,12 +1137,15 @@ service () {
                 setfacl -m u:${name}:rwx /var/log/quagga /var/run/quagga /var/log/frr /var/run/frr
             done
             for svc in zebra bgpd ospfd isisd ospf6d ripd ripngd; do
+                for p in "" /usr/lib/frr/ /usr/lib/quagga/ ""; do
+                    ! command -v $p$svc > /dev/null || break
+                done
                 if [ -f /mnt/lab/quagga-$svc.$uts.conf ]; then
                     eval set -- \$${svc}_args
-                    execute $svc -d -f /mnt/lab/quagga-$svc.$uts.conf -A 127.0.0.1 "$@"
+                    execute $p$svc -d -f /mnt/lab/quagga-$svc.$uts.conf -A 127.0.0.1 "$@"
                 elif [ -f /mnt/lab/quagga-$svc.conf ]; then
                     eval set -- \$${svc}_args
-                    execute $svc -d -f /mnt/lab/quagga-$svc.conf -A 127.0.0.1 "$@"
+                    execute $p$svc -d -f /mnt/lab/quagga-$svc.conf -A 127.0.0.1 "$@"
                 fi
             done
             log_ok_msg "Quagga started"
