@@ -1,0 +1,16 @@
+auto lo
+iface lo inet loopback
+    address {{ loopback }}/32
+
+# Management
+auto eth0
+iface eth0 inet dhcp
+
+{% for iface in neighbors.split(",") if neighbors %}
+auto {{ iface }}
+iface {{ iface }}
+{%endfor %}
+{% for iface in fabric.split(",") %}
+auto {{ iface }}
+iface {{ iface }}
+{%endfor %}
