@@ -15,13 +15,12 @@ if [ x$STATE != xSETUP ]; then
             mkdir -p $(dirname $target)
             case $host in
                 leaf*)
-                    neighbors="swp1 swp2"
-                    fabric="swp3 swp4 swp5 swp6"
+                    neighbors="swp1 swp2 swp3 swp4 swp5 swp6"
                     offset=10
                     number=${host#leaf}
                     ;;
                 spine*)
-                    fabric="swp1 swp2 swp3 swp4"
+                    neighbors="swp1 swp2 swp3 swp4"
                     offset=20
                     number=${host#spine}
                     ;;
@@ -32,8 +31,7 @@ if [ x$STATE != xSETUP ]; then
                     template $source $target \
                              loopback="'10.0.0.$((offset + number))'" \
                              asn=$((65000 + offset + number)) \
-                             neighbors="'$neighbors'" \
-                             fabric="'$fabric'"
+                             neighbors="'$neighbors'"
                     ;;
                 *)
                     cp $source $target
@@ -64,7 +62,6 @@ ip addr add 10.0.0.$((30 + ${uts#server}))/32 dev lo
 template cumulusX/etc/frr/frr.conf.j2 quagga-bgpd.$uts.conf \
                          loopback="'10.0.0.$((30 + ${uts#server}))'" \
                          asn=$((65100 + ${uts#server})) \
-                         neighbors="'eth1 eth2'" \
-                         fabric="''"
+                         neighbors="'eth1 eth2'"
 ln -sf quagga-bgpd.$uts.conf quagga-zebra.$uts.conf
 service quagga

@@ -6,11 +6,7 @@ iface lo inet loopback
 auto eth0
 iface eth0 inet dhcp
 
-{% for iface in neighbors.split(",") if neighbors %}
-auto {{ iface }}
-iface {{ iface }}
-{%endfor %}
-{% for iface in fabric.split(",") %}
+{% for iface in neighbors.split(",") %}
 auto {{ iface }}
 iface {{ iface }}
 {%endfor %}
