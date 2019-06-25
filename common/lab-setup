@@ -1117,6 +1117,13 @@ service () {
             elif [ -f /mnt/lab/bird6.conf ]; then
                 execute bird6 -c /mnt/lab/bird6.conf
             fi
+            if [ -f /mnt/lab/bird2.$uts.$netns.conf ]; then
+                execute bird2 -s /var/run/bird.$netns.ctl -c /mnt/lab/bird2.$uts.$netns.conf
+            elif [ -f /mnt/lab/bird2.$uts.conf ] && [ -z "$netns" ]; then
+                execute bird2 -c /mnt/lab/bird2.$uts.conf
+            elif [ -f /mnt/lab/bird2.conf ]; then
+                execute bird2 -c /mnt/lab/bird2.conf
+            fi
             log_ok_msg "bird started${netns+, netns=}$netns"
             ;;
         quagga)
