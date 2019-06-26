@@ -22,6 +22,7 @@ case $uts in
         ip addr add 2001:db8:aaaa::f/124 dev eth0
         ip route add 2001:db8:cccc::/48 dev dummy0 table 10 # valid
         ip route add 2001:db8:dddd::/48 dev dummy0 table 10 # invalid
+        ip route add 2001:db8:eeee::/48 dev dummy0 table 10 # unknown
         service bird
         ;;
     R2)
