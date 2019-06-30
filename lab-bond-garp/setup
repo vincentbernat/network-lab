@@ -26,6 +26,7 @@ echo +eth0 > /sys/class/net/bond0/bonding/slaves
 echo +eth1 > /sys/class/net/bond0/bonding/slaves
 echo eth0 > /sys/class/net/bond0/bonding/primary
 echo 5 > /sys/class/net/bond0/bonding/num_grat_arp
+echo 500 > /sys/class/net/bond0/bonding/peer_notif_delay
 ip link set up dev bond0
 case $uts in
     H1)
