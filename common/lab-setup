@@ -1168,6 +1168,12 @@ service () {
             execute radvd -l /var/log/radvd.log -u radvd -C /mnt/lab/"$cfg"
             log_ok_msg "radvd started ($cfg)"
             ;;
+        unbound)
+            cfg="${1:-unbound.$uts.conf}"
+            log_begin_msg "Running unbound ($cfg)"
+            execute unbound -c /mnt/lab/"$cfg"
+            log_ok_msg "unbound started ($cfg)"
+            ;;
         ndppd)
             cfg="${1:-ndppd.$uts.conf}"
             log_begin_msg "Running ndppd ($cfg)"
