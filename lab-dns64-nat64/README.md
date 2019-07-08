@@ -46,3 +46,6 @@ A dual-stack host is queried using IPv6.
     Accept-Ranges: bytes
     
     www
+
+It's using Tayga for NAT64. This is not something remotely ready to be
+used in production.
