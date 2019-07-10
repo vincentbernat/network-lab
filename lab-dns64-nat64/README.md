@@ -47,9 +47,8 @@ A dual-stack host is queried using IPv6.
     
     www
 
-It's using [Tayga][] for NAT64. This is not something remotely ready
-to be used in production. Alternatives are [Jool][] and [Ecdysis][]
-(the one from OpenBSD).
+It can use either [Tayga][] or [Jool][] for NAT64. In case of Jool, it
+is expected a copy of Jool has been compiled in `~/src/jool-4.0.1`.
 
 [Tayga]: http://www.litech.org/tayga/
 [Jool]: https://www.jool.mx/en/index.html

@@ -8,6 +8,9 @@ spawn vm client network 1
 spawn vm gateway network 1,2
 spawn vm www network 2
 
+NAT64=tayga
+#NAT64=jool
+
 run
 
 # Executed on each VM
@@ -26,16 +29,30 @@ case $uts in
         service radvd
         service unbound
 
-        modprobe tun
-        tayga --mktun -c $PWD/tayga.$uts.conf
-        ip link set nat64 up
-        ip addr add 192.168.0.1 dev nat64
-        ip addr add 2001:db8:1::1 dev nat64
-        ip route add 192.0.2.0/28 dev nat64
-        ip route add 64:ff9b::/96 dev nat64
-        service tayga -c $PWD/tayga.$uts.conf
-        sysctl -qw net.ipv4.conf.eth1.forwarding=1
-        sysctl -qw net.ipv4.conf.nat64.forwarding=1
+        case $NAT64 in
+            tayga)
+                modprobe tun
+                tayga --mktun -c $PWD/tayga.$uts.conf
+                ip link set nat64 up
+                ip addr add 192.168.0.1 dev nat64
+                ip addr add 2001:db8:1::1 dev nat64
+                ip route add 192.0.2.0/28 dev nat64
+                ip route add 64:ff9b::/96 dev nat64
+                service tayga -c $PWD/tayga.$uts.conf
+                sysctl -qw net.ipv4.conf.eth1.forwarding=1
+                sysctl -qw net.ipv4.conf.nat64.forwarding=1
+                ;;
+            jool)
+                cd ~/src/jool-4.0.1
+                make -C src/usr install
+                modprobe ip6_tables
+                modprobe ip_tables
+                modprobe nf_conntrack
+                insmod ./src/mod/nat64/jool.ko
+                jool instance add --netfilter --pool6 64:ff9b::/96
+                ;;
+        esac
+
         ;;
     www)
         ip addr add 203.0.113.16/24 dev eth0
