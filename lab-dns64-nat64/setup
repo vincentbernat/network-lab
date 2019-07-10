@@ -32,7 +32,7 @@ case $uts in
         ip addr add 192.168.0.1 dev nat64
         ip addr add 2001:db8:1::1 dev nat64
         ip route add 192.0.2.0/28 dev nat64
-        ip route add 2001:db8:ff9b::/96 dev nat64
+        ip route add 64:ff9b::/96 dev nat64
         service tayga -c $PWD/tayga.$uts.conf
         sysctl -qw net.ipv4.conf.eth1.forwarding=1
         sysctl -qw net.ipv4.conf.nat64.forwarding=1

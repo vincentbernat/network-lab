@@ -26,7 +26,7 @@ record if none exists:
 
     $ host v4.example.com
     v4.example.com has address 203.0.113.16
-    v4.example.com has IPv6 address 2001:db8:ff9b::cb00:7110
+    v4.example.com has IPv6 address 64:ff9b::cb00:7110
 
 A dual-stack host is queried using IPv6.
 
