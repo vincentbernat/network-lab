@@ -503,6 +503,9 @@ start_vm () {
         esac
     done
 
+    [ "$DISK" = "" ] || \
+        netargs="$netargs -drive file=$DISK,if=virtio,media=disk"
+
     # /root is mounted with version 9p2000.u to allow access to /dev,
     # /sys and to mount new partitions over them. This is not the case
     # for 9p2000.L.
@@ -1330,6 +1333,14 @@ EOF
             udevadm settle
             log_ok_msg "udev started"
         }
+
+        for p in /dev/vd??*; do
+            mkdir /mnt/${p#/dev/}
+            mount $p /mnt/${p#/dev/}
+            for d in proc sys dev; do
+                [ ! -d /mnt/${p#/dev/}/$d ] || mount --bind /$d /mnt/${p#/dev/}/$d
+            done
+        done
 
         [ ! -f /proc/sys/kernel/core_pattern ] || {
             ulimit -c unlimited
