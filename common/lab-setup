@@ -70,7 +70,7 @@ setup_screen() {
     sleep 1
     tmux set-option -q prefix C-b
     tmux set-option -q set-remain-on-exit on
-    tmux set-hook window-linked "set-window-option remain-on-exit on"
+    tmux set-hook window-linked "set-window-option remain-on-exit on" 2> /dev/null || true
     tmux bind-key r respawn-window
     printf "\e]2;main\a"
 }
