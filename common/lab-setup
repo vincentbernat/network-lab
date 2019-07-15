@@ -1065,9 +1065,21 @@ template () {
     shift 2
     args="$(echo $@ | sed 's/ /,/g')"
     python3 - <<EOF > $output
-from jinja2 import Template
-t=Template(open("${input}").read())
-print(t.render(${args}))
+from jinja2 import Template, Environment, FileSystemLoader
+
+env = Environment(loader=FileSystemLoader("."))
+try:
+    from ansible.plugins.filter.core import regex_search, regex_replace
+    from ansible.plugins.filter.ipaddr import ipaddr, ipmath
+    env.filters['regex_search'] = regex_search
+    env.filters['regex_replace'] = regex_replace
+    env.filters['ipaddr'] = ipaddr
+    env.filters['ipmath'] = ipmath
+except ImportError:
+    pass
+
+template = env.get_template("${input}")
+print(template.render(${args}))
 EOF
     case $output in
         /*) ;;
