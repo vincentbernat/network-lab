@@ -1335,6 +1335,7 @@ EOF
         }
 
         for p in /dev/vd??*; do
+            [ -f $p ] || continue
             mkdir /mnt/${p#/dev/}
             mount $p /mnt/${p#/dev/}
             for d in proc sys dev; do
