@@ -1,0 +1,5 @@
+*
+!/fix-arista-veos-iso-serial.sh
+!/fix-arista-veos-image.sh
+!/README.md
+!/.gitignore
