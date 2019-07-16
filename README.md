@@ -21,10 +21,6 @@ due to more recent changes. In this case, get the latest commit for a
 lab (`git log --oneline -1 lab-generic` for example) and get a
 checkout for it (`git checkout 22f22864632a`).
 
-**⚠ Warning!** There is a bug in Linux that would prevent the labs
-from working when using a kernel 4.2, 4.3, 4.4 or 4.5. This bug is
-fixed in kernel 4.6 as well as in 4.4.17.
-
 License
 -------
 
