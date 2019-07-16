@@ -21,6 +21,26 @@ due to more recent changes. In this case, get the latest commit for a
 lab (`git log --oneline -1 lab-generic` for example) and get a
 checkout for it (`git checkout 22f22864632a`).
 
+This lab doesn't work on Ubuntu because they are missing VDE support
+in QEMU. The easiest way is to use `schroot` to work on a Debian
+Buster:
+
+    #!/bin/sh
+    sudo debootstrap buster buster
+    cat <<EOF | sudo tee /etc/schroot/chroot.d/lab
+    [lab]
+    type=directory
+    description=Network lab
+    directory=$PWD/buster
+    users=$USER
+    shell=$SHELL
+    EOF
+    sudo schroot -c lab apt install \
+        qemu-system-x86 sudo tmux busybox ssh vde2 python3 binutils \
+        dosfstools mtools ansible
+
+You may need to uncomment `/dev/shm` line in `/etc/schroot/default/fstab`.
+
 License
 -------
 
