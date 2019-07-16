@@ -766,6 +766,7 @@ interfaces {
 chassis {
   fpc 0 {
     protect: lite-mode;
+    # protect: interface-type xe;
   }
 }
 END
