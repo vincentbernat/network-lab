@@ -39,7 +39,8 @@ Buster:
         qemu-system-x86 sudo tmux busybox ssh vde2 python3 binutils \
         dosfstools mtools ansible
 
-You may need to uncomment `/dev/shm` line in `/etc/schroot/default/fstab`.
+You may need to uncomment `/dev/shm` line in
+`/etc/schroot/default/fstab`. Then, run `schroot -c lab ./setup`.
 
 License
 -------
