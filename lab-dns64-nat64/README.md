@@ -15,7 +15,7 @@ can access a v4-only host:
     ETag: "5d23af9d-4"
     X-Remote-Addr: ::ffff:192.0.2.15
     X-Remote-Port: 45156
-    X-Server-Addr: ::ffff:203.0.113.16
+    X-Server-Addr: ::ffff:204.0.113.16
     X-Server-Port: 80
     Accept-Ranges: bytes
     
@@ -25,7 +25,7 @@ This works because unbound will act as a DNS64 server and add a AAAA
 record if none exists:
 
     $ host v4.example.com
-    v4.example.com has address 203.0.113.16
+    v4.example.com has address 204.0.113.16
     v4.example.com has IPv6 address 64:ff9b::cb00:7110
 
 A dual-stack host is queried using IPv6.

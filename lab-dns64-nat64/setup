@@ -21,7 +21,7 @@ case $uts in
         service rdnssd -r /etc/resolv.conf -u root
         ;;
     gateway)
-        ip addr add 203.0.113.1/24 dev eth1
+        ip addr add 204.0.113.1/24 dev eth1
         ip -6 addr add 2001:db8:cccc::1/64 dev eth0
         ip -6 addr add 2001:db8:dead::1/64 dev eth1
         sysctl -qw net.ipv6.conf.all.forwarding=1
@@ -34,8 +34,8 @@ case $uts in
                 modprobe tun
                 tayga --mktun -c $PWD/tayga.$uts.conf
                 ip link set nat64 up
-                ip addr add 192.168.0.1 dev nat64
-                ip addr add 2001:db8:1::1 dev nat64
+                ip addr add 192.168.0.1/32 dev nat64
+                ip addr add 2001:db8:1::1/128 dev nat64
                 ip route add 192.0.2.0/28 dev nat64
                 ip route add 64:ff9b::/96 dev nat64
                 service tayga -c $PWD/tayga.$uts.conf
@@ -55,9 +55,9 @@ case $uts in
 
         ;;
     www)
-        ip addr add 203.0.113.16/24 dev eth0
+        ip addr add 204.0.113.16/24 dev eth0
         ip -6 addr add 2001:db8:dead::16/64 dev eth0
-        ip route add default via 203.0.113.1
+        ip route add default via 204.0.113.1
         ip -6 route add default via 2001:db8:dead::1
 
         service nginx
