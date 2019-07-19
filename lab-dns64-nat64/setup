@@ -34,8 +34,6 @@ case $uts in
                 modprobe tun
                 tayga --mktun -c $PWD/tayga.$uts.conf
                 ip link set nat64 up
-                ip addr add 192.168.0.1/32 dev nat64
-                ip addr add 2001:db8:1::1/128 dev nat64
                 ip route add 192.0.2.0/28 dev nat64
                 ip route add 64:ff9b::/96 dev nat64
                 service tayga -c $PWD/tayga.$uts.conf
