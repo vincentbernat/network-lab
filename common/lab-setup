@@ -76,6 +76,18 @@ setup_screen() {
     printf "\e]2;main\a"
 }
 
+tmux_resize() {
+    name=$1
+    width=$2
+    height=$3
+    shift 3
+    if tmux set -w -t $name force-width $width 2> /dev/null; then
+        tmux set -w -t $name force-height $height
+    else
+        tmux resize-window -t $name -x $width -y $height
+    fi
+}
+
 display_help() {
     cat <<EOF
 
@@ -617,8 +629,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
-    tmux set -w -t $name force-width 80
-    tmux set -w -t $name force-height 24
+    tmux_resize $name 80 24
 }
 
 start_juniper_vqfx () {
@@ -690,8 +701,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-re-console.pipe"
     chmod +x "$TMP/vm-$name-re.exec"
     tmux new-window -d -n $name/RE "$TMP/vm-$name-re.exec"
-    tmux set -w -t $name/RE force-width 80
-    tmux set -w -t $name/RE force-height 24
+    tmux_resize $name/RE 80 24
 
     log_info_msg "Start Juniper vQFX $name (PFE)"
     netargs=""
@@ -734,8 +744,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-pfe-console.pipe"
     chmod +x "$TMP/vm-$name-pfe.exec"
     tmux new-window -d -n $name/PFE "$TMP/vm-$name-pfe.exec"
-    tmux set -w -t $name/PFE force-width 80
-    tmux set -w -t $name/PFE force-height 24
+    tmux_resize $name/PFE 80 24
 }
 
 start_juniper_vmx () {
@@ -806,8 +815,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-re-console.pipe"
     chmod +x "$TMP/vm-$name-re.exec"
     tmux new-window -d -n $name/RE "$TMP/vm-$name-re.exec"
-    tmux set -w -t $name/RE force-width 80
-    tmux set -w -t $name/RE force-height 24
+    tmux_resize $name/RE 80 24
 
     log_info_msg "Start Juniper vMX $name (PFE)"
     vcpus=3
@@ -863,8 +871,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-pfe-console.pipe"
     chmod +x "$TMP/vm-$name-pfe.exec"
     tmux new-window -d -n $name/PFE "$TMP/vm-$name-pfe.exec"
-    tmux set -w -t $name/PFE force-width 80
-    tmux set -w -t $name/PFE force-height 24
+    tmux_resize $name/PFE 80 24
 }
 
 start_juniper_vsrx () {
@@ -928,8 +935,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
-    tmux set -w -t $name force-width 80
-    tmux set -w -t $name force-height 24
+    tmux_resize $name 80 24
 }
 
 start_juniper_firefly () {
@@ -978,8 +984,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
-    tmux set -w -t $name force-width 80
-    tmux set -w -t $name force-height 24
+    tmux_resize $name 80 24
 }
 
 start_cumulus_vx () {
@@ -1053,8 +1058,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
-    tmux set -w -t $name force-width 80
-    tmux set -w -t $name force-height 24
+    tmux_resize $name 80 24
 }
 
 ########################################################################
