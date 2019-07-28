@@ -16,7 +16,7 @@ case $uts in
         ip addr add 2001:db8:bbbb::f/124 dev eth0
         service nginx
         ln -s $PWD/rpki.json /tmp/nginx/www
-        gortr -verify=false -checktime=false -cache=http://127.0.0.1/rpki.json &
+        gortr -refresh=60 -verify=false -checktime=false -cache=http://127.0.0.1/rpki.json &
         ;;
     R1)
         ip addr add 2001:db8:aaaa::f/124 dev eth0
