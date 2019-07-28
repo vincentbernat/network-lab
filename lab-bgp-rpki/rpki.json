@@ -8,6 +8,10 @@
       "prefix": "2001:db8:dddd::/48",
       "maxLength": 48,
       "asn": "AS65007"
+    }, {
+      "prefix": "2001:db8:ffff::/48",
+      "maxLength": 48,
+      "asn": "AS65008"
     }
   ]
 }
