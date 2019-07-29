@@ -41,6 +41,7 @@ case $uts in
     R2)
         ip addr add 2001:db8:aaaa::1/124 dev eth0
         ip addr add 2001:db8:bbbb::1/124 dev eth1
+        (echo -n "[2001:db8:bbbb::f]:8283 " ; cat ssh_key_rtr.pub) > /tmp/known_hosts
         service bird
         ;;
 esac
