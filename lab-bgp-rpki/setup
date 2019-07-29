@@ -3,6 +3,10 @@
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
+[ -f ssh_key_rtr ] || ssh-keygen -qN "" -t rsa -f ssh_key_rtr
+[ -f ssh_key_r2 ]  || ssh-keygen -qN "" -t rsa -f ssh_key_r2
+[ -f ssh_key_r3 ]  || ssh-keygen -qN "" -t rsa -f ssh_key_r3
+
 spawn vm           R1  network 1
 spawn vm           R2  networks 1,2         # BIRD+RPKI
 spawn juniper-vrr  R3  networks 1,2         # JunOS+RPKI
@@ -16,7 +20,15 @@ case $uts in
         ip addr add 2001:db8:bbbb::f/124 dev eth0
         service nginx
         ln -s $PWD/rpki.json /tmp/nginx/www
-        gortr -refresh=60 -verify=false -checktime=false -cache=http://127.0.0.1/rpki.json &
+        # Refresh is expected to happen on-demand by sending SIGHUP to gortr
+        gortr -refresh=600 -verify=false -checktime=false \
+              -cache=http://127.0.0.1/rpki.json \
+              -ssh.bind=:8283 \
+              -ssh.key=$PWD/ssh_key_rtr \
+              -ssh.method.key=true \
+              -ssh.auth.user=rpki \
+              -ssh.auth.key.file=$PWD/ssh_key_r2 \
+            &
         ;;
     R1)
         ip addr add 2001:db8:aaaa::f/124 dev eth0
