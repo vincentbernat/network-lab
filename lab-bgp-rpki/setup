@@ -27,7 +27,7 @@ case $uts in
               -ssh.key=$PWD/ssh_key_rtr \
               -ssh.method.key=true \
               -ssh.auth.user=rpki \
-              -ssh.auth.key.file=$PWD/ssh_key_r2 \
+              -ssh.auth.key.file=$PWD/ssh_key_r2.pub \
             &
         ;;
     R1)
