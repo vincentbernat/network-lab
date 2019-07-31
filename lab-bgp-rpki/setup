@@ -5,11 +5,12 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 [ -f ssh_key_rtr ] || ssh-keygen -qN "" -t rsa -f ssh_key_rtr
 [ -f ssh_key_r2 ]  || ssh-keygen -qN "" -t rsa -f ssh_key_r2
-[ -f ssh_key_r3 ]  || ssh-keygen -qN "" -t rsa -f ssh_key_r3
+[ -f ssh_key_r4 ]  || ssh-keygen -qN "" -t rsa -f ssh_key_r4
 
 spawn vm           R1  network 1
 spawn vm           R2  networks 1,2         # BIRD+RPKI
 spawn juniper-vrr  R3  networks 1,2         # JunOS+RPKI
+spawn vm           R4  networks 1,2         # FRR+RPKI
 spawn vm           RTR network 2
 
 run
@@ -43,5 +44,11 @@ case $uts in
         ip addr add 2001:db8:bbbb::1/124 dev eth1
         (echo -n "[2001:db8:bbbb::f]:8283 " ; cat ssh_key_rtr.pub) > /tmp/known_hosts
         service bird
+        ;;
+    R4)
+        ip addr add 2001:db8:aaaa::3/124 dev eth0
+        ip addr add 2001:db8:bbbb::3/124 dev eth1
+        (echo -n "[2001:db8:bbbb::f]:8283 " ; cat ssh_key_rtr.pub) > /tmp/known_hosts
+        bgpd_args="-M rpki" service quagga
         ;;
 esac
