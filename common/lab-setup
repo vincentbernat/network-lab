@@ -77,9 +77,9 @@ setup_screen() {
 }
 
 tmux_resize() {
-    name=$1
-    width=$2
-    height=$3
+    local name=$1
+    local width=$2
+    local height=$3
     shift 3
     if tmux set -w -t $name force-width $width 2> /dev/null; then
         tmux set -w -t $name force-height $height
@@ -698,7 +698,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      \
      $netargs
 EOF
-    log_info_msg "monitor listening on    $TMP/vm-$name-re-console.pipe"
+    log_info_msg "monitor listening on $TMP/vm-$name-re-console.pipe"
     chmod +x "$TMP/vm-$name-re.exec"
     tmux new-window -d -n $name/RE "$TMP/vm-$name-re.exec"
     tmux_resize $name/RE 80 24
