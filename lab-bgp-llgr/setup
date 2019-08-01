@@ -76,6 +76,6 @@ EOF
             ip link set up dev eth0.$v
             ip addr add 2001:db8:${v}::4/120 dev eth0.${v}
         done
-        service bird
+        service bird -R
         ;;
 esac

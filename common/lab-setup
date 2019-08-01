@@ -1126,25 +1126,25 @@ service () {
             log_begin_msg "Running bird${netns+, netns=}$netns"
             [ -d /run/bird ] || mkdir -p /run/bird
             if [ -f /mnt/lab/bird.$uts.$netns.conf ]; then
-                execute bird -s /var/run/bird.$netns.ctl -c /mnt/lab/bird.$uts.$netns.conf
+                execute bird -s /var/run/bird.$netns.ctl -c /mnt/lab/bird.$uts.$netns.conf "$@"
             elif [ -f /mnt/lab/bird.$uts.conf ] && [ -z "$netns" ]; then
-                execute bird -c /mnt/lab/bird.$uts.conf
+                execute bird -c /mnt/lab/bird.$uts.conf "$@"
             elif [ -f /mnt/lab/bird.conf ]; then
-                execute bird -c /mnt/lab/bird.conf
+                execute bird -c /mnt/lab/bird.conf "$@"
             fi
             if [ -f /mnt/lab/bird6.$uts.$netns.conf ]; then
-                execute bird6 -s /var/run/bird6.$netns.ctl -c /mnt/lab/bird6.$uts.$netns.conf
+                execute bird6 -s /var/run/bird6.$netns.ctl -c /mnt/lab/bird6.$uts.$netns.conf "$@"
             elif [ -f /mnt/lab/bird6.$uts.conf ] && [ -z "$netns" ]; then
-                execute bird6 -c /mnt/lab/bird6.$uts.conf
+                execute bird6 -c /mnt/lab/bird6.$uts.conf "$@"
             elif [ -f /mnt/lab/bird6.conf ]; then
-                execute bird6 -c /mnt/lab/bird6.conf
+                execute bird6 -c /mnt/lab/bird6.conf "$@"
             fi
             if [ -f /mnt/lab/bird2.$uts.$netns.conf ]; then
-                execute bird2 -s /var/run/bird.$netns.ctl -c /mnt/lab/bird2.$uts.$netns.conf
+                execute bird2 -s /var/run/bird.$netns.ctl -c /mnt/lab/bird2.$uts.$netns.conf "$@"
             elif [ -f /mnt/lab/bird2.$uts.conf ] && [ -z "$netns" ]; then
-                execute bird2 -c /mnt/lab/bird2.$uts.conf
+                execute bird2 -c /mnt/lab/bird2.$uts.conf "$@"
             elif [ -f /mnt/lab/bird2.conf ]; then
-                execute bird2 -c /mnt/lab/bird2.conf
+                execute bird2 -c /mnt/lab/bird2.conf "$@"
             fi
             log_ok_msg "bird started${netns+, netns=}$netns"
             ;;

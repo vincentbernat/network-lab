@@ -83,7 +83,7 @@ EOF
         ip link add name eth0.$sw link eth0 type vlan id $sw
         ip link set up dev eth0.$sw
         ip addr add 2001:db8:${sw#?}::f${sw%?}/120 dev eth0.$sw
-        service bird
+        service bird -R
         ;;
     C*)
         rack=$(( (${uts#C} - 1) / 2 + 1 ))
@@ -94,6 +94,6 @@ EOF
         done
         ip addr add 2001:db8:ff::${uts#C}/128 dev lo # own IP
         [ $uts = C4 ] || ip addr add 2001:db8:ff::ca/128 dev lo       # shared anycast IP
-        service bird
+        service bird -R
         ;;
 esac
