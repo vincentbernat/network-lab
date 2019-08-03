@@ -1,5 +1,9 @@
 # Lab for BGP Long-Lived Graceful Restart
 
+See [BGP LLGR: robust and reactive BGP
+sessions](https://vincent.bernat.ch/en/blog/2018-bgp-llgr) for more
+details.
+
 This is a mechanism to keep routes even when the BGP session goes
 down, but at a lower priority. Notably, this enables routing to keep
 working in case of disruption in the control plane while not keeping

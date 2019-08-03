@@ -1,5 +1,9 @@
 # Small lab with "private" RPKI validation
 
+See [Securing BGP on the host with the
+RPKI](https://vincent.bernat.ch/en/blog/2019-bgp-host-rpki) for more
+details.
+
 We use RTR to validate announced prefixes. R1 is announcing a prefix
 that should be accepted as well as an invalid one.
 
