@@ -262,6 +262,9 @@ spawn () {
             setup_initrd
             start_vm
             ;;
+        img)
+            start_img
+            ;;
         ns)
             start_ns
             ;;
@@ -564,6 +567,70 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      $netargs
 EOF
     log_info_msg "GDB server listening on $TMP/vm-$name-gdb.pipe"
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
+    chmod +x "$TMP/vm-$name.exec"
+    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+}
+
+start_img () {
+    # This starts a VM from a provided image ($NAME.img). The
+    # provisioning is not done but we prepare an additional vfat disk
+    # with the content of the $NAME/ directory.
+    name=$NAME
+    log_info_msg "Start image $name"
+    netargs=""
+    for net in $NET; do
+        case $net in
+            oob)
+                ssh=$(tcp_port)
+                netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+                netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+                add_ssh_config $NAME $ssh
+                ;;
+            *)
+                mac=$(mac_address)
+                netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+                netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+                ;;
+        esac
+    done
+
+    # /root is mounted with version 9p2000.u to allow access to /dev,
+    # /sys and to mount new partitions over them. This is not the case
+    # for 9p2000.L.
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+echo
+printf "\e]2;$name\a"
+qemu-img create -f qcow2 -b $PWD/$name.img -F qcow2 $TMP/vm-$name.img
+truncate -s 10M $TMP/metadata-$name.img
+mkfs.vfat $TMP/metadata-$name.img
+mcopy -i $TMP/metadata-$name.img $name/* ::/.
+mcopy -i $TMP/metadata-$name.img $TMP/id_rsa.pub ::/.
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+     --start --startas $(which qemu-system-x86_64) -- \
+     -enable-kvm \
+     -no-user-config -nodefaults \
+     -vga std -display curses \
+     -m ${MEM:-256M} \
+     -cpu host \
+     -smp ${CPUS:-1} \
+     \
+     -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server,nowait \
+     -device isa-serial,chardev=charserial1,id=serial1 \
+     \
+     -boot c \
+     -drive file=$TMP/vm-$name.img,if=virtio,media=disk \
+     -drive file=$TMP/metadata-$name.img,format=raw,if=none,media=disk,id=metadata \
+     -usb -device usb-storage,drive=metadata \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -mon chardev=con0,mode=readline \
+     \
+     -no-reboot \
+     $netargs
+EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
     chmod +x "$TMP/vm-$name.exec"
