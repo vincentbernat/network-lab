@@ -625,12 +625,14 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -drive file=$TMP/metadata-$name.img,format=raw,if=none,media=disk,id=metadata \
      -usb -device usb-storage,drive=metadata \
      \
+     -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
      -mon chardev=con0,mode=readline \
      \
      -no-reboot \
      $netargs
 EOF
+    log_info_msg "GDB server listening on $TMP/vm-$name-gdb.pipe"
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
     chmod +x "$TMP/vm-$name.exec"
