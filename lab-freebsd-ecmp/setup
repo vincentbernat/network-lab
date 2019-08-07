@@ -1,0 +1,25 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+MEM=512M spawn img freebsd networks oob,1,2,3
+spawn vm h1 network 1
+spawn vm h2 network 2,3
+
+run
+
+case $uts in
+    h1)
+        ip addr add 192.0.2.10/31 dev eth0
+        ip route add default via 192.0.2.11
+        ;;
+    h2)
+        ip addr add 192.0.2.12/31 dev eth0
+        ip addr add 192.0.2.14/31 dev eth1
+        ip route add default nexthop via 192.0.2.13 nexthop via 192.0.2.15
+        ip addr add 203.0.113.15/32 dev lo
+        ;;
+esac
+
+service nginx
