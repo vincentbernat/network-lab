@@ -629,7 +629,6 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
      -mon chardev=con0,mode=readline \
      \
-     -no-reboot \
      $netargs
 EOF
     log_info_msg "GDB server listening on $TMP/vm-$name-gdb.pipe"
