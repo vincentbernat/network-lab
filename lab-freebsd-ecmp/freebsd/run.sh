@@ -3,7 +3,7 @@
 cat <<EOF > /dev/null
 # To provision:
   mkdir /mnt/lab
-  mount -t msdosfs /dev/da0 /mnt/lab
+  mount -t msdosfs /dev/vtbd1 /mnt/lab
   sh /mnt/lab/run.sh
 EOF
 
