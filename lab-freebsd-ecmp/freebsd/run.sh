@@ -8,6 +8,8 @@ cat <<EOF > /dev/null
 EOF
 
 cd $(dirname $0)
+set -e
+hostname freebsd
 
 # dhclient is running on all interfaces
 pkill dhclient

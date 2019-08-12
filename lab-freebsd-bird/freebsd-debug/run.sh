@@ -8,8 +8,8 @@ sh /mnt/lab/run.sh
 EOF
 
 set -e
-
 cd $(dirname $0)
+hostname freebsd-debug
 
 # dhclient is running on all interfaces
 pkill dhclient
