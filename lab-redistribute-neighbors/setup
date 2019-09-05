@@ -1,0 +1,34 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm router network 1
+spawn cumulus-vx cumulus networks 1,2
+#spawn vm linux networks 1,3
+
+# Some random clients
+spawn vm vm11 network 2
+spawn vm vm12 network 2
+#spawn vm vm21 network 3
+#spawn vm vm22 network 3
+
+run
+
+case $uts in
+    router)
+        ip addr add 203.0.113.1/27 dev eth0
+        service bird
+        ;;
+    linux)
+        ip addr add 203.0.113.3/27 dev eth0
+        ip addr add 203.0.113.65/27 dev eth1
+        service bird
+        ;;
+    vm1*)
+        ip addr add 203.0.113.$((33 + ${uts#vm1}))/27 dev eth0
+        ;;
+    vm2*)
+        ip addr add 203.0.113.$((65 + ${uts#vm2}))/27 dev eth0
+        ;;
+esac

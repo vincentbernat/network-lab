@@ -1,0 +1,3 @@
+ifreload -a
+service frr restart
+service rdnbrd restart

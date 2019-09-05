@@ -1,0 +1,19 @@
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet dhcp
+  vrf mgmt
+
+auto mgmt
+iface mgmt
+  address 127.0.0.1/8
+  vrf-table auto
+
+auto swp1
+iface swp1
+  address 203.0.113.2/27
+
+auto swp2
+iface swp2
+  address 203.0.113.33/27
