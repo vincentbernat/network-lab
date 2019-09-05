@@ -1,3 +1,6 @@
 ifreload -a
 service frr restart
 service rdnbrd restart
+sleep 5
+ping -c1 -q 203.0.113.34 || true
+ping -c1 -q 203.0.113.35 || true

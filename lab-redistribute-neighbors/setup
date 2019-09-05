@@ -3,15 +3,22 @@
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
+if [ x$STATE != xSETUP ]; then
+    virtualenv rdnbr
+    wget -N http://repo3.cumulusnetworks.com/repo/pool/cumulus/p/python-rdnbrd/python-rdnbrd_3.0-cl3u10.tar.gz
+    rdnbr/bin/pip install nlmanager python-daemon
+    rdnbr/bin/pip install python-rdnbrd_3.0-cl3u10.tar.gz
+fi
+
 spawn vm router network 1
 spawn cumulus-vx cumulus networks 1,2
-#spawn vm linux networks 1,3
+spawn vm linux networks 1,3
 
 # Some random clients
 spawn vm vm11 network 2
 spawn vm vm12 network 2
-#spawn vm vm21 network 3
-#spawn vm vm22 network 3
+spawn vm vm21 network 3
+spawn vm vm22 network 3
 
 run
 
@@ -24,6 +31,10 @@ case $uts in
         ip addr add 203.0.113.3/27 dev eth0
         ip addr add 203.0.113.65/27 dev eth1
         service bird
+        rdnbr/bin/rdnbrd -d
+        sleep 5
+        ping -c1 -q 203.0.113.66 || true
+        ping -c1 -q 203.0.113.67 || true
         ;;
     vm1*)
         ip addr add 203.0.113.$((33 + ${uts#vm1}))/27 dev eth0
