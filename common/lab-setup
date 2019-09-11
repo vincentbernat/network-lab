@@ -1481,7 +1481,7 @@ EOF
         unset SHLVL
         if [ -n "$NOGETTY" ]; then
             export STATE=SETUP
-            . /mnt/lab/setup
+            /mnt/lab/setup
             export STATE=SHELL
             exec /mnt/lab/setup
         else
@@ -1516,7 +1516,7 @@ EOF
 
         export PATH=/tmp/tools:/mnt/common/bin:$PATH
         export STATE=SETUP
-        . /mnt/lab/setup
+        /mnt/lab/setup
         touch /tmp/ready
         export STATE=SHELL
         exec /mnt/lab/setup
