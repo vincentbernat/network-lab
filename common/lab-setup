@@ -143,13 +143,15 @@ tcp_port () {
 # $2 == local port
 # $3 == username
 add_ssh_config () {
-    [ -f $TMP/id_rsa ] || ssh-keygen -q -t rsa -N "" -f $TMP/id_rsa
+    [ -f $TMP/id_rsa ] || ssh-keygen -q -t rsa -b 2048 -N "" -f $TMP/id_rsa
     cat <<EOF >> $TMP/ssh_config
 # $1.lab
 Host $1.lab
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
   PasswordAuthentication no
+  KexAlgorithms +diffie-hellman-group1-sha1
+  Ciphers +aes128-cbc
   IdentitiesOnly yes
   LogLevel FATAL
   IdentityFile $TMP/id_rsa
@@ -189,6 +191,7 @@ system {
   }
 }
 EOF
+
     log_info_msg "Connect with ssh -F $TMP/ssh_config $1.lab"
 }
 
@@ -285,6 +288,9 @@ spawn () {
             ;;
         cumulus-vx)
             start_cumulus_vx
+            ;;
+        cisco-iosxrv)
+            start_cisco_iosxrv
             ;;
         *)
             log_error_msg "Unknown kind of VM \`$kind'"
@@ -1125,6 +1131,100 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux_resize $name 80 24
+}
+
+start_cisco_iosxrv () {
+    name=$NAME
+    log_info_msg "Start Cisco IOS XRv $name"
+    netargs=""
+    ssh=$(tcp_port)
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+    add_ssh_config $NAME $ssh cisco
+    for net in $NET; do
+        mac=$(mac_address)
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+    done
+
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+printf "\e]2;$name\a"
+
+qemu-img create -q -f qcow2 -b $PWD/../images/cisco-iosxrv.img $TMP/cisco-$name.img
+mkdir -p $TMP/metadata-$name
+cat - cisco-common.conf cisco-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/iosxr_config.txt
+hostname $name
+interface MgmtEth0/0/CPU0/0
+ ipv4 address dhcp
+ no shut
+!
+ssh server v2
+ssh server netconf
+ssh server logging
+!
+END
+echo end >> $TMP/metadata-$name/iosxr_config.txt
+genisoimage -iso-level 2 -l -V config-1 -relaxed-filenames -quiet -o $TMP/cisco-$name.iso $TMP/metadata-$name
+
+truncate -s 10M $TMP/cisco-$name-additional.img
+mkfs.vfat $TMP/cisco-$name-additional.img
+cut -f 2 -d ' ' $TMP/id_rsa.pub | base64 -d | mcopy -i $TMP/cisco-$name-additional.img - ::/sshkey
+
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+     --start --startas $(which qemu-system-x86_64) -- \
+     -enable-kvm \
+     -no-user-config -nodefaults \
+     -display none \
+     -m ${MEM:-4G} \
+     -cpu host \
+     \
+     -boot c \
+     -drive file=$TMP/cisco-$name.img,if=ide,media=disk \
+     -drive file=$TMP/cisco-$name-additional.img,format=raw,if=ide,media=disk \
+     -drive file=$TMP/cisco-$name.iso,if=ide,media=cdrom \
+     \
+     -chardev stdio,id=charserial0,signal=off \
+     -device isa-serial,chardev=charserial0,id=serial0 \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -mon chardev=con0,mode=readline \
+     \
+     $netargs
+EOF
+    # IOS XRv is great for provisioning (sarcasm)
+    cat <<EOF > "$TMP/vm-$name-real.exec"
+#!$(which expect) -f
+spawn $TMP/vm-$name.exec
+set timeout 240
+expect {
+  "MGBL-CVAC-4-CONFIG_DONE" { send "\r" }
+  "MGBL-CVAC-3-CONFIG_ERROR" { send "\r" }
+  timeout {
+    send_user "TIMEOUT!\n"
+    interact
+  }
+}
+
+set timeout 10
+expect "Username: "
+send "cisco\r"
+expect "Password: "
+send "cisco\r"
+expect "RP/0/0/CPU0:*#"
+send "crypto key generate rsa\r"
+expect "How many bits"
+send "\r"
+expect "RP/0/0/CPU0:*#"
+send "crypto key import authentication rsa disk1:/sshkey\r"
+expect "RP/0/0/CPU0:*#"
+interact
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    chmod +x "$TMP/vm-$name-real.exec"
+    chmod +x "$TMP/vm-$name.exec"
+    tmux new-window -d -n $name "$TMP/vm-$name-real.exec"
     tmux_resize $name 80 24
 }
 
