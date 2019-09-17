@@ -1156,13 +1156,13 @@ qemu-img create -q -f qcow2 -b $PWD/../images/cisco-iosxrv.img $TMP/cisco-$name.
 mkdir -p $TMP/metadata-$name
 cat - cisco-common.conf cisco-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/iosxr_config.txt
 hostname $name
+vrf MGMT
+ address-family ipv4 unicast
+!
 interface MgmtEth0/0/CPU0/0
  vrf MGMT
  ipv4 address dhcp
  no shut
-!
-vrf MGMT
- address-family ipv4 unicast
 !
 router static
  vrf MGMT
