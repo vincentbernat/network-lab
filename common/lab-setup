@@ -1278,7 +1278,6 @@ printf "\e]2;$name\a"
 
 qemu-img create -q -f qcow2 -b $PWD/../images/hp-vsr1000.img $TMP/hp-$name.img
 mkdir -p $TMP/tftp-$name
-cp $TMP/id_rsa.pub $TMP/tftp-$name
 cat - hp-common.conf hp-$name.conf <<END 2>/dev/null > $TMP/tftp-$name/device.cfg
 sysname $name
 #
@@ -1309,6 +1308,13 @@ scp server enable
 ssh user hp service-type all authentication-type publickey assign publickey sshkey
 netconf ssh server enable
 #
+public-key peer sshkey
+ public-key-code begin
+30820122300D06092A864886F70D01010105000382010F00
+$(ssh-keygen -e -m pem -f $TMP/id_rsa.pub | grep -v '^----' | base64 -d | od -t x1 -An -w32 | tr -d ' ' | tr 'a-f' 'A-F')
+ public-key-code end
+ peer-public-key end
+#
 END
 
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
@@ -1330,36 +1336,9 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      $netargs
 EOF
-    # Another device that is unable to provision SSH key!
-    cat <<EOF > "$TMP/vm-$name-real.exec"
-#!$(which expect) -f
-spawn $TMP/vm-$name.exec
-set timeout 120
-expect {
-  "Press ENTER to get started." { send "\r" }
-  timeout {
-    send_user "TIMEOUT!\n"
-    interact
-  }
-}
-
-set timeout 20
-expect "<$name>"
-send "copy tftp://10.0.2.2/id_rsa.pub id_rsa.pub vpn-instance MGMT\r"
-expect "Copy tftp* to flash"
-send "y\r"
-expect "<$name>"
-send "system-view\r"
-expect "\\\\\[$name\\\\\]"
-send "public-key peer sshkey import sshkey id_rsa.pub\r"
-expect "\\\\\[$name\\\\\]"
-send "quit\r"
-interact
-EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
-    chmod +x "$TMP/vm-$name-real.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name-real.exec"
+    tmux new-window -d -n $name "$TMP/vm-$name.exec"
     tmux_resize $name 80 24
 }
 
