@@ -292,6 +292,9 @@ spawn () {
         cisco-iosxrv)
             start_cisco_iosxrv
             ;;
+        hp-vsr1000)
+            start_hp_vsr1000
+            ;;
         *)
             log_error_msg "Unknown kind of VM \`$kind'"
             ;;
@@ -1250,6 +1253,113 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name-real.exec"
     chmod +x "$TMP/vm-$name.exec"
+    tmux new-window -d -n $name "$TMP/vm-$name-real.exec"
+    tmux_resize $name 80 24
+}
+
+start_hp_vsr1000 () {
+    name=$NAME
+    log_info_msg "Start HP VSR1000 $name"
+    netargs=""
+    ssh=$(tcp_port)
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22,tftp=$TMP/tftp-$name,tftp-server-name=10.0.2.2,bootfile=device.cfg"
+    netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
+    add_ssh_config $NAME $ssh hp
+    for net in $NET; do
+        mac=$(mac_address)
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+    done
+
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+printf "\e]2;$name\a"
+
+qemu-img create -q -f qcow2 -b $PWD/../images/hp-vsr1000.img $TMP/hp-$name.img
+mkdir -p $TMP/tftp-$name
+cp $TMP/id_rsa.pub $TMP/tftp-$name
+cat - hp-common.conf hp-$name.conf <<END 2>/dev/null > $TMP/tftp-$name/device.cfg
+sysname $name
+#
+ip vpn-instance MGMT
+#
+interface GigabitEthernet1/0
+ ip binding vpn-instance MGMT
+ ip address dhcp-alloc
+ port link-mode route
+#
+user-interface aux 0
+ authentication-mode none
+ user-role network-admin
+#
+user-interface class vty
+ authentication-mode scheme
+ user-role network-operator
+ protocol inbound ssh
+#
+local-user hp class manage
+ password hash $h$6$T/7ypxZvNAiiXg0Y$VPGP6WplSxIfl6GFGS7o18sKY9OQD8Okt3RnhBBGwOf/76OZ0cPCqRXgEVhbKFnUYAzYGT/OPNPM3VuAKnbD/Q==
+ service-type ssh
+ authorization-attribute user-role network-admin
+ authorization-attribute user-role network-operator
+#
+ssh server enable
+scp server enable
+ssh user hp service-type all authentication-type publickey assign publickey sshkey
+netconf ssh server enable
+#
+return
+END
+
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+     --start --startas $(which qemu-system-x86_64) -- \
+     -enable-kvm \
+     -no-user-config -nodefaults \
+     -display none \
+     -m ${MEM:-1G} \
+     -cpu host \
+     \
+     -boot c \
+     -drive file=$TMP/hp-$name.img,if=ide,media=disk \
+     \
+     -chardev stdio,id=charserial0,signal=off \
+     -device isa-serial,chardev=charserial0,id=serial0 \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -mon chardev=con0,mode=readline \
+     \
+     $netargs
+EOF
+    # Another device that is unable to provision SSH key!
+    cat <<EOF > "$TMP/vm-$name-real.exec"
+#!$(which expect) -f
+spawn $TMP/vm-$name.exec
+set timeout 120
+expect {
+  "Press ENTER to get started." { send "\r" }
+  timeout {
+    send_user "TIMEOUT!\n"
+    interact
+  }
+}
+
+set timeout 20
+expect "<$name>"
+send "copy tftp://10.0.2.2/id_rsa.pub id_rsa.pub vpn-instance MGMT\r"
+expect "Copy tftp* to flash"
+send "y\r"
+expect "<$name>"
+send "system-view\r"
+expect "\\\\\[$name\\\\\]"
+send "public-key peer sshkey import sshkey id_rsa.pub\r"
+expect "\\\\\[$name\\\\\]"
+send "quit\r"
+interact
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    chmod +x "$TMP/vm-$name.exec"
+    chmod +x "$TMP/vm-$name-real.exec"
     tmux new-window -d -n $name "$TMP/vm-$name-real.exec"
     tmux_resize $name 80 24
 }
