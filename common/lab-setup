@@ -515,6 +515,7 @@ start_vm () {
                 ssh=$(tcp_port)
                 netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
                 netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+                [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
                 add_ssh_config $NAME $ssh
                 ;;
             *)
@@ -592,6 +593,7 @@ start_img () {
                 ssh=$(tcp_port)
                 netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
                 netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+                [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
                 add_ssh_config $NAME $ssh
                 ;;
             *)
@@ -650,6 +652,7 @@ start_juniper_vrr () {
     ssh=$(tcp_port)
     netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
     netargs="$netargs -device e1000,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh juniper
     for net in $NET; do
         mac=$(mac_address)
@@ -713,6 +716,7 @@ start_juniper_vqfx () {
     ssh=$(tcp_port)
     netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
     netargs="$netargs -device e1000,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh juniper
     netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=pfe"
     netargs="$netargs -device e1000,mac=$(mac_address),netdev=pfe"  # PFE
@@ -828,6 +832,7 @@ start_juniper_vmx () {
     ssh=$(tcp_port)
     netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
     netargs="$netargs -device e1000,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh juniper
     netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=pfe"
     netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=pfe"  # PFE
@@ -954,6 +959,7 @@ start_juniper_vsrx () {
     ssh=$(tcp_port)
     netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
     netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh juniper
     for net in $NET; do
         mac=$(mac_address)
@@ -1067,6 +1073,7 @@ start_cumulus_vx () {
     ssh=$(tcp_port)
     netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
     netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh cumulus
     for net in $NET; do
         mac=$(mac_address)
@@ -1141,6 +1148,7 @@ start_cisco_iosxrv () {
     ssh=$(tcp_port)
     netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
     netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh cisco
     for net in $NET; do
         mac=$(mac_address)
