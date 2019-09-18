@@ -1309,7 +1309,6 @@ scp server enable
 ssh user hp service-type all authentication-type publickey assign publickey sshkey
 netconf ssh server enable
 #
-return
 END
 
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
