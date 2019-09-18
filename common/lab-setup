@@ -1269,7 +1269,7 @@ start_hp_vsr1000 () {
     for net in $NET; do
         mac=$(mac_address)
         netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net$net"
     done
 
     cat <<EOF > "$TMP/vm-$name.exec"
