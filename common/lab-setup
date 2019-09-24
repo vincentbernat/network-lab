@@ -1297,16 +1297,17 @@ user-interface class vty
  user-role network-operator
  protocol inbound ssh
 #
+ssh server enable
+scp server enable
+netconf ssh server enable
+#
 local-user hp class manage
  password hash $h$6$T/7ypxZvNAiiXg0Y$VPGP6WplSxIfl6GFGS7o18sKY9OQD8Okt3RnhBBGwOf/76OZ0cPCqRXgEVhbKFnUYAzYGT/OPNPM3VuAKnbD/Q==
  service-type ssh
  authorization-attribute user-role network-admin
  authorization-attribute user-role network-operator
 #
-ssh server enable
-scp server enable
 ssh user hp service-type all authentication-type publickey assign publickey sshkey
-netconf ssh server enable
 #
 public-key peer sshkey
  public-key-code begin
