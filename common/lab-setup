@@ -1192,6 +1192,7 @@ ssh server netconf vrf MGMT
 ssh server logging
 line default
  session-timeout 120
+ exec-timeout 120
 !
 END
 echo end >> $TMP/metadata-$name/iosxr_config.txt
