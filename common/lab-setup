@@ -1634,6 +1634,7 @@ EOF
             $udev --daemon
             udevadm trigger --action=add
             udevadm settle
+            mkdir /dev/shm && mount -n -t tmpfs tmpfs /dev/shm
             log_ok_msg "udev started"
         }
 
