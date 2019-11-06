@@ -143,7 +143,7 @@ tcp_port () {
 # $2 == local port
 # $3 == username
 add_ssh_config () {
-    [ -f $TMP/id_rsa ] || ssh-keygen -q -t rsa -b 2048 -N "" -f $TMP/id_rsa
+    [ -f $TMP/id_rsa ] || ssh-keygen -m pem -q -t rsa -b 2048 -N "" -f $TMP/id_rsa
     cat <<EOF >> $TMP/ssh_config
 # $1.lab
 Host $1.lab
