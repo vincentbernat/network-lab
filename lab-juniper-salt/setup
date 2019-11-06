@@ -9,8 +9,8 @@ if [ x$STATE != xSETUP ]; then
     venv/bin/pip install -v salt
 fi
 
-MEM=512M spawn vm salt-master network  1
-MEM=512M spawn vm salt-proxy  networks 1,2
+MEM=512M spawn vm salt-master network  oob,1
+MEM=512M spawn vm salt-proxy  networks oob,1,2
 spawn juniper-vrr juniper1 network 2
 spawn juniper-vrr juniper2 network 2
 spawn juniper-vrr juniper3 network 2
@@ -24,7 +24,7 @@ cat >> /etc/hosts <<EOF
 2001:db8:2::12 juniper2
 2001:db8:2::13 juniper3
 EOF
-ip addr add $(getent hosts $uts | awk '{print $1}')/64 dev eth0
+ip addr add $(getent hosts $uts | awk '{print $1}')/64 dev eth1
 
 export PATH=/mnt/lab/venv/bin:$PATH
 export MANPATH=/mnt/lab/venv/share/man
@@ -45,7 +45,7 @@ case $uts in
         #salt '*' test.version
         ;;
     salt-proxy)
-        ip addr add 2001:db8:2::1/64 dev eth1
+        ip addr add 2001:db8:2::1/64 dev eth2
         ln -s /mnt/lab/salt/proxy /etc/salt/.
         service salt-proxy --proxyid juniper1 -d
         service salt-proxy --proxyid juniper2 -d
