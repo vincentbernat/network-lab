@@ -1,0 +1,2 @@
+master: salt-master
+multiprocessing: False

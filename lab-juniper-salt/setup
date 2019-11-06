@@ -1,0 +1,54 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Install Salt in a virtualenv
+if [ x$STATE != xSETUP ]; then
+    virtualenv -p $(which python3) venv
+    venv/bin/pip install -v salt
+fi
+
+MEM=512M spawn vm salt-master network  1
+MEM=512M spawn vm salt-proxy  networks 1,2
+spawn juniper-vrr juniper1 network 2
+spawn juniper-vrr juniper2 network 2
+spawn juniper-vrr juniper3 network 2
+
+run
+
+cat >> /etc/hosts <<EOF
+2001:db8:1::10 salt-master
+2001:db8:1::11 salt-proxy
+2001:db8:2::11 juniper1
+2001:db8:2::12 juniper2
+2001:db8:2::13 juniper3
+EOF
+ip addr add $(getent hosts $uts | awk '{print $1}')/64 dev eth0
+
+export PATH=/mnt/lab/venv/bin:$PATH
+export MANPATH=/mnt/lab/venv/share/man
+mkdir -p /etc/salt
+mount -t tmpfs tmpfs /etc/salt
+
+case $uts in
+    salt-master)
+        # Start salt-master
+        ln -s /mnt/lab/salt/master /etc/salt/.
+        ln -s /mnt/lab/salt/pillar /etc/salt/.
+        service salt-master -d
+        # Accept pending keys
+        sleep 30
+        salt-key -L
+        salt-key -A
+        # Check everything works as expected
+        #salt '*' test.version
+        ;;
+    salt-proxy)
+        ip addr add 2001:db8:2::1/64 dev eth1
+        ln -s /mnt/lab/salt/proxy /etc/salt/.
+        service salt-proxy --proxyid juniper1 -d
+        service salt-proxy --proxyid juniper2 -d
+        service salt-proxy --proxyid juniper3 -d
+        ;;
+esac
