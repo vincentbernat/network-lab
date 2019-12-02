@@ -145,8 +145,8 @@ done
 set -x
 sysctl -qw net.ipv6.route.gc_interval=7200
 sysctl -qw net.ipv6.route.gc_min_interval=7200
-sysctl -qw net.ipv6.route.gc_thresh=1000000
-sysctl -qw net.ipv6.route.max_size=1000000
+sysctl -qw net.ipv6.route.gc_thresh=1000000 # avoid GC
+sysctl -qw net.ipv6.route.max_size=1000000  # avoid GC
 insmod /kbench_mod.ko
 echo 100000 > /sys/kernel/kbench/loop_count
 cat /proc/version | tee /dev/ttyS1
