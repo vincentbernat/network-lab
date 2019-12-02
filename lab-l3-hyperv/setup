@@ -278,12 +278,11 @@ EOF
         # forwarding needs to be enabled.
         sysctl -qw net.ipv6.conf.all.forwarding=1
 
-        # IPv6 maximum number of routes is ridiculously low. We don't
+        # IPv6 route cache sizing is ridiculously low. We don't
         # care for this lab, but this is important to know. Do not
         # bump this limit too much, it's possible to run a DoS attack
         # growing the cache to its maximum size (see CVE-2018-19299).
-        # 512k routes will take around 256 MB of memory.
-        sysctl -qw net.ipv6.route.max_size=524288
+        sysctl -qw net.ipv6.route.max_size=262144
 
         service bird
 
