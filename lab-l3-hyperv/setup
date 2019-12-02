@@ -278,11 +278,12 @@ EOF
         # forwarding needs to be enabled.
         sysctl -qw net.ipv6.conf.all.forwarding=1
 
-        # IPv6 route cache sizing is ridiculously low. We don't
-        # care for this lab, but this is important to know. Do not
-        # bump this limit too much, it's possible to run a DoS attack
-        # growing the cache to its maximum size (see CVE-2018-19299).
-        sysctl -qw net.ipv6.route.max_size=262144
+        # IPv6 route cache sizing is low (4096). However, it is only
+        # used for PMTU exceptions. You can monitor its current value
+        # by looking at the before-last value in /proc/net/rt6_stats.
+        # If it reaches the limit in normal use, consider increasing
+        # the route cache size.
+        #  sysctl -qw net.ipv6.route.max_size=65536
 
         service bird
 
