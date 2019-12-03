@@ -1,0 +1,40 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm H  networks 1,3
+spawn vm R1 networks 1,2
+spawn vm R2 networks 3,4
+spawn vm S  networks 2,4
+
+run
+
+case $uts in
+    H)
+        ip addr add 203.0.113.0/31 dev eth0
+        ip addr add 203.0.113.2/31 dev eth1
+        ip route add 203.0.113.255/32 nexthop via 203.0.113.1 nexthop via 203.0.113.3
+        sysctl -qw net.ipv4.fib_multipath_hash_policy=1
+        ;;
+    R1)
+        ip addr add 203.0.113.1/31 dev eth0
+        ip addr add 203.0.113.5/31 dev eth1
+        ip route add 203.0.113.255/32 via 203.0.113.4
+        sysctl -qw net.ipv4.ip_forward=1
+        ;;
+    R2)
+        ip addr add 203.0.113.3/31 dev eth0
+        ip addr add 203.0.113.7/31 dev eth1
+        ip route add 203.0.113.255/32 via 203.0.113.6
+        sysctl -qw net.ipv4.ip_forward=1
+        ;;
+    S)
+        ip addr add 203.0.113.4/31 dev eth0
+        ip addr add 203.0.113.6/31 dev eth1
+        ip addr add 203.0.113.255/32 dev lo
+        ip route add 203.0.113.0/32 via 203.0.113.5
+        ip route add 203.0.113.2/32 via 203.0.113.7
+        service nginx
+        ;;
+esac
