@@ -22,12 +22,14 @@ case $uts in
         ip addr add 203.0.113.5/31 dev eth1
         ip route add 203.0.113.255/32 via 203.0.113.4
         sysctl -qw net.ipv4.ip_forward=1
+        tcpdump -pni eth0 "tcp[tcpflags] & (tcp-syn|tcp-ack) == tcp-syn" || true
         ;;
     R2)
         ip addr add 203.0.113.3/31 dev eth0
         ip addr add 203.0.113.7/31 dev eth1
         ip route add 203.0.113.255/32 via 203.0.113.6
         sysctl -qw net.ipv4.ip_forward=1
+        tcpdump -pni eth0 "tcp[tcpflags] & (tcp-syn|tcp-ack) == tcp-syn" || true
         ;;
     S)
         ip addr add 203.0.113.4/31 dev eth0
