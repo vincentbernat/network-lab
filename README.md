@@ -44,7 +44,7 @@ You may need to uncomment `/dev/shm` line in
 
 The `./setup` script takes a Linux kernel as first argument. Have a
 look at
-[eudyptula-boot](https://github.com/torvalds/linux/commit/4c7e8084fd467ddb2b0e6c6011f9c1064afb7e56)'s
+[eudyptula-boot](https://github.com/vincentbernat/eudyptula-boot/blob/master/minimal-configuration)'s
 `minimal-configuration` script to compile a kernel that should work
 with the lab as well.
 
