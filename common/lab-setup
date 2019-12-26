@@ -556,18 +556,12 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
      -mon chardev=con0,mode=readline \
      \
-     -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT} \
-     -device virtio-9p-pci,id=fs-root,fsdev=fsdev-root,mount_tag=rootshare \
-     -fsdev local,security_model=none,id=fsdev-home,path=${HOME} \
-     -device virtio-9p-pci,id=fs-home,fsdev=fsdev-home,mount_tag=homeshare \
-     -fsdev local,security_model=none,id=fsdev-lab,path=${PWD} \
-     -device virtio-9p-pci,id=fs-lab,fsdev=fsdev-lab,mount_tag=labshare \
-     -fsdev local,security_model=none,id=fsdev-common,path=${PWD}/../common,readonly \
-     -device virtio-9p-pci,id=fs-common,fsdev=fsdev-common,mount_tag=commonshare \
-     -fsdev local,security_model=none,id=fsdev-tmp,path=${TMP} \
-     -device virtio-9p-pci,id=fs-tmp,fsdev=fsdev-tmp,mount_tag=tmpshare \
-     -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/..,readonly \
-     -device virtio-9p-pci,id=fs-modules,fsdev=fsdev-modules,mount_tag=moduleshare \
+     -virtfs local,security_model=passthrough,path=${ROOT},multidevs=remap,mount_tag=rootshare \
+     -virtfs local,security_model=none,path=${HOME},multidevs=remap,mount_tag=homeshare \
+     -virtfs local,security_model=none,path=${PWD},multidevs=remap,mount_tag=labshare \
+     -virtfs local,security_model=none,path=${PWD}/../common,readonly,multidevs=remap,mount_tag=commonshare \
+     -virtfs local,security_model=none,path=${TMP},multidevs=remap,mount_tag=tmpshare \
+     -virtfs local,security_model=none,path=${MODULES}/..,readonly,multidevs=remap,mount_tag=moduleshare \
      \
      -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
      -kernel $KERNEL \
