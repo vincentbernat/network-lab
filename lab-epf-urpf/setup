@@ -1,0 +1,97 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm C1 network 1
+spawn vm C2 network 2
+spawn vm C3 network 3
+spawn vm AS64500 networks 1,4,5,6
+spawn vm AS64501 networks 4,7
+spawn vm AS64502 networks 5,8
+spawn vm AS64503 networks 6,9
+spawn vm AS64504 networks 3,10
+spawn vm AS64510 networks 2,7,8,9,10
+
+run
+
+case $uts in
+    C*)
+        ip -6 addr add 2001:db8:${uts#C}::100/64 dev eth0
+        ip -6 route add default via 2001:db8:${uts#C}::1
+        case $uts in
+            C1)
+                # Special prefixes advertised for this customer
+                ip -6 addr add 2001:db8:1d1::1/128 dev dummy0
+                ip -6 addr add 2001:db8:1d2::1/128 dev dummy0
+                ip -6 addr add 2001:db8:1d3::1/128 dev dummy0
+                ;;
+            C3)
+                # IP address spoofing
+                ip -6 addr add 2001:db8:1d2::1/128 dev dummy0
+                ;;
+        esac
+        service nginx
+        ;;
+    AS64500)
+        ip -6 addr add 2001:db8:1::1/64 dev eth0
+        ip -6 addr add 2001:db8:f:1::/127 dev eth1
+        ip -6 addr add 2001:db8:f:2::/127 dev eth2
+        ip -6 addr add 2001:db8:f:3::/127 dev eth3
+        # Exported networks for C1
+        ip -6 route add 2001:db8:1d1::/48 via 2001:db8:1::100
+        ip -6 route add 2001:db8:1d2::/48 via 2001:db8:1::100
+        ip -6 route add 2001:db8:1d3::/48 via 2001:db8:1::100
+        # Routing
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        service bird
+        ;;
+    AS64501|AS64502|AS64503)
+        ip -6 addr add 2001:db8:f:${uts#AS6450}::1/127 dev eth0
+        ip -6 addr add 2001:db8:f:${uts#AS6450}::601/127 dev eth1
+        # Routing
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        service bird
+        ;;
+    AS64504)
+        ip -6 addr add 2001:db8:3::1/64 dev eth0
+        ip -6 addr add 2001:db8:f:4::601/127 dev eth1
+        # Exported networks for C3
+        ip -6 route add blackhole 2001:db8:3::/48
+        # Routing
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        service bird
+        ;;
+    AS64510)
+        ip -6 addr add 2001:db8:2::1/64 dev eth0
+        ip -6 addr add 2001:db8:f:1::600/127 dev eth1
+        ip -6 addr add 2001:db8:f:2::600/127 dev eth2
+        ip -6 addr add 2001:db8:f:3::600/127 dev eth3
+        ip -6 addr add 2001:db8:f:4::600/127 dev eth4
+        # Exported networks for C2
+        ip -6 route add blackhole 2001:db8:2::/48
+        # uRPF (not working)
+        ip6tables -t raw -N RPFILTER
+        # Loose mode: this will work but it is not very useful
+        # ip6tables -t raw -A RPFILTER -m rpfilter --loose -j RETURN
+        # Strict mode: this doesn't work
+        ip6tables -t raw -A RPFILTER -m rpfilter -j RETURN
+        ip6tables -t raw -A RPFILTER -m rpfilter --accept-local -m addrtype --dst-type MULTICAST -j DROP
+        ip6tables -t raw -A RPFILTER -m limit --limit 5/s --limit-burst 5 \
+                  -j LOG --log-prefix "NF: rpfilter: " --log-level warning
+        ip6tables -t raw -A RPFILTER -j DROP
+        ip6tables -t raw -A PREROUTING -i eth1 -j RPFILTER
+        ip6tables -t raw -A PREROUTING -i eth2 -j RPFILTER
+        ip6tables -t raw -A PREROUTING -i eth3 -j RPFILTER
+        ip6tables -t raw -A PREROUTING -i eth4 -j RPFILTER
+        # Routing
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        service bird
+        ;;
+esac
+
+# Local Variables:
+# mode: sh
+# indent-tabs-mode: nil
+# sh-basic-offset: 4
+# End:
