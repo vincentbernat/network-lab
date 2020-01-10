@@ -547,6 +547,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -m ${MEM:-128M} \
      -cpu host \
      -smp ${CPUS:-1} \
+     -device virtio-rng \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
@@ -627,6 +628,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -m ${MEM:-256M} \
      -cpu host \
      -smp ${CPUS:-1} \
+     -device virtio-rng \
      \
      -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server,nowait \
      -device isa-serial,chardev=charserial1,id=serial1 \
@@ -691,6 +693,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -display none \
      -m ${MEM:-1G} \
      -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VRR \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/junos-$name.img,if=ide,media=disk \
@@ -764,6 +767,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -display none \
      -m ${MEM:-1G} \
      -cpu host \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/junos-$name-re.img,if=ide,media=disk \
@@ -807,6 +811,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -display none \
      -cpu host,level=9,-avx2 \
      -m ${MEM:-1G} \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/junos-$name-pfe.img,if=ide,media=disk \
@@ -878,6 +883,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -m ${MEM:-1G} \
      -cpu host \
      -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VQFX \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/junos-$name-re.img,if=ide,media=disk \
@@ -935,6 +941,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -smp cpus=$vcpus \
      -cpu host \
      -m ${MEM:-3G} \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/junos-$name-pfe.img,if=ide,media=disk \
@@ -1000,6 +1007,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -cpu host \
      -smp cpus=2 \
      -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VSRX \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/junos-$name.img,if=ide,media=disk \
@@ -1051,6 +1059,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -smbios 'type=0,vendor=,version=' \
      -smbios 'type=1,product=,version=' \
      -m ${MEM:-512M} \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/junos-$name.img,if=ide,media=disk \
@@ -1124,6 +1133,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-512M} \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/cumulus-$name.img,if=ide,media=disk \
@@ -1209,6 +1219,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -display none \
      -m ${MEM:-4G} \
      -cpu host \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/cisco-$name.img,if=ide,media=disk \
@@ -1327,6 +1338,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -display none \
      -m ${MEM:-1G} \
      -cpu host \
+     -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/hp-$name.img,if=ide,media=disk \
