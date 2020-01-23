@@ -1,9 +1,7 @@
 #!/bin/sh
 
-LABNAME="bridge-linux"
-
-#VARIANT=bridge
-VARIANT=restricted-bridge
+VARIANT=bridge
+#VARIANT=restricted-bridge
 #VARIANT=macvtap
 
 cd "$(dirname "$(readlink -f "$0")")"

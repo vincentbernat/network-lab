@@ -1,0 +1,6 @@
+table netdev firewall {
+  chain ingress {
+    type filter hook ingress device br0 priority 0; policy drop;
+    log
+  }
+}
