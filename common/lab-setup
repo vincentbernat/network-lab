@@ -406,6 +406,7 @@ setup_initrd () {
 
     # Configure busybox
     for applet in $(${DESTDIR}/bin/busybox --list); do
+        [ $applet != busybox ] || continue
         ln -s busybox ${DESTDIR}/bin/${applet}
     done
 
