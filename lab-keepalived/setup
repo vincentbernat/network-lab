@@ -1,0 +1,19 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm R1 network 1
+spawn vm R2 network 1
+
+run
+
+# Executed on each VM
+case $uts in
+    R1) ip addr add 10.234.78.65/27 dev eth0 ;;
+    R2) ip addr add 10.234.78.66/27 dev eth0 ;;
+esac
+template keepalived.Rx.conf keepalived.$uts.conf priority=$((100 + ${uts#R}))
+service keepalived -P -f $PWD/keepalived.$uts.conf
+service nginx
