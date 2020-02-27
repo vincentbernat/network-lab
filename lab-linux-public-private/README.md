@@ -17,9 +17,27 @@ $ curl --interface 2606:4700:4700::1111 http://'[2001:db8::11]'
 mixed2
 ```
 
+Also, from `mixed1`:
+
+```console
+$ curl http://203.0.113.11
+mixed2
+$ curl http://'[2001:db8::11]'
+mixed2
+```
+
+And from `mixed2`:
+
+```console
+$ ip vrf exec public curl http://203.0.113.10
+mixed1
+$ ip vrf exec public curl http://'[2001:db8::10]'
+mixed1
+```
+
 For nginx to listen on public, there are several solutions.
 
-1. Allow 0.0.0.0 / :: to be bound accross VRF:
+1. Allow `0.0.0.0` and `::` to be bound accross VRF:
 
 ```sh
 sysctl -w net.ipv4.tcp_l3mdev_accept=1

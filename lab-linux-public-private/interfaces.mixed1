@@ -11,9 +11,11 @@ iface eth1 inet static
   address 203.0.113.10/24
   pre-up ip rule add from 203.0.113.10 table 90
   post-down ip rule del from 203.0.113.10 table 90
+  up ip route add 203.0.113.0/24 dev $IFACE table 90
   up ip route add default via 203.0.113.1 table 90
 iface eth1 inet6 static
   address 2001:db8::10/24
   pre-up ip -6 rule add from 2001:db8::10 table 90
   post-down ip -6 rule del from 2001:db8::10 table 90
+  up ip -6 route add 2001:db8::1/64 dev $IFACE table 90
   up ip -6 route add default via 2001:db8::1 table 90
