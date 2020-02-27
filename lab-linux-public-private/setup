@@ -1,0 +1,70 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm private network 1
+spawn vm public network 2
+spawn vm mixed1 network 1,2
+spawn vm mixed2 network 1,2
+
+run
+
+# Executed on each VM
+case $uts in
+    private)
+        ip addr add 10.234.78.1/24 dev eth0
+        ip addr add 2001:db8:ff::1/64 dev eth0
+        ip addr add 192.168.1.1/32 dev lo
+        ip addr add 2001:db8:cafe::1/128 dev lo
+        ;;
+    public)
+        ip addr add 203.0.113.1/24 dev eth0
+        ip addr add 2001:db8::1/64 dev eth0
+        ip addr add 1.1.1.1/32 dev lo
+        ip addr add 2606:4700:4700::1111/128 dev lo
+        ;;
+    mixed1)
+        # Using manual ip rules
+        # Private
+        ip addr add 10.234.78.10/24 dev eth0
+        ip addr add 2001:db8:ff::10/64 dev eth0
+        ip route add default via 10.234.78.1
+        ip -6 route add default via 2001:db8:ff::1
+        # Public
+        ip addr add 203.0.113.10/24 dev eth1
+        ip addr add 2001:db8::10/64 dev eth1
+        ip rule add from 203.0.113.10 table 90
+        ip -6 rule add from 2001:db8::10/64 table 90
+        ip route add default via 203.0.113.1 table 90
+        ip -6 route add default via 2001:db8::1 table 90
+        ;;
+    mixed2)
+        # Using VRF
+        # Private
+        ip addr add 10.234.78.11/24 dev eth0
+        ip addr add 2001:db8:ff::11/64 dev eth0
+        ip route add default via 10.234.78.1
+        ip -6 route add default via 2001:db8:ff::1
+        # Public
+        ip link add public type vrf table 90
+        ip link set up dev public
+        ip link set master public dev eth1
+        ip addr add 203.0.113.11/24 dev eth1
+        ip addr add 2001:db8::11/64 dev eth1
+        ip route add default via 203.0.113.1 table 90
+        ip -6 route add default via 2001:db8::1 table 90
+        # For nginx to listen on public, there are several solutions.
+        # 1. Allow 0.0.0.0 / :: to be bound accross VRF:
+        sysctl -w net.ipv4.tcp_l3mdev_accept=1
+        # 2. Make nginx bind on public IP and use IP_FREEBIND option
+        # (not available on nginx)
+        # 3. Make nginx bind on public IP and use net.ipv4.ip_nonlocal_bind sysctl.
+        # sysctl -w net.ipv4.ip_nonlocal_bind=1
+        # sysctl -w net.ipv6.ip_nonlocal_bind=1
+        # 4. Execute nginx in public vrf (making it bound only on public IP addresses)
+        # ip vrf exec public nginx -c ...
+        ;;
+esac
+service nginx
