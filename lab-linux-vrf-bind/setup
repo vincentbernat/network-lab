@@ -1,0 +1,25 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm H1 network 1,2
+spawn vm H2 network 1,2
+
+run
+
+ip addr add 10.234.65.1${uts#H}/24 dev eth0
+ip addr add 2001:db8:ff::1${uts#H}/64 dev eth0
+ip link add public type vrf table 90
+ip link set up dev public
+ip link set master public dev eth1
+ip addr add 203.0.113.1${uts#H}/24 dev eth1
+ip addr add 2001:db8::1${uts#H}/64 dev eth1
+case $uts in
+    H2)
+        # Make nginx able to listen on both VRF
+        sysctl -qw net.ipv4.tcp_l3mdev_accept=1
+        service nginx
+        ;;
+esac
