@@ -31,6 +31,10 @@ case $uts in
             ip link add name bond0.${vlan} link bond0 type vlan id ${vlan}
             ip link set up dev bond0.${vlan}
             ip addr add 172.27.${vlan}.10/24 dev bond0.${vlan}
+            # This doesn't help
+            # ip neigh replace 172.27.${vlan}.1 lladdr 16:50:15:00:02:${vlan} dev bond0.${vlan}
         done
+
+        service bird
         ;;
 esac
