@@ -807,7 +807,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -enable-kvm \
      -no-user-config -nodefaults \
      -display none \
-     -cpu host,level=9,-avx2 \
+     -cpu host,level=9,-avx2,-vmx \
      -m ${MEM:-1G} \
      -device virtio-rng \
      \
