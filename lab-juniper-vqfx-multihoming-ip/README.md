@@ -17,3 +17,6 @@ $ fping  172.27.{7,8,9,10,11,12,13,14,15}.1 2> /dev/null
 172.27.12.1 is unreachable
 172.27.14.1 is unreachable
 ```
+
+For some reasons, BGP sessions are able to be established while fping
+cannot work.
