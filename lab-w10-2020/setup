@@ -1,0 +1,35 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm R1 network 1,2
+spawn vm H1 network 1,2
+
+run
+
+# Executed on each VM
+case $uts in
+    R1)
+        ip link add vmbr101 type bridge
+        ip link add vmbr666 type bridge
+        ip link set master vmbr101 dev eth0
+        ip link set master vmbr666 dev eth1
+        ip link set up dev vmbr101
+        ip link set up dev vmbr666
+        ip addr add 172.28.65.254/23 dev vmbr101
+        ip addr add 203.0.113.254/24 dev vmbr666
+        ip addr add 1.1.1.1/32 dev dummy0
+        ip addr add 172.28.1.1/32 dev dummy0
+        ;;
+    H1)
+        ip addr add 172.28.64.94/23 dev eth0
+        ip route add default via 172.28.65.254
+        ip addr add 203.0.113.50/32 dev lo
+        ip rule add from 203.0.113.50 table 90
+        ip route add 203.0.113.0/24 dev eth1 table 90
+        ip route add default via 203.0.113.254 table 90
+        ;;
+esac
+service nginx
