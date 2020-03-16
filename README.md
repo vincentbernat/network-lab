@@ -38,10 +38,13 @@ Buster:
     EOF
     sudo schroot -c lab apt install \
         qemu-system-x86 sudo tmux busybox ssh vde2 python3 binutils \
-        dosfstools mtools ansible
+        dosfstools mtools ansible jq linux-image-amd64 nginx
 
 You may need to uncomment `/dev/shm` line in
-`/etc/schroot/default/fstab`. Then, run `schroot -c lab ./setup`.
+`/etc/schroot/default/fstab`. You also have to add yourself to `kvm`
+group (`sudo adduser $USER kvm`). Then, run:
+
+    schroot -c lab ./setup /boot/$(schroot -c lab ls /boot | grep vmlinuz | head -1)
 
 The `./setup` script takes a Linux kernel as first argument. Have a
 look at
