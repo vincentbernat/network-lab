@@ -34,6 +34,7 @@ Buster:
     directory=$PWD/buster
     users=$USER
     shell=$SHELL
+    profile=default
     EOF
     sudo schroot -c lab apt install \
         qemu-system-x86 sudo tmux busybox ssh vde2 python3 binutils \
