@@ -34,6 +34,9 @@ case $uts in
            protocol ip u32 match ip sport 80 0xffff \
            action mirred egress mirror dev erspan1
         sysctl -qw net.ipv6.conf.erspan1.disable_ipv6=1
+        # Avoid creating a backdoor from C1 to R1
+        tc qdisc add dev erspan1 handle ffff: ingress
+        tc filter add dev erspan1 parent ffff: matchall action drop
         ip link set up dev erspan1
         ;;
     C1)
