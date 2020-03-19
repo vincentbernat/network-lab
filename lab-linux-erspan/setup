@@ -41,6 +41,11 @@ case $uts in
         # If we need to accept from any, we cannot set "local" either
         ip link add dev erspan1 type erspan seq key 30 erspan_ver 1 erspan 30
         sysctl -qw net.ipv6.conf.erspan1.disable_ipv6=1
+        # Don't handle any packets received on this interface (we
+        # shouldn't as the MAC address is not the right one, but it's
+        # an extra safety).
+        tc qdisc add dev erspan1 handle ffff: ingress
+        tc filter add dev erspan1 parent ffff: matchall action drop
         ip link set up dev erspan1
         # tcpdump -pni erspan1
         ;;
