@@ -469,8 +469,8 @@ So, to summarize:
 [15]: https://github.com/CumulusNetworks/quagga/issues/28#issuecomment-290329435
 [RFC 7432]: https://tools.ietf.org/html/rfc7432
 [draft-sd-l2vpn-evpn-overlay]: https://tools.ietf.org/html/draft-ietf-bess-evpn-overlay-07
-[blog1]: https://vincent.bernat.im/en/blog/2017-vxlan-linux
-[blog2]: https://vincent.bernat.im/en/blog/2017-vxlan-bgp-evpn
+[blog1]: https://vincent.bernat.ch/en/blog/2017-vxlan-linux
+[blog2]: https://vincent.bernat.ch/en/blog/2017-vxlan-bgp-evpn
 [frr]: https://github.com/FRRouting/frr/
 
 # Other considerations

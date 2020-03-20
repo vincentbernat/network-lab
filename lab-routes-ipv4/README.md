@@ -1,7 +1,7 @@
 # Experiments with Linux IPv4 FIB trie
 
 See
-[IPv4 route lookup on Linux](https://vincent.bernat.im/en/blog/2017-ipv4-route-lookup-linux) for
+[IPv4 route lookup on Linux](https://vincent.bernat.ch/en/blog/2017-ipv4-route-lookup-linux) for
 details.
 
 After inserting routes, see:

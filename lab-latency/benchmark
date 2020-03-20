@@ -419,7 +419,7 @@ def graph(options):
         time = data.time - min(data.time)
     target = "{}.{}".format(os.path.splitext(options.input)[0],
                             options.format)
-    # See: http://vincent.bernat.im/en/blog/2011-plot-benchmark-results-matplotlib.html
+    # See: https://vincent.bernat.ch/en/blog/2011-plot-benchmark-results-matplotlib
     mp.rcParams['font.size'] = 9
     mp.figure(num=None, figsize=(8.27, 11.69), dpi=300)
     mp.suptitle(os.path.splitext(options.input)[0], fontsize=14)

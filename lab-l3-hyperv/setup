@@ -330,7 +330,7 @@ EOF
         done
 
         # Disable any local traffic on the bridge.
-        # See: https://vincent.bernat.im/en/blog/2017-linux-bridge-isolation
+        # See: https://vincent.bernat.ch/en/blog/2017-linux-bridge-isolation
         echo 1 > /sys/class/net/br1/bridge/vlan_filtering
         bridge vlan del dev br1 vid 1 self
 

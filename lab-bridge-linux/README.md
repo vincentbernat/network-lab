@@ -9,7 +9,7 @@ In this lab, we have:
 
 See this [blog post][].
 
-[blog post]: https://vincent.bernat.im/en/blog/2017-linux-bridge-isolation
+[blog post]: https://vincent.bernat.ch/en/blog/2017-linux-bridge-isolation
 
 ## MACVTAP/MACVLAN
 

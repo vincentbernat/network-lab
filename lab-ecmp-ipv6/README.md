@@ -1,5 +1,5 @@
 You can find more complete explanations
-[on my blog](http://vincent.bernat.im/en/blog/2012-network-lab-kvm.html).
+[on my blog](https://vincent.bernat.ch/en/blog/2012-network-lab-kvm).
 
 # Kernel configuration
 

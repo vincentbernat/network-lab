@@ -1,5 +1,5 @@
 From 96573c527be48177b6c7c81ddb499dbe7d203a21 Mon Sep 17 00:00:00 2001
-From: Vincent Bernat <vincent@bernat.im>
+From: Vincent Bernat <vincent.bernat.ch>
 Date: Sun, 30 Jul 2017 17:22:36 +0200
 Subject: [PATCH] netlink: ignore unknown attributes
 
