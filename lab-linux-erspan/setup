@@ -19,6 +19,7 @@ case $uts in
     H2)
         ip addr add 8.8.8.8/24 dev eth0
         ip route add default via 8.8.8.1
+        service nginx
         ;;
     R1)
         ip addr add 203.0.113.1/24 dev eth0
@@ -33,24 +34,20 @@ case $uts in
         tc filter add dev eth1 parent ffff: \
            protocol ip u32 match ip sport 80 0xffff \
            action mirred egress mirror dev erspan1
-        sysctl -qw net.ipv6.conf.erspan1.disable_ipv6=1
-        # Avoid creating a backdoor from C1 to R1
-        tc qdisc add dev erspan1 handle ffff: ingress
-        tc filter add dev erspan1 parent ffff: matchall action drop
-        ip link set up dev erspan1
         ;;
     C1)
         ip addr add 10.1.2.11/24 dev eth0
-        # If we need to accept from any, we cannot set "local" either
+        # ERSPAN: if we need to accept from any, we cannot set "local" either
         ip link add dev erspan1 type erspan seq key 30 erspan_ver 1 erspan 30
-        sysctl -qw net.ipv6.conf.erspan1.disable_ipv6=1
-        # Don't handle any packets received on this interface (we
-        # shouldn't as the MAC address is not the right one, but it's
-        # an extra safety).
-        tc qdisc add dev erspan1 handle ffff: ingress
-        tc filter add dev erspan1 parent ffff: matchall action drop
-        ip link set up dev erspan1
-        # tcpdump -pni erspan1
         ;;
 esac
-service nginx
+case $uts in
+    R1|C1)
+        # Avoid processing traffic on this interface
+        sysctl -qw net.ipv6.conf.erspan1.disable_ipv6=1
+        tc qdisc add dev erspan1 handle ffff: ingress
+        tc filter add dev erspan1 parent ffff: matchall action drop
+        # Set interface up
+        ip link set up dev erspan1
+        ;;
+esac
