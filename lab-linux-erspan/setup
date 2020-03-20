@@ -5,9 +5,9 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 # Which VM to spawn
 spawn vm H1 network 1
-spawn vm R1 network 1,2,3
 spawn vm H2 network 2
-spawn vm C1 network 3
+spawn vm router    networks 1,2,3
+spawn vm collector network  3
 
 run
 
@@ -21,7 +21,7 @@ case $uts in
         ip route add default via 8.8.8.1
         service nginx
         ;;
-    R1)
+    router)
         ip addr add 203.0.113.1/24 dev eth0
         ip addr add 8.8.8.1/24 dev eth1
         ip addr add 10.1.2.10/24 dev eth2
@@ -35,14 +35,14 @@ case $uts in
            protocol ip u32 match ip sport 80 0xffff \
            action mirred egress mirror dev erspan1
         ;;
-    C1)
+    collector)
         ip addr add 10.1.2.11/24 dev eth0
         # ERSPAN: if we need to accept from any, we cannot set "local" either
         ip link add dev erspan1 type erspan seq key 30 erspan_ver 1 erspan 30
         ;;
 esac
 case $uts in
-    R1|C1)
+    router|collector)
         # Avoid processing traffic on this interface
         sysctl -qw net.ipv6.conf.erspan1.disable_ipv6=1
         tc qdisc add dev erspan1 handle ffff: ingress
