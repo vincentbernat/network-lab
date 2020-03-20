@@ -22,4 +22,15 @@ with the tunnel from the router, you can easily send packets:
     ip neigh add 8.8.8.1 lladdr 3e:28:aa:da:53:51 dev erspan1
     ping 8.8.8.1
 
-An easy solution is to ask tc to drop any incoming traffic.
+An easy solution is to ask tc to drop any incoming traffic. For a more
+complete solution, have a look at [Proper isolation of a Linux
+bridge][]. The solutions are the same, except there is no
+device-specific protocol handler, so you can't use bridge-specific
+solutions. Remaining are:
+
+ - generic XDP
+ - ingress policy (with tc or nftables)
+ - namespaces
+ - protocol-dependent workarounds
+
+[Proper isolation of a Linux bridge]: https://vincent.bernat.ch/en/blog/2017-linux-bridge-isolation
