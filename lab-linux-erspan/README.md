@@ -28,8 +28,8 @@ bridge][]. The solutions are the same, except there is no
 device-specific protocol handler, so you can't use bridge-specific
 solutions. Remaining are:
 
- - generic XDP
- - ingress policy (with tc or nftables)
+ - generic XDP (see `xdp_drop_all.c`, but that's too early)
+ - ingress policy (with tc or nftables, see `setup`)
  - namespaces
  - protocol-dependent workarounds
 
