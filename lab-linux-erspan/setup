@@ -37,8 +37,7 @@ case $uts in
         ;;
     collector)
         ip addr add 10.1.2.11/24 dev eth0
-        # ERSPAN: if we need to accept from any, we cannot set "local" either
-        ip link add dev erspan1 type erspan seq key 30 erspan_ver 1 erspan 30
+        ip link add dev erspan1 type erspan seq key 30 erspan_ver 1 erspan 30 local 10.1.2.11
         ;;
 esac
 case $uts in
