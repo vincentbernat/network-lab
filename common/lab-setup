@@ -842,6 +842,10 @@ start_juniper_vmx () {
     add_ssh_config $NAME $ssh juniper
     netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=pfe"
     netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=pfe"  # PFE
+    nbports=0
+    for net in $NET; do
+        nbports=$((nbports + 1))
+    done
     cat <<EOF > "$TMP/vm-$name-re.exec"
 #!/bin/sh
 printf "\e]2;$name\a"
@@ -859,6 +863,7 @@ interfaces {
 chassis {
   fpc 0 {
     protect: lite-mode;
+    protect: pic 0 number-of-ports ${nbports};
     # protect: interface-type xe;
   }
 }
