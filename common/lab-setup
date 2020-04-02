@@ -903,14 +903,13 @@ EOF
     tmux_resize $name/RE 80 24
 
     log_info_msg "Start Juniper vMX $name (PFE)"
-    vcpus=3
+    vcpus=4
     netargs=""
     netargs="$netargs -device virtio-net-pci,mac=$(mac_address)" # OOB (unused)
     netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=re"
     netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=re"  # RE
     for net in $NET; do
         mac=$(mac_address)
-        vcpus=$((vcpus + 1))
         netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
         netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
     done
