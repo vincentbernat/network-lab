@@ -20,6 +20,22 @@ case $uts in
         ip addr add 203.0.113.0/31 dev eth0
         ip addr add 203.0.113.2/31 dev eth1
         ip addr add 203.0.113.4/31 dev eth2
+        mkdir /mnt/lower /mnt/upper /mnt/crpd /mnt/workdir
+        mount -n /dev/vda1 /mnt/lower -o ro
+        mount -n -t overlay overlayfs /mnt/crpd -o lowerdir=/mnt/lower,upperdir=/mnt/upper,workdir=/mnt/workdir
+        mount -n -o bind /proc /mnt/crpd/proc
+        mount -n -o bind /sys /mnt/crpd/sys
+
+        if false; then
+            # To observe what mgd is reading, one can use:
+            bpftrace -e '
+#include <linux/fs.h>
+kprobe:ovl_open
+{
+ printf("open: %s\n", str(((struct file *)arg1)->f_path.dentry->d_name.name));
+}
+'
+        fi
         ;;
     R2)
         ip addr add 203.0.113.1/31 dev eth0
