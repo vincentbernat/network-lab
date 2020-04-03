@@ -1,0 +1,39 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+DISK=${PWD}/../images/crpd.img,read-only
+MEM=768M
+spawn vm R1 networks 1,2,3
+#spawn vm R2 networks 1,4,5
+#spawn vm R3 networks 5,2,6
+#spawn vm R4 networks 6,4,3
+
+run
+
+# Executed on each VM
+
+case $uts in
+    R1)
+        ip addr add 203.0.113.0/31 dev eth0
+        ip addr add 203.0.113.2/31 dev eth1
+        ip addr add 203.0.113.4/31 dev eth2
+        ;;
+    R2)
+        ip addr add 203.0.113.1/31 dev eth0
+        ip addr add 203.0.113.6/31 dev eth1
+        ip addr add 203.0.113.8/31 dev eth2
+        ;;
+    R3)
+        ip addr add 203.0.113.9/31 dev eth0
+        ip addr add 203.0.113.3/31 dev eth1
+        ip addr add 203.0.113.10/31 dev eth2
+        ;;
+    R4)
+        ip addr add 203.0.113.11/31 dev eth0
+        ip addr add 203.0.113.7/31 dev eth1
+        ip addr add 203.0.113.5/31 dev eth2
+        ;;
+esac
