@@ -21,10 +21,15 @@ case $uts in
         ip addr add 2001:db8:2::1/64 dev eth1
         ip addr add 2001:db8:3::1/64 dev eth2
         ip addr add 2001:db8:4::1/64 dev eth3
-        ip route add 192.0.2.1/32 nexthop via 203.0.113.10 nexthop via 203.0.113.70
-        ip route add 192.0.2.2/32 nexthop via 203.0.113.140 nexthop via 203.0.113.200
-        ip route add 2001:db8::1/128 nexthop via 2001:db8:1::10 nexthop via 2001:db8:2::10
-        ip route add 2001:db8::2/128 nexthop via 2001:db8:3::10 nexthop via 2001:db8:4::10
+        # We ensure we have asymmetric paths:
+        #ip route add 192.0.2.1/32 nexthop via 203.0.113.10 nexthop via 203.0.113.70
+        #ip route add 192.0.2.2/32 nexthop via 203.0.113.140 nexthop via 203.0.113.200
+        ip route add 192.0.2.1/32 via 203.0.113.70
+        ip route add 192.0.2.2/32 via 203.0.113.200
+        #ip route add 2001:db8::1/128 nexthop via 2001:db8:1::10 nexthop via 2001:db8:2::10
+        #ip route add 2001:db8::2/128 nexthop via 2001:db8:3::10 nexthop via 2001:db8:4::10
+        ip route add 2001:db8::1/128 via 2001:db8:2::10
+        ip route add 2001:db8::2/128 via 2001:db8:4::10
         sysctl -qw net/ipv4/ip_forward=1
         sysctl -qw net.ipv6.conf.all.forwarding=1
         ;;
