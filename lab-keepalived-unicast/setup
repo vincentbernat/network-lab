@@ -34,11 +34,6 @@ case $uts in
         sysctl -qw net.ipv6.conf.all.forwarding=1
         ;;
     K1)
-        ip link add name k1 type veth peer name k2
-        ip link set arp off dev k1
-        ip link set arp off dev k2
-        ip link set up dev k1
-        ip link set up dev k2
         ip addr add 203.0.113.10/26 dev eth0
         ip addr add 203.0.113.70/26 dev eth1
         ip addr add 192.0.2.1/32 dev lo
@@ -50,11 +45,6 @@ case $uts in
         keepalived -P -f $PWD/keepalived.$uts.conf
         ;;
     K2)
-        ip link add name k1 type veth peer name k2
-        ip link set arp off dev k1
-        ip link set arp off dev k2
-        ip link set up dev k1
-        ip link set up dev k2
         ip addr add 203.0.113.140/26 dev eth0
         ip addr add 203.0.113.200/26 dev eth1
         ip addr add 192.0.2.2/32 dev lo
