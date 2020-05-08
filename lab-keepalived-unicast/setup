@@ -4,34 +4,50 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 # Which VM to spawn
-spawn vm K1 network 1
-spawn vm K2 network 2
-spawn vm R1 network 1,2
+spawn vm K1 network 1,2
+spawn vm K2 network 3,4
+spawn vm R1 network 1,2,3,4
 
 run
 
 # Executed on each VM
 case $uts in
     R1)
-        ip addr add 203.0.113.1/25 dev eth0
-        ip addr add 203.0.113.129/25 dev eth1
+        ip addr add 203.0.113.1/26 dev eth0
+        ip addr add 203.0.113.65/26 dev eth1
+        ip addr add 203.0.113.129/26 dev eth2
+        ip addr add 203.0.113.193/26 dev eth3
         ip addr add 2001:db8:1::1/64 dev eth0
         ip addr add 2001:db8:2::1/64 dev eth1
+        ip addr add 2001:db8:3::1/64 dev eth2
+        ip addr add 2001:db8:4::1/64 dev eth3
+        ip route add 192.0.2.1/32 nexthop via 203.0.113.10 nexthop via 203.0.113.70
+        ip route add 192.0.2.2/32 nexthop via 203.0.113.140 nexthop via 203.0.113.200
+        ip route add 2001:db8::1/128 nexthop via 2001:db8:1::10 nexthop via 2001:db8:2::10
+        ip route add 2001:db8::2/128 nexthop via 2001:db8:3::10 nexthop via 2001:db8:4::10
         sysctl -qw net/ipv4/ip_forward=1
         sysctl -qw net.ipv6.conf.all.forwarding=1
         ;;
     K1)
-        ip addr add 203.0.113.10/25 dev eth0
-        ip route add default via 203.0.113.1
+        ip addr add 203.0.113.10/26 dev eth0
+        ip addr add 203.0.113.70/26 dev eth1
+        ip addr add 192.0.2.1/32 dev lo
+        ip route add default nexthop via 203.0.113.1 nexthop via 203.0.113.65
         ip addr add 2001:db8:1::10/64 dev eth0
-        ip -6 route add default via 2001:db8:1::1
+        ip addr add 2001:db8:2::10/64 dev eth1
+        ip addr add 2001:db8::1/128 dev lo
+        ip -6 route add default nexthop via 2001:db8:1::1 nexthop via 2001:db8:2::1
         keepalived -P -f $PWD/keepalived.$uts.conf
         ;;
     K2)
-        ip addr add 203.0.113.140/25 dev eth0
-        ip route add default via 203.0.113.129
-        ip addr add 2001:db8:2::10/64 dev eth0
-        ip -6 route add default via 2001:db8:2::1
+        ip addr add 203.0.113.140/26 dev eth0
+        ip addr add 203.0.113.200/26 dev eth1
+        ip addr add 192.0.2.2/32 dev lo
+        ip route add default nexthop via 203.0.113.129 nexthop via 203.0.113.193
+        ip addr add 2001:db8:3::10/64 dev eth0
+        ip addr add 2001:db8:4::10/64 dev eth1
+        ip addr add 2001:db8::2/128 dev lo
+        ip -6 route add default nexthop via 2001:db8:3::1 nexthop via 2001:db8:4::1
         keepalived -P -f $PWD/keepalived.$uts.conf
         ;;
 esac
