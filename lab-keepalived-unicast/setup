@@ -44,6 +44,8 @@ case $uts in
         ;;
     K*)
         n=$((${uts#K} - 1))
+        max=3
+        # Routing
         ip addr add 203.0.113.$((n*64+10))/27 dev eth0
         ip addr add 203.0.113.$((n*64+42))/27 dev eth1
         ip addr add 192.0.2.$((n+1))/32 dev lo
@@ -52,7 +54,22 @@ case $uts in
         ip addr add 2001:db8:$((n*2+2))::10/64 dev eth1
         ip addr add 2001:db8::$((n+1))/128 dev lo
         ip -6 route add default nexthop via 2001:db8:$((n*2+1))::1 nexthop via 2001:db8:$((n*2+2))::1
-        template keepalived.Kx.conf keepalived.$uts.conf priority=$((101-n)) me=$((n+1)) max=3
+
+        # VXLAN interface. We could have created only one of them, but
+        # we want to test both IPv4 and IPv6.
+        ip -4 link add keepalived4 type vxlan id 4 dstport 4789 local 192.0.2.$((n+1)) nolearning
+        ip -6 link add keepalived6 type vxlan id 6 dstport 4789 local 2001:db8::$((n+1)) nolearning
+        for i in $(seq 1 $max); do
+            [ $((n+1)) -ne $i ] || continue
+            # Alternatively, we could use 01:00:5e:00:00:12 and 33:33:00:00:00:12
+            bridge fdb append 00:00:00:00:00:00 dev keepalived4 dst 192.0.2.$i
+            bridge fdb append 00:00:00:00:00:00 dev keepalived6 dst 2001:db8::$i
+        done
+        ip link set up dev keepalived4
+        ip link set up dev keepalived6
+
+        # Keepalived
+        template keepalived.Kx.conf keepalived.$uts.conf priority=$((101-n)) me=$((n+1))
         service keepalived -P -f $PWD/keepalived.$uts.conf
         ;;
 esac
