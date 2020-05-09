@@ -6,44 +6,53 @@ cd "$(dirname "$(readlink -f "$0")")"
 # Which VM to spawn
 spawn vm K1 network 1,2
 spawn vm K2 network 3,4
-spawn vm R1 network 1,2,3,4
+spawn vm K3 network 5,6
+spawn vm R1 network 1,2,3,4,5,6
 
 run
 
 # Executed on each VM
 case $uts in
     R1)
-        ip addr add 203.0.113.1/26 dev eth0
-        ip addr add 203.0.113.65/26 dev eth1
-        ip addr add 203.0.113.129/26 dev eth2
-        ip addr add 203.0.113.193/26 dev eth3
+        ip addr add 203.0.113.1/27 dev eth0
+        ip addr add 203.0.113.33/27 dev eth1
+        ip addr add 203.0.113.65/27 dev eth2
+        ip addr add 203.0.113.97/27 dev eth3
+        ip addr add 203.0.113.129/27 dev eth4
+        ip addr add 203.0.113.161/27 dev eth5
         ip addr add 2001:db8:1::1/64 dev eth0
         ip addr add 2001:db8:2::1/64 dev eth1
         ip addr add 2001:db8:3::1/64 dev eth2
         ip addr add 2001:db8:4::1/64 dev eth3
+        ip addr add 2001:db8:5::1/64 dev eth4
+        ip addr add 2001:db8:6::1/64 dev eth5
         # We ensure we have asymmetric paths:
-        #ip route add 192.0.2.1/32 nexthop via 203.0.113.10 nexthop via 203.0.113.70
-        #ip route add 192.0.2.2/32 nexthop via 203.0.113.140 nexthop via 203.0.113.200
-        ip route add 192.0.2.1/32 via 203.0.113.70
-        ip route add 192.0.2.2/32 via 203.0.113.200
+        #ip route add 192.0.2.1/32 nexthop via 203.0.113.10 nexthop via 203.0.113.42
+        #ip route add 192.0.2.2/32 nexthop via 203.0.113.74 nexthop via 203.0.113.106
+        #ip route add 192.0.2.3/32 nexthop via 203.0.113.138 nexthop via 203.0.113.170
+        ip route add 192.0.2.1/32 via 203.0.113.42
+        ip route add 192.0.2.2/32 via 203.0.113.106
+        ip route add 192.0.2.3/32 via 203.0.113.170
         #ip route add 2001:db8::1/128 nexthop via 2001:db8:1::10 nexthop via 2001:db8:2::10
         #ip route add 2001:db8::2/128 nexthop via 2001:db8:3::10 nexthop via 2001:db8:4::10
+        #ip route add 2001:db8::3/128 nexthop via 2001:db8:5::10 nexthop via 2001:db8:6::10
         ip route add 2001:db8::1/128 via 2001:db8:2::10
         ip route add 2001:db8::2/128 via 2001:db8:4::10
-        sysctl -qw net/ipv4/ip_forward=1
+        ip route add 2001:db8::3/128 via 2001:db8:6::10
+        sysctl -qw net.ipv4.ip_forward=1
         sysctl -qw net.ipv6.conf.all.forwarding=1
         ;;
     K*)
         n=$((${uts#K} - 1))
-        ip addr add 203.0.113.$((n*130+10))/26 dev eth0
-        ip addr add 203.0.113.$((n*130+70))/26 dev eth1
+        ip addr add 203.0.113.$((n*64+10))/27 dev eth0
+        ip addr add 203.0.113.$((n*64+42))/27 dev eth1
         ip addr add 192.0.2.$((n+1))/32 dev lo
-        ip route add default nexthop via 203.0.113.$((n*128+1)) nexthop via 203.0.113.$((n*128+65))
+        ip route add default nexthop via 203.0.113.$((n*64+1)) nexthop via 203.0.113.$((n*64+33))
         ip addr add 2001:db8:$((n*2+1))::10/64 dev eth0
         ip addr add 2001:db8:$((n*2+2))::10/64 dev eth1
         ip addr add 2001:db8::$((n+1))/128 dev lo
         ip -6 route add default nexthop via 2001:db8:$((n*2+1))::1 nexthop via 2001:db8:$((n*2+2))::1
-        template keepalived.Kx.conf keepalived.$uts.conf priority=$((101-n)) me=$((n+1)) other=$((2-n))
+        template keepalived.Kx.conf keepalived.$uts.conf priority=$((101-n)) me=$((n+1)) max=3
         service keepalived -P -f $PWD/keepalived.$uts.conf
         ;;
 esac
