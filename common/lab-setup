@@ -1637,6 +1637,7 @@ EOF
         mount --bind /tmp/hosts /etc/hosts
         log_ok_msg "/etc/hosts configured"
 
+        rm -f /etc/machine-id
         mount | grep -q '^devtmpfs' || {
             log_begin_msg "Starting udev"
             udev_log=err
