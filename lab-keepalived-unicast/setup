@@ -69,7 +69,8 @@ case $uts in
         ip link set up dev keepalived6
 
         # Keepalived
+        service snmpd -c $PWD/snmpd.conf
         template keepalived.Kx.conf keepalived.$uts.conf priority=$((101-n)) me=$((n+1))
-        service keepalived -P -f $PWD/keepalived.$uts.conf
+        service keepalived -P -f $PWD/keepalived.$uts.conf -x
         ;;
 esac
