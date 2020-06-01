@@ -8,18 +8,19 @@ spawn vm R1 network 1
 run
 
 ## Large
-# loops=6
-# perloop=12
-# n1=1-9
-# n2=6-5
+loops=6
+perloop=12
+n1=1-9
+n2=6-5
 
 ## Small
-loops=3
-perloop=5
-n1=1-1
-n2=3-2
+# loops=3
+# perloop=5
+# n1=1-1
+# n2=3-2
 
-topology=double-loop
+# topology=orthogonal-loops
+topology=multi-loops
 
 name() {
     case $1 in
@@ -62,15 +63,15 @@ for loop in $(seq 1 $loops); do
         ip link add name br-$(name $loop-$switch) type bridge stp_state 1
         mstpctl addbridge br-$(name $loop-$switch)
         mstpctl settreeprio br-$(name $loop-$switch) 0 $priority
+        ip link set up dev br-$(name $loop-$switch)
     done
 done
 
 case $topology in
-    double-loop)
+    orthogonal-loops)
         # Horizontal links
         for loop in $(seq 1 $loops); do
             for switch in $(seq 1 $perloop); do
-                ip link set up dev br-$(name $loop-$switch)
                 from=$(name $loop-$switch)
                 to=$(name $loop-$((switch%perloop + 1)))
                 link $from $to
@@ -84,5 +85,35 @@ case $topology in
                 link $from $to
             done
         done
+        ;;
+    multi-loops)
+        for loop in $(seq 1 $loops); do
+            # Horizontal links
+            for switch in $(seq 1 $((perloop-1))); do
+                case $(name $loop-$switch) in
+                    n1|n2) ;;
+                    *)
+                        from=$(name $loop-$switch)
+                        to=$(name $loop-$((switch + 1)))
+                        link $from $to
+                        ;;
+                esac
+            done
+            # First non-n1 switch to n1, last non-n2 switch to n2
+            first=
+            last=
+            for switch in $(seq 1 $perloop); do
+                case $(name $loop-$switch) in
+                    n1|n2) ;;
+                    *)
+                        last=$(name $loop-$switch)
+                        [ -n "$first" ] || first=$last
+                        ;;
+                esac
+            done
+            link n1 $first
+            link n2 $last
+        done
+        link n1 n2
         ;;
 esac
