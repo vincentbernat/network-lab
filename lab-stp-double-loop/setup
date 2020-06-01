@@ -1,0 +1,56 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm R1 network 1
+
+run
+
+n1=1-1
+n2=6-2
+name() {
+    case $1 in
+        $n1) echo n1 ;;
+        $n2) echo n2 ;;
+        *) echo $1 ;;
+    esac
+}
+
+for loop in $(seq 1 6); do
+    for switch in $(seq 1 12); do
+        case $loop-$switch in
+            $n1)
+                priority=4096
+                ;;
+            $n2)
+                priority=8192
+                ;;
+            *)
+                priority=16384
+                ;;
+        esac
+        ip link add name br-$(name $loop-$switch) type bridge stp_state 1 priority $priority
+        ip link set up dev br-$(name $loop-$switch)
+    done
+    for switch in $(seq 1 12); do
+        from=$(name $loop-$switch)
+        to=$(name $loop-$((switch%12 + 1)))
+        ip link add name hf-$from type veth peer ht-$to
+        ip link set up dev hf-$from
+        ip link set up dev ht-$to
+        ip link set hf-$from master br-$to
+        ip link set ht-$to master br-$from
+    done
+done
+for loop in $(seq 1 5); do
+    for switch in 1 2; do
+        from=$(name $loop-$switch)
+        to=$(name $((loop+1))-$switch)
+        ip link add name vf-$from type veth peer vt-$to
+        ip link set up dev vf-$from
+        ip link set up dev vt-$to
+        ip link set vf-$from master br-$to
+        ip link set vt-$to master br-$from
+    done
+done
