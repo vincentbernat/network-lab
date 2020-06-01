@@ -7,10 +7,17 @@ spawn vm R1 network 1
 
 run
 
-loops=6
-perloop=12
-n1=1-9
-n2=6-5
+# Large
+# loops=6
+# perloop=12
+# n1=1-9
+# n2=6-5
+
+# Small
+loops=3
+perloop=5
+n1=1-1
+n2=3-2
 
 name() {
     case $1 in
