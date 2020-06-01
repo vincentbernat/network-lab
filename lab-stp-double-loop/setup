@@ -17,20 +17,24 @@ name() {
     esac
 }
 
+service mstpd -s
 for loop in $(seq 1 6); do
     for switch in $(seq 1 12); do
         case $loop-$switch in
             $n1)
-                priority=4096
+                priority=1
                 ;;
             $n2)
-                priority=8192
+                priority=2
                 ;;
             *)
-                priority=16384
+                priority=8
                 ;;
         esac
-        ip link add name br-$(name $loop-$switch) type bridge stp_state 1 priority $priority
+        ip link add name br-$(name $loop-$switch) type bridge
+        mstpctl addbridge br-$(name $loop-$switch)
+        mstpctl settreeprio br-$(name $loop-$switch) 0 $priority
+        ip link set dev br-$(name $loop-$switch) type bridge stp_state 2 # userspace STP
         ip link set up dev br-$(name $loop-$switch)
     done
     for switch in $(seq 1 12); do
