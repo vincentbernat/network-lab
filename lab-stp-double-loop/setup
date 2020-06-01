@@ -21,6 +21,12 @@ name() {
 }
 
 service mstpd -s
+cat <<EOF > /sbin/bridge-stp
+#!/bin/sh
+exit 0
+EOF
+chmod +x /sbin/bridge-stp
+
 for loop in $(seq 1 $loops); do
     for switch in $(seq 1 $perloop); do
         case $loop-$switch in
@@ -37,7 +43,7 @@ for loop in $(seq 1 $loops); do
         ip link add name br-$(name $loop-$switch) type bridge
         mstpctl addbridge br-$(name $loop-$switch)
         mstpctl settreeprio br-$(name $loop-$switch) 0 $priority
-        ip link set dev br-$(name $loop-$switch) type bridge stp_state 2 # userspace STP
+        ip link set dev br-$(name $loop-$switch) type bridge stp_state 1
         ip link set up dev br-$(name $loop-$switch)
     done
     for switch in $(seq 1 $loops); do
