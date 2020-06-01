@@ -9,15 +9,24 @@ run
 
 loops=6
 perloop=12
+n1=1-9
+n2=6-5
 
-n1=1-1
-n2=$loops-2
 name() {
     case $1 in
         $n1) echo n1 ;;
         $n2) echo n2 ;;
         *) echo $1 ;;
     esac
+}
+link() {
+    from=$1
+    to=$2
+    ip link add name $from--$to type veth peer $to--$from
+    ip link set up dev $from--$to
+    ip link set up dev $to--$from
+    ip link set $from--$to master br-$from
+    ip link set $to--$from master br-$to
 }
 
 service mstpd -s
@@ -40,30 +49,21 @@ for loop in $(seq 1 $loops); do
                 priority=8
                 ;;
         esac
-        ip link add name br-$(name $loop-$switch) type bridge
+        ip link add name br-$(name $loop-$switch) type bridge stp_state 1
         mstpctl addbridge br-$(name $loop-$switch)
         mstpctl settreeprio br-$(name $loop-$switch) 0 $priority
-        ip link set dev br-$(name $loop-$switch) type bridge stp_state 1
         ip link set up dev br-$(name $loop-$switch)
     done
-    for switch in $(seq 1 $loops); do
+    for switch in $(seq 1 $perloop); do
         from=$(name $loop-$switch)
-        to=$(name $loop-$((switch%loops + 1)))
-        ip link add name hf-$from type veth peer ht-$to
-        ip link set up dev hf-$from
-        ip link set up dev ht-$to
-        ip link set hf-$from master br-$to
-        ip link set ht-$to master br-$from
+        to=$(name $loop-$((switch%perloop + 1)))
+        link $from $to
     done
 done
 for loop in $(seq 1 $((loops-1))); do
     for switch in ${n1#*-} ${n2#*-}; do
         from=$(name $loop-$switch)
         to=$(name $((loop+1))-$switch)
-        ip link add name vf-$from type veth peer vt-$to
-        ip link set up dev vf-$from
-        ip link set up dev vt-$to
-        ip link set vf-$from master br-$to
-        ip link set vt-$to master br-$from
+        link $from $to
     done
 done
