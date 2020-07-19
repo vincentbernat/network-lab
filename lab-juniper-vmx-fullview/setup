@@ -14,23 +14,21 @@ run
 
 # Executed on each VM
 case $uts in
-    U1) ip addr add 192.0.2.0/31 dev eth0 ;;
-    U2) ip addr add 192.0.2.2/31 dev eth0 ;;
+    U1)
+        ip addr add 192.0.2.0/31 dev eth0
+        template exabgp.conf exabgp.$uts.conf localip="'192.0.2.0'" peerip="'192.0.2.1'" localas=65001 peeras=64512 firstas=328474 max=100000
+        ;;
+    U2)
+        ip addr add 192.0.2.2/31 dev eth0
+        template exabgp.conf exabgp.$uts.conf localip="'192.0.2.2'" peerip="'192.0.2.3'" localas=65002 peeras=64512 firstas=206313 max=100000
+        ;;
 esac
 
-service gobgp
-sleep 1
-gobgp global rib add 0.0.0.0/0 -a ipv4
-# We want the routers to have a slight difference in routes
-skip=$(od -An -N1 -t u1 /dev/urandom)
-# But this seems to trigger a bug in import (failed to parse: unsupported type: 16387)
-skip=0
-echo "
-gobgp mrt inject global \
-      --queue-size 128 \
-      <(zcat /mnt/lab/latest-bview.gz) \
-      10000 $skip
-"
+export exabgp_log_destination=syslog
+export exabgp_api_cli=false
+export exabgp_api_ack=false
+export exabgp_daemon_daemonize=true # only work if parent is not PID 1
+(service exabgp exabgp.$uts.conf)
 
 # Local Variables:
 # mode: sh

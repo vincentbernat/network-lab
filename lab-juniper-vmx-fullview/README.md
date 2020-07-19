@@ -1,19 +1,14 @@
 Lab with Juniper vMX and full views
 ===================================
 
-Each vMX will receive a eBGP fullview. This needs
-[gobgp](https://github.com/osrg/gobgp) and an MRT dumpfile.
+Each vMX will receive a eBGP fullview. This needs ExaBGP, mrtparse and
+an MRT dumpfile.
 
 There is also a tentative to not install all routes in FIB. vMX1 and
 vMX2 are not using the same method to do so: vMX1 tries to use the
 state of the default route (but this doesn't work). vMX2 only
 discriminates on specific route attributes. You can look at the FIB
 with `show route forwarding-table`.
-
-Due to GoBGP being quite slow to inject a full view, this lab is not
-really using a full view, but only injects 10k routes. Moreover, GoBGP
-doesn't seem to rewrite the nexthop when sending to eBGP peers. So,
-all routes are rejected.
 
 MRT dump
 --------

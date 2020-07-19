@@ -1,0 +1,13 @@
+#!/bin/sh
+
+bview=$1
+localip=$2
+firstas=$3
+max=$4
+
+mrt2exabgp -A ${bview} \
+    | grep -F "as-path [${firstas} " \
+    | sed -e "s/next-hop [^ ]*/next-hop ${localip}/" \
+    | head -${max}
+
+sleep infinity
