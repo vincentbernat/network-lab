@@ -5,8 +5,8 @@ LABNAME="vmx"
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
-MEM=2G spawn vm U1 network 1
-MEM=2G spawn vm U2 network 2
+MEM=512M spawn vm U1 network 1
+MEM=512M spawn vm U2 network 2
 spawn juniper-vmx vMX1 networks 1,3
 spawn juniper-vmx vMX2 networks 2,3
 
