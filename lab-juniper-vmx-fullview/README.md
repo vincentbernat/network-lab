@@ -10,6 +10,9 @@ state of the default route (but this doesn't work). vMX2 only
 discriminates on specific route attributes. You can look at the FIB
 with `show route forwarding-table`.
 
+There is a limit for the vMX in lite mode to the number of routes
+accepted in RIB. That's why we only accept 10k routes.
+
 MRT dump
 --------
 

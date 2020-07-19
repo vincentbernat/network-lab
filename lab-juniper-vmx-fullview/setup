@@ -16,11 +16,11 @@ run
 case $uts in
     U1)
         ip addr add 192.0.2.0/31 dev eth0
-        template exabgp.conf exabgp.$uts.conf localip="'192.0.2.0'" peerip="'192.0.2.1'" localas=65001 peeras=64512 firstas=328474 max=100000
+        template exabgp.conf exabgp.$uts.conf localip="'192.0.2.0'" peerip="'192.0.2.1'" localas=65001 peeras=64512 firstas=328474 max=10000
         ;;
     U2)
         ip addr add 192.0.2.2/31 dev eth0
-        template exabgp.conf exabgp.$uts.conf localip="'192.0.2.2'" peerip="'192.0.2.3'" localas=65002 peeras=64512 firstas=206313 max=100000
+        template exabgp.conf exabgp.$uts.conf localip="'192.0.2.2'" peerip="'192.0.2.3'" localas=65002 peeras=64512 firstas=206313 max=10000
         ;;
 esac
 
