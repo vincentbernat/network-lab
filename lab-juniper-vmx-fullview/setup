@@ -20,12 +20,17 @@ esac
 
 service gobgp
 sleep 1
-mkfifo /tmp/latest-bview
 gobgp global rib add 0.0.0.0/0 -a ipv4
 # We want the routers to have a slight difference in routes
 skip=$(od -An -N1 -t u1 /dev/urandom)
-gobgp mrt inject global /tmp/latest-bview 1000 $skip &
-zcat /mnt/lab/latest-bview.gz > /tmp/latest-bview || true
+# But this seems to trigger a bug in import (failed to parse: unsupported type: 16387)
+skip=0
+echo "
+gobgp mrt inject global \
+      --queue-size 128 \
+      <(zcat /mnt/lab/latest-bview.gz) \
+      10000 $skip
+"
 
 # Local Variables:
 # mode: sh
