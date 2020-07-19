@@ -5,8 +5,9 @@ Each vMX will receive a eBGP fullview. This needs
 [gobgp](https://github.com/osrg/gobgp) and an MRT dumpfile.
 
 Due to the memory needed for a full view, this lab is not really using
-a full view. Have a look at `./setup` and search for `start_gobgp` to
-see what part of the full view is used.
+a full view. Have a look at `./setup` to see what part of the full
+view is used. Unfortunately, GoBGP is quite bad at injecting routes
+from an MRT dump.
 
 There is also a tentative to not install all routes in FIB. vMX1 and
 vMX2 are not using the same method to do so: vMX1 tries to use the
@@ -20,14 +21,3 @@ MRT dump
 To get one, use:
 
     wget http://data.ris.ripe.net/rrc00/latest-bview.gz
-
-gobgp
------
-
-Just use the following commands:
-
-    export GOPATH=$TMP/gopath
-    go get github.com/osrg/gobgp
-    go get github.com/osrg/gobgpd
-    ln -s $GOPATH/bin/gobgp
-    ln -s $GOPATH/bin/gobgpd
