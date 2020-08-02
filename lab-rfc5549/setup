@@ -3,18 +3,26 @@
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
-# Which VM to spawn
-spawn vm R1 network 1
-spawn vm R2 network 1
+spawn vm ping networks 1,2
+spawn cumulus-vx cumulus1 networks 1,3
+spawn cumulus-vx cumulus2 networks 2,4
 
-run
+spawn cumulus-vx spine networks 3,4
 
-# Executed on each VM
+
 case $uts in
-    R*)
-        ip addr add 2001:db8:1::1${uts#R}/64 dev eth0
-        ip addr add 203.0.113.1${uts#R}/32 dev dummy0
-        ip route add 203.0.113.1$(( 3-${uts#R} )) via inet6 2001:db8:1::1$(( 3-${uts#R} ))
+    ping)
+        for iface in /sys/class/net/eth*; do
+            iface=${iface##*/}
+            digit=${iface#eth}
+            digit=$((digit*4 + 2))
+            ip netns add $iface
+            ip link set netns $iface $iface
+            ip -n $iface link set up dev $iface
+            ip -n $iface addr add 192.0.2.${digit}/30 dev $iface
+            ip -n $iface route add default via 192.0.2.$((digit-1))
+        done
         ;;
 esac
-service nginx
+
+run
