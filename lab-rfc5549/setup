@@ -27,6 +27,7 @@ case $uts in
     bird1)
         sysctl -qw net.ipv4.ip_forward=1
         ip addr add 192.0.2.9/30 dev eth0
+        ip addr add fc00::1:2/126 dev eth1
         service bird
 esac
 
