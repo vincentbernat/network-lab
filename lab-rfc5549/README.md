@@ -13,3 +13,6 @@ PING 192.0.2.6 (192.0.2.6) 56(84) bytes of data.
 3 packets transmitted, 3 received, 0% packet loss, time 2003ms
 rtt min/avg/max/mdev = 1.804/2.097/2.552/0.325 ms
 ```
+
+Cumulus is 4.1.1. Maybe 4.2 is using native Linux support for IPv6
+next hops for IPv4 routes.
