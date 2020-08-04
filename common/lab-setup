@@ -885,7 +885,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -display none \
      -m ${MEM:-1G} \
      -cpu host \
-     -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VQFX \
+     -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=VMX,product=VM-vcp_vmx1-161-re-0,version=0.1.0 \
      -device virtio-rng \
      \
      -boot c \
