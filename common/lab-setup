@@ -1446,8 +1446,8 @@ service () {
             fi
             log_ok_msg "bird started${netns+, netns=}$netns"
             ;;
-        quagga)
-            log_begin_msg "Running quagga"
+        quagga|frr)
+            log_begin_msg "Running $kind"
             rm /etc/gshadow /etc/shadow
             touch /etc/gshadow /etc/shadow
             for name in quagga frr; do
@@ -1467,15 +1467,15 @@ service () {
                 for p in "" /usr/lib/frr/ /usr/lib/quagga/ ""; do
                     ! command -v $p$svc > /dev/null || break
                 done
-                if [ -f /mnt/lab/quagga-$svc.$uts.conf ]; then
+                if [ -f /mnt/lab/$kind-$svc.$uts.conf ]; then
                     eval set -- \$${svc}_args
-                    execute $p$svc -d -f /mnt/lab/quagga-$svc.$uts.conf -A 127.0.0.1 "$@"
-                elif [ -f /mnt/lab/quagga-$svc.conf ]; then
+                    execute $p$svc -d -f /mnt/lab/$kind-$svc.$uts.conf -A 127.0.0.1 "$@"
+                elif [ -f /mnt/lab/$kind-$svc.conf ]; then
                     eval set -- \$${svc}_args
-                    execute $p$svc -d -f /mnt/lab/quagga-$svc.conf -A 127.0.0.1 "$@"
+                    execute $p$svc -d -f /mnt/lab/$kind-$svc.conf -A 127.0.0.1 "$@"
                 fi
             done
-            log_ok_msg "Quagga started"
+            log_ok_msg "$kind started"
             ;;
         gobgp)
             log_begin_msg "Running gobgp"
