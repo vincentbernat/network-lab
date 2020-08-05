@@ -1463,7 +1463,7 @@ service () {
                 mkdir -p /var/log/frr /var/run/frr
                 setfacl -m u:${name}:rwx /var/log/quagga /var/run/quagga /var/log/frr /var/run/frr
             done
-            for svc in zebra bgpd ospfd isisd ospf6d ripd ripngd; do
+            for svc in zebra bgpd ospfd isisd ospf6d ripd ripngd vrrpd bfdd staticd pimd pbrd eigrpd babeld ldpd; do
                 for p in "" /usr/lib/frr/ /usr/lib/quagga/ ""; do
                     ! command -v $p$svc > /dev/null || break
                 done
