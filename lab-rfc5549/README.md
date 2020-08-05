@@ -16,3 +16,14 @@ rtt min/avg/max/mdev = 1.804/2.097/2.552/0.325 ms
 
 Cumulus is 4.1.1. Maybe 4.2 is using native Linux support for IPv6
 next hops for IPv4 routes.
+
+Documentation for Juniper is available [here][juniper].
+
+[juniper]: https://www.juniper.net/documentation/en_US/junos/topics/topic-map/multiprotocol-bgp.html#id-understanding-redistribution-of-ipv4-routes-with-ipv6-next-hop-into-bgp
+
+```
+Aug  3 07:52:52  vmx1 rpd[5394]: bgp_read_v4_update:12338: NOTIFICATION sent to fc00::2:1 (External AS 65100): code 3 (Update Message Error) subcode 9 (error with optional attribute)
+Aug  3 07:52:52  vmx1 rpd[5394]: Received malformed update from fc00::2:1 (External AS 65100)
+Aug  3 07:52:52  vmx1 rpd[5394]:   Family inet-unicast, prefix 0.0.0.0/0
+Aug  3 07:52:52  vmx1 rpd[5394]:   Malformed Attribute MP_REACH(14) flag 0x80 length 42.
+``

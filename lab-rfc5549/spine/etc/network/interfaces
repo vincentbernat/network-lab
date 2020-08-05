@@ -19,3 +19,7 @@ iface swp2
 auto swp3
 iface swp3
   address fc00::1:1/126
+
+auto swp4
+iface swp4
+  address fc00::2:1/126

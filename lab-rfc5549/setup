@@ -3,13 +3,14 @@
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
-spawn vm ping networks 1,2,3
-spawn cumulus-vx cumulus1 networks 1,4
-spawn cumulus-vx cumulus2 networks 2,5
-spawn vm         bird1    networks 3,6
+spawn vm ping networks 1,2,3,4
 
-spawn cumulus-vx spine networks 4,5,6
+spawn cumulus-vx  cumulus1 networks 1,5
+spawn cumulus-vx  cumulus2 networks 2,6
+spawn vm          bird1    networks 3,7
+spawn juniper-vmx vmx1     networks 4,8
 
+spawn cumulus-vx spine networks 5,6,7,8
 
 case $uts in
     ping)
