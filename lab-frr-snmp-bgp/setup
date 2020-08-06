@@ -1,0 +1,30 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm R1 network 1
+spawn vm R2 network 1
+
+run
+
+case $uts in
+    R*)
+        ip link add name eth0.public link eth0 type vlan id 90
+        ip link add name eth0.private link eth0 type vlan id 80
+        ip link set up dev eth0.public
+        ip link set up dev eth0.private
+        ip link add public type vrf table 90
+        ip link add private type vrf table 80
+        ip link set master public dev eth0.public
+        ip link set master private dev eth0.private
+        ip link set up dev public
+        ip link set up dev private
+        ip addr add 192.0.2.${uts#R}/28 dev eth0.public
+        ip addr add 172.22.0.${uts#R}/28 dev eth0.private
+
+        service snmpd -I smux -Lsd -c $PWD/snmpd.conf
+        template frr-bgpd.Rx.conf frr-bgpd.$uts.conf asn=6500${uts#R} digit=${uts#R}
+        bgpd_args="-M snmp" service frr
+        ;;
+esac
