@@ -128,4 +128,19 @@ RFC 2545 says:
 > address is present, or 32 if a link-local address is also included in
 > the Next Hop field.
 
-So, having a 32-byte next hop is valid.
+So, having a 32-byte next hop is valid. FRR is sending this kind of
+next hop when it knows the link-local address for the neighbor (in
+`bgp_updgrp_adv.c`):
+
+```c
+	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
+		/* IPv6 global nexthop must be included. */
+		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+
+		/* If the peer is on shared nextwork and we have link-local
+		   nexthop set it. */
+		if (peer->shared_network
+		    && !IN6_IS_ADDR_UNSPECIFIED(&peer->nexthop.v6_local))
+			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
+	}
+```
