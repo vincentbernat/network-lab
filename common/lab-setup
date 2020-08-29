@@ -289,6 +289,9 @@ spawn () {
         cumulus-vx)
             start_cumulus_vx
             ;;
+        sonic)
+            start_sonic
+            ;;
         cisco-iosxrv)
             start_cisco_iosxrv
             ;;
@@ -1141,6 +1144,49 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -drive file=$TMP/cumulus-$name.img,if=ide,media=disk \
      -drive file=$TMP/metadata-$name.img,format=raw,if=none,media=disk,id=metadata \
      -usb -device usb-storage,drive=metadata \
+     \
+     -chardev stdio,id=charserial0,signal=off \
+     -device isa-serial,chardev=charserial0,id=serial0 \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -mon chardev=con0,mode=readline \
+     \
+     $netargs
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    chmod +x "$TMP/vm-$name.exec"
+    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux_resize $name 80 24
+}
+
+start_sonic () {
+    name=$NAME
+    log_info_msg "Start SONiC $name"
+    netargs=""
+    ssh=$(tcp_port)
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
+    add_ssh_config $NAME $ssh admin
+    for net in $NET; do
+        mac=$(mac_address)
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+    done
+
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+qemu-img create -q -f qcow2 -b $PWD/../images/sonic.img $TMP/sonic-$name.img
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+     --start --startas $(which qemu-system-x86_64) -- \
+     -enable-kvm \
+     -no-user-config -nodefaults \
+     -display none \
+     -m ${MEM:-2G} \
+     -device virtio-rng \
+     \
+     -boot c \
+     -drive file=$TMP/sonic-$name.img,if=ide,media=disk \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
