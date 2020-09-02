@@ -7,6 +7,11 @@ spawn vm R1 network 1
 
 run
 
+# loops=number of loops
+# perloop=number of switches per loop
+# n1=loopnumber-switchnumber
+# n2=loopnumber-switchnumber
+
 ## Large
 loops=6
 perloop=12
@@ -117,3 +122,6 @@ case $topology in
         link n1 n2
         ;;
 esac
+
+# To test for converge, tailf /var/log/syslog, put down a switch or a
+# link and check how much time the setup needs to converge.
