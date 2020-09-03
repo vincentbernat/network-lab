@@ -1363,7 +1363,7 @@ scp server enable
 netconf ssh server enable
 #
 local-user hp class manage
- password hash $h$6$T/7ypxZvNAiiXg0Y$VPGP6WplSxIfl6GFGS7o18sKY9OQD8Okt3RnhBBGwOf/76OZ0cPCqRXgEVhbKFnUYAzYGT/OPNPM3VuAKnbD/Q==
+ password hash $h$6$dkd9frSpy+qcpgMj$iiCwWc2oAvm05vThYeywTmkjH0ZvrLonkpx+l0NlsEzycMKBGzE7X6PvWldWoBNA5Y3yDjMVetXrDwbhyIrHRQ==
  service-type ssh
  authorization-attribute user-role network-admin
  authorization-attribute user-role network-operator
