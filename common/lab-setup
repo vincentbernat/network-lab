@@ -1368,7 +1368,7 @@ local-user hp class manage
  authorization-attribute user-role network-admin
  authorization-attribute user-role network-operator
 #
-ssh user hp service-type all authentication-type publickey assign publickey sshkey
+ssh user hp service-type all authentication-type any assign publickey sshkey
 #
 public-key peer sshkey
  public-key-code begin
