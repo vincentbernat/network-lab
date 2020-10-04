@@ -1568,6 +1568,17 @@ service () {
     esac
 }
 
+onhost () {
+    case $# in
+        0)
+            [ x"$STATE" != x"SETUP" ] || return 1
+            ;;
+        *)
+            ! onhost || "$@"
+            ;;
+    esac
+}
+
 run () {
     [ x"$STATE" != x"SETUP" ] || return 0
     display_help

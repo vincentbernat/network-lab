@@ -1,0 +1,15 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Executed outside VM
+onhost template template.j2 template-outside.conf message="'$(uname -n)'"
+
+# Spawn 1 VM
+spawn vm linux network 1
+
+run
+
+# Inside the VM
+template template.j2 template-inside.conf message="'$(uname -n)'"
