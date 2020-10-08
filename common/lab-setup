@@ -1372,8 +1372,10 @@ ssh user hp service-type all authentication-type any assign publickey sshkey
 #
 public-key peer sshkey
  public-key-code begin
-30820122300D06092A864886F70D01010105000382010F00
-$(ssh-keygen -e -m pem -f $TMP/id_rsa.pub | grep -v '^----' | base64 -d | od -t x1 -An -w32 | tr -d ' ' | tr 'a-f' 'A-F')
+$(ssh-keygen -e -m PKCS8 -f $TMP/id_rsa.pub \
+   | grep -v '^---' \
+   | base64 -d \
+   | od -t x1 -An -w32 | tr -d ' ' | tr 'a-f' 'A-F')
  public-key-code end
  peer-public-key end
 #
