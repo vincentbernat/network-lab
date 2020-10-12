@@ -1683,7 +1683,7 @@ case $$,$STATE in
         exit 1                  # unreachable
         ;;
 
-    1,CHROOTED)
+    *,CHROOTED)
         log_begin_msg "Setting /etc/hosts"
         cat <<EOF > /tmp/hosts
 127.0.0.1       localhost.localdomain localhost
@@ -1787,7 +1787,7 @@ EOF
         fi
         ;;
 
-    1,GETTY)
+    *,GETTY)
         log_begin_msg "Setup terminal size"
         previous=$(stty -g)
         stty raw -echo min 0 time 5
