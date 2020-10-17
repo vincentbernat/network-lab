@@ -1,0 +1,50 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm H1
+spawn vm H2
+spawn vm H3
+
+run
+
+ip link add type veth
+ip link add type veth
+ip link set up dev veth0
+ip link set up dev veth1
+ip link set up dev veth2
+ip link set up dev veth3
+
+ip -4 addr add 203.0.113.${uts#H}/24 dev veth0
+ip -6 addr add 2001:db8:1::${uts#H}/64 dev veth0
+ip -4 addr add 192.0.2.${uts#H}/24 dev veth2
+ip -6 addr add 2001:db8:2::${uts#H}/64 dev veth2
+
+# More specific route
+ip -4 route add 198.51.100.0/25 via 203.0.113.254
+ip -6 route add 2001:db8:3::/56 via 2001:db8:1::ff
+# Less specific route
+ip -4 route add 198.51.100.0/24 via 192.0.2.254
+ip -6 route add 2001:db8:3::/48 via 2001:db8:2::ff
+
+for v in ipv4 ipv6; do
+    case $uts in
+        H1) sysctl -qw net.${v}.conf.all.ignore_routes_with_linkdown=1 ;;
+        H2) sysctl -qw net.${v}.conf.veth0.ignore_routes_with_linkdown=1 ;;
+    esac
+done
+
+set -xe
+# When veth0 is up, best route is through veth0
+ip -o route get 198.51.100.1 | grep -Fw veth0
+ip -o route get 2001:db8:3::1 | grep -Fw veth0
+# When veth0 is down, best route should be through veth2 on H1/H2, but on veth0 on H2
+ip link set down dev veth1
+ip route show
+[ $uts != H3 ] || ip -o route get 198.51.100.1 | grep -Fw veth0
+[ $uts != H3 ] || ip -o route get 2001:db8:3::1 | grep -Fw veth0
+[ $uts = H3 ] || ip -o route get 198.51.100.1 | grep -Fw veth2
+[ $uts = H3 ] || ip -o route get 2001:db8:3::1 | grep -Fw veth2
+
+set +xe
