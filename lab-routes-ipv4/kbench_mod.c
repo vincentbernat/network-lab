@@ -232,6 +232,8 @@ static int do_bench(char *buf, int verbose)
 	struct flowi4 *batched_fl4 = NULL;
 #endif
 
+	if (ntohl(flow_dst_ipaddr_e) - ntohl(flow_dst_ipaddr_s) < 0)
+		swap(flow_dst_ipaddr_e, flow_dst_ipaddr_s);
 
 	mutex_lock(&kb_lock);
 	total = warmup_count;
@@ -264,7 +266,7 @@ static int do_bench(char *buf, int verbose)
 	}
 	results = kmalloc(sizeof(*results) * (count / batch + 1), GFP_KERNEL);
 	mutex_unlock(&kb_lock);
-	if (!results || (batch > 0 && !batched_fl4)) {
+	if (!results || (batch > 1 && !batched_fl4)) {
 		kfree(batched_fl4);
 		kfree(results);
 		return scnprintf(buf, PAGE_SIZE, "msg=\"no memory\"\n");
@@ -286,7 +288,7 @@ static int do_bench(char *buf, int verbose)
 			if (delta < count)
 				daddr = htonl(ntohl(start) + (i % delta));
 			else
-				daddr = htonl(ntohl(start) + delta / count * i);
+				daddr = htonl(ntohl(start) + (delta / count) * i);
 			if (ipv4_is_loopback(daddr))
 				continue;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,39)
@@ -322,8 +324,10 @@ static int do_bench(char *buf, int verbose)
 			t1 = get_cycles();
 			err = my_fib_lookup(&fl4, &res);
 			t2 = get_cycles();
-			if (err == -ENETUNREACH)
+			if (err == -ENETUNREACH) {
+				printk_ratelimited(KERN_WARNING "not reachable\n");
 				continue;
+			}
 			results[total] = t2 - t1;
 			total++;
 		} else {
