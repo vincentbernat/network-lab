@@ -328,6 +328,7 @@ static int do_bench(char *buf, int verbose)
 		dst = ip6_route_output(&init_net, NULL, &fl6);
 		t2 = get_cycles();
 		if (dst->error == -ENETUNREACH) {
+			printk_ratelimited(KERN_WARNING "not reachable\n");
 			dst_release(dst);
 			continue;
 		}
