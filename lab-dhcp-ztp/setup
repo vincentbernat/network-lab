@@ -3,15 +3,16 @@
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
-spawn vm dhcp network 1
-spawn vm linux network 1
+spawn vm dhcp networks 1,2
+spawn vm linux networks 1,2
 
 run
 
 case $uts in
     dhcp)
         ip addr add 172.29.15.9/24 dev eth0
-        service dhcpd -4 -cf $PWD/dhcpd.conf eth0
+        ip addr add 10.0.2.2/24 dev eth1
+        service dhcpd -4 -cf $PWD/dhcpd.conf eth0 eth1
         ;;
     linux)
         # service dhclient -v -4 -1 eth0 -lf /tmp/dhcp.leases -cf /dev/null
