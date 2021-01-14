@@ -41,6 +41,9 @@ for v in ipv4 ipv6; do
     esac
 done
 
+# Check what kind of notification we receive. In fact, when a nexthop
+# goes down, we don't receive a route change notification
+# (independantly of asking if down routes should be ignored or not).
 ip -color monitor route &
 
 set -xe
