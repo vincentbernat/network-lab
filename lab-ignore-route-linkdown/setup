@@ -41,6 +41,8 @@ for v in ipv4 ipv6; do
     esac
 done
 
+ip -color monitor route &
+
 set -xe
 # When veth0 is up, best route is through veth0
 ip -o route get 198.51.100.1 | grep -Fw veth0
@@ -48,6 +50,7 @@ ip -o route get 2001:db8:3::1 | grep -Fw veth0
 
 # When veth0 is down, best route should be through veth2 on H1/H2, but on veth0 on H2
 ip link set down dev veth1 # down veth0
+sleep 1
 ip route show
 [ $uts != H3 ] || ip -o route get 198.51.100.1 | grep -Fw veth0
 [ $uts != H3 ] || ip -o route get 2001:db8:3::1 | grep -Fw veth0
