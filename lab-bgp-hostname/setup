@@ -1,0 +1,24 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm bird1 network 1
+spawn vm bird2 network 1
+spawn vm frr1 network 1
+spawn vm frr2 network 1
+
+run
+
+case $uts in
+    bird*)
+        ip addr add 2001:db8::1${uts#bird}/64 dev eth0
+        template bird2.birdX.conf bird2.$uts.conf id=1${uts#bird}
+        service bird
+        ;;
+    frr*)
+        ip addr add 2001:db8::2${uts#frr}/64 dev eth0
+        template frr-bgpd.frrX.conf frr-bgpd.$uts.conf id=2${uts#frr}
+        service frr
+        ;;
+esac
