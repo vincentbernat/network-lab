@@ -1,0 +1,198 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm V
+
+run
+
+# Start: 2021-02-13T19:09:13+0000
+# HOST: speedtest1.ams1.blade-group.net                                   Loss%   Snt   Last   Avg  Best  Wrst StDev
+#   1. AS64476  ae15-666.edge1.ams1.shadow.guru (185.253.168.253)          0.0%    10    0.5   0.5   0.3   0.7   0.1
+#   2. AS64476  ae0-666.edge2.ams1.shadow.guru  (185.253.168.127)           0.0%    10   62.6   9.1   0.4  62.6  19.4
+#   3. AS1299   adm-b2-link.telia.net (213.248.81.24)                      0.0%    10    1.5   1.2   1.0   1.5   0.1
+#   4. AS1299   adm-bb4-link.ip.twelve99.net (62.115.141.38)               0.0%    10    4.4   4.4   4.3   4.6   0.1
+#        [MPLS: Lbl 24072 Exp 0 S u TTL 1]
+#   5. AS1299   brx-b4-link.ip.twelve99.net (62.115.116.231)               0.0%    10    4.1   4.1   3.8   5.5   0.5
+#   6. AS1299   belgacom-svc072813-ic360453.c.telia.net (62.115.173.117)   0.0%    10    4.1   4.1   4.0   4.2   0.0
+#   7. AS6774   80.84.23.43                                                0.0%    10    4.2   5.7   4.1   9.6   1.8
+#   8. AS5432   lg-10-304.msr41gre7.isp.belgacom.be (91.183.241.201)      10.0%    10    5.1   5.0   4.9   5.1   0.1
+#   9. AS???    ???                                                       100.0    10    0.0   0.0   0.0   0.0   0.0
+#  10. AS5432   34.123-67-87.adsl-dyn.isp.belgacom.be (87.67.123.34)       0.0%    10   12.6  12.7  12.5  13.0   0.1
+
+> /tmp/dnsmasq.conf cat <<EOF
+host-record=ae15-666.edge1.ams1.shadow.guru,185.253.168.253
+txt-record=253.168.253.185.origin.asn.cymru.com,"64776 | ..."
+host-record=ae0-666.edge2.ams1.shadow.guru,185.253.168.127
+txt-record=127.168.253.185.origin.asn.cymru.com,"64776 | ..."
+host-record=adm-b2-link.telia.net,213.248.81.24
+txt-record=24.81.248.213.origin.asn.cymru.com,"1299 | ..."
+host-record=adm-bb4-link.ip.twelve99.net,62.115.141.38
+txt-record=38.141.115.62.origin.asn.cymru.com,"1299 | ..."
+host-record=brx-b4-link.ip.twelve99.net,62.115.116.231
+txt-record=231.116.115.62.origin.asn.cymru.com,"1299 | ..."
+host-record=belgacom-svc072813-ic360453.c.telia.net,62.115.173.117
+txt-record=117.173.115.62.origin.asn.cymru.com,"1299 | ..."
+# host-record=???
+txt-record=43.23.84.80.origin.asn.cymru.com,"6774 | ..."
+host-record=lg-10-304.msr41gre7.isp.belgacom.be,91.183.241.201
+txt-record=201.241.183.91.origin.asn.cymru.com,"5432 | ..."
+host-record=34.123-67-87.adsl-dyn.isp.belgacom.be,87.67.123.34
+txt-record=34.123.67.87.origin.asn.cymru.com,"5432 | ..."
+EOF
+
+service dnsmasq -h -C /tmp/dnsmasq.conf
+echo nameserver 127.0.0.1 > /etc/resolv.conf
+
+source=185.253.168.133
+target=87.67.123.34
+
+# hop1
+ip netns add hop1
+ip link add name link-0-1 type veth peer name link-1-0
+ip link set link-1-0 netns hop1
+ip link set up dev link-0-1
+ip -n hop1 link set up dev link-1-0
+ip addr add 185.253.168.133/24 dev link-0-1
+ip -n hop1 addr add 185.253.168.253/24 dev link-1-0
+ip route add $target/32 via 185.253.168.253
+ip netns exec hop1 sysctl -qw net.ipv4.ip_forward=1
+
+# hop2
+ip netns add hop2
+ip link add name link-1-2 type veth peer name link-2-1
+ip link set link-1-2 netns hop1
+ip link set link-2-1 netns hop2
+ip -n hop1 link set up dev link-1-2
+ip -n hop2 link set up dev link-2-1
+ip -n hop1 addr add 185.253.168.126/31 dev link-1-2
+ip -n hop2 addr add 185.253.168.127/31 dev link-2-1
+ip -n hop1 route add $target/32 via 185.253.168.127
+ip -n hop2 route add $source/32 via 185.253.168.126
+ip netns exec hop2 sysctl -qw net.ipv4.ip_forward=1
+ip netns exec hop2 tc qdisc add dev link-2-1 root netem delay 0.2ms 0.1ms 25%
+
+# hop3
+ip netns add hop3
+ip link add name link-2-3 type veth peer name link-3-2
+ip link set link-2-3 netns hop2
+ip link set link-3-2 netns hop3
+ip -n hop2 link set up dev link-2-3
+ip -n hop3 link set up dev link-3-2
+ip -n hop2 addr add 213.248.81.25/31 dev link-2-3
+ip -n hop3 addr add 213.248.81.24/31 dev link-3-2
+ip -n hop2 route add $target/32 via 213.248.81.24
+ip -n hop3 route add $source/32 via 213.248.81.25
+ip netns exec hop3 sysctl -qw net.ipv4.ip_forward=1
+ip netns exec hop3 tc qdisc add dev link-3-2 root netem delay 0.5ms 0.3ms 25%
+
+# hop4
+ip netns add hop4
+ip link add name link-3-4 type veth peer name link-4-3
+ip link set link-3-4 netns hop3
+ip link set link-4-3 netns hop4
+ip -n hop3 link set up dev link-3-4
+ip -n hop4 link set up dev link-4-3
+ip -n hop3 addr add 62.115.141.39/31 dev link-3-4
+ip -n hop4 addr add 62.115.141.38/31 dev link-4-3
+ip -n hop3 route add $target/32 via 62.115.141.38
+ip -n hop4 route add $source/32 via 62.115.141.39
+ip netns exec hop4 sysctl -qw net.ipv4.ip_forward=1
+ip netns exec hop4 tc qdisc add dev link-4-3 root netem delay 3.5ms 1ms 25%
+
+# hop5
+ip netns add hop5
+ip link add name link-4-5 type veth peer name link-5-4
+ip link set link-4-5 netns hop4
+ip link set link-5-4 netns hop5
+ip -n hop4 link set up dev link-4-5
+ip -n hop5 link set up dev link-5-4
+ip -n hop4 addr add 62.115.116.230/31 dev link-4-5
+ip -n hop5 addr add 62.115.116.231/31 dev link-5-4
+ip -n hop4 route add $target/32 via 62.115.116.231
+ip -n hop5 route add $source/32 via 62.115.116.230
+ip netns exec hop5 sysctl -qw net.ipv4.ip_forward=1
+ip netns exec hop5 tc qdisc add dev link-5-4 root netem delay 0.2ms 0.1ms 25%
+
+# hop6
+ip netns add hop6
+ip link add name link-5-6 type veth peer name link-6-5
+ip link set link-5-6 netns hop5
+ip link set link-6-5 netns hop6
+ip -n hop5 link set up dev link-5-6
+ip -n hop6 link set up dev link-6-5
+ip -n hop5 addr add 62.115.173.116/31 dev link-5-6
+ip -n hop6 addr add 62.115.173.117/31 dev link-6-5
+ip -n hop5 route add $target/32 via 62.115.173.117
+ip -n hop6 route add $source/32 via 62.115.173.116
+ip netns exec hop6 sysctl -qw net.ipv4.ip_forward=1
+ip netns exec hop6 tc qdisc add dev link-6-5 root netem delay 0.2ms 0.1ms 25%
+
+# hop7
+ip netns add hop7
+ip link add name link-6-7 type veth peer name link-7-6
+ip link set link-6-7 netns hop6
+ip link set link-7-6 netns hop7
+ip -n hop6 link set up dev link-6-7
+ip -n hop7 link set up dev link-7-6
+ip -n hop6 addr add 80.84.23.42/31 dev link-6-7
+ip -n hop7 addr add 80.84.23.43/31 dev link-7-6
+ip -n hop6 route add $target/32 via 80.84.23.43
+ip -n hop7 route add $source/32 via 80.84.23.42
+ip netns exec hop7 sysctl -qw net.ipv4.ip_forward=1
+ip netns exec hop7 tc qdisc add dev link-7-6 root netem delay 0.2ms 0.1ms 25%
+
+# hop8
+ip netns add hop8
+ip link add name link-7-8 type veth peer name link-8-7
+ip link set link-7-8 netns hop7
+ip link set link-8-7 netns hop8
+ip -n hop7 link set up dev link-7-8
+ip -n hop8 link set up dev link-8-7
+ip -n hop7 addr add 91.183.241.200/31 dev link-7-8
+ip -n hop8 addr add 91.183.241.201/31 dev link-8-7
+ip -n hop7 route add $target/32 via 91.183.241.201
+ip -n hop8 route add $source/32 via 91.183.241.200
+ip netns exec hop8 sysctl -qw net.ipv4.ip_forward=1
+ip netns exec hop8 iptables -A OUTPUT -p icmp -m statistic --mode random --probability 0.15 -j DROP
+ip netns exec hop8 tc qdisc add dev link-8-7 root netem delay 0.5ms 0.1ms 25%
+
+# hop9
+ip netns add hop9
+ip link add name link-8-9 type veth peer name link-9-8
+ip link set link-8-9 netns hop8
+ip link set link-9-8 netns hop9
+ip -n hop8 link set up dev link-8-9
+ip -n hop9 link set up dev link-9-8
+ip -n hop8 addr add 203.0.113.0/31 dev link-8-9
+ip -n hop9 addr add 203.0.113.1/31 dev link-9-8
+ip -n hop8 route add $target/32 via 203.0.113.1
+ip -n hop9 route add $source/32 via 203.0.113.0
+ip netns exec hop9 sysctl -qw net.ipv4.ip_forward=1
+ip netns exec hop9 iptables -A OUTPUT -p icmp -j DROP
+ip netns exec hop9 tc qdisc add dev link-9-8 root netem delay 0.5ms 0.1ms 25%
+
+# hop10
+ip netns add hop10
+ip link add name link-9-10 type veth peer name link-10-9
+ip link set link-9-10 netns hop9
+ip link set link-10-9 netns hop10
+ip -n hop9 link set up dev link-9-10
+ip -n hop10 link set up dev link-10-9
+ip -n hop9 addr add 87.67.123.35/31 dev link-9-10
+ip -n hop10 addr add 87.67.123.34/31 dev link-10-9
+ip -n hop9 route add $target/32 via 87.67.123.34
+ip -n hop10 route add $source/32 via 87.67.123.35
+ip netns exec hop10 tc qdisc add dev link-10-9 root netem delay 6ms 0.5ms 25%
+
+#  1. AS64776  ae15-666.edge1.ams1.shadow.guru (185.253.168.253)          0.0%    10    0.1   0.1   0.0   0.1   0.0
+#  2. AS64776  ae0-666.edge2.ams1.shadow.guru (185.253.168.127)           0.0%    10    0.3   0.3   0.2   0.4   0.1
+#  3. AS1299   adm-b2-link.telia.net (213.248.81.24)                      0.0%    10    0.9   0.9   0.6   1.3   0.2
+#  4. AS1299   adm-bb4-link.ip.twelve99.net (62.115.141.38)               0.0%    10    3.3   4.3   3.3   5.3   0.7
+#  5. AS1299   brx-b4-link.ip.twelve99.net (62.115.116.231)               0.0%    10    4.4   4.7   3.6   6.3   0.9
+#  6. AS1299   belgacom-svc072813-ic360453.c.telia.net (62.115.173.117)   0.0%    10    5.5   5.1   3.9   5.8   0.6
+#  7. AS6774   80.84.23.43                                                0.0%    10    4.9   5.2   4.4   5.9   0.5
+#  8. AS5432   lg-10-304.msr41gre7.isp.belgacom.be (91.183.241.201)      10.0%    10    5.6   5.7   4.8   6.4   0.6
+#  9. AS???    ???                                                       100.0    10    0.0   0.0   0.0   0.0   0.0
+# 10. AS5432   34.123-67-87.adsl-dyn.isp.belgacom.be (87.67.123.34)       0.0%    10   13.4  12.6  11.7  13.4   0.5
