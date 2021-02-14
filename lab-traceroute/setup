@@ -71,7 +71,11 @@ ip -n hop2 addr add 185.253.168.127/31 dev link-2-1
 ip -n hop1 route add $target/32 via 185.253.168.127
 ip -n hop2 route add $source/32 via 185.253.168.126
 ip netns exec hop2 sysctl -qw net.ipv4.ip_forward=1
-ip netns exec hop2 tc qdisc add dev link-2-1 root netem delay 0.2ms 0.1ms 25%
+ip netns exec hop2 tc qdisc add dev link-2-1 root handle 1: prio bands 4 priomap
+ip netns exec hop2 tc filter add dev link-2-1 protocol ip prio 1 u32 flowid 1:4 match ip src 185.253.168.127
+ip netns exec hop2 tc filter add dev link-2-1 protocol ip prio 2 matchall flowid 1:1
+ip netns exec hop2 tc qdisc add dev link-2-1 parent 1:1 handle 10: netem delay 0.5ms 0.1ms 25%
+ip netns exec hop2 tc qdisc add dev link-2-1 parent 1:4 handle 40: netem delay 10ms 9ms 25%
 
 # hop3
 ip netns add hop3
@@ -155,8 +159,11 @@ ip -n hop8 addr add 91.183.241.201/31 dev link-8-7
 ip -n hop7 route add $target/32 via 91.183.241.201
 ip -n hop8 route add $source/32 via 91.183.241.200
 ip netns exec hop8 sysctl -qw net.ipv4.ip_forward=1
-ip netns exec hop8 iptables -A OUTPUT -p icmp -m statistic --mode random --probability 0.15 -j DROP
-ip netns exec hop8 tc qdisc add dev link-8-7 root netem delay 0.5ms 0.1ms 25%
+ip netns exec hop8 tc qdisc add dev link-8-7 root handle 1: prio bands 4 priomap
+ip netns exec hop8 tc filter add dev link-8-7 protocol ip prio 1 u32 flowid 1:4 match ip src 91.183.241.201
+ip netns exec hop8 tc filter add dev link-8-7 protocol ip prio 2 matchall flowid 1:1
+ip netns exec hop8 tc qdisc add dev link-8-7 parent 1:1 handle 10: netem delay 0.5ms 0.1ms 25%
+ip netns exec hop8 tc qdisc add dev link-8-7 parent 1:4 handle 40: netem delay 1ms 0.2ms 25% loss random 15%
 
 # hop9
 ip netns add hop9
@@ -186,13 +193,15 @@ ip -n hop9 route add $target/32 via 87.67.123.34
 ip -n hop10 route add $source/32 via 87.67.123.35
 ip netns exec hop10 tc qdisc add dev link-10-9 root netem delay 6ms 0.5ms 25%
 
-#  1. AS64776  ae15-666.edge1.ams1.shadow.guru (185.253.168.253)          0.0%    10    0.1   0.1   0.0   0.1   0.0
-#  2. AS64776  ae0-666.edge2.ams1.shadow.guru (185.253.168.127)           0.0%    10    0.3   0.3   0.2   0.4   0.1
-#  3. AS1299   adm-b2-link.telia.net (213.248.81.24)                      0.0%    10    0.9   0.9   0.6   1.3   0.2
-#  4. AS1299   adm-bb4-link.ip.twelve99.net (62.115.141.38)               0.0%    10    3.3   4.3   3.3   5.3   0.7
-#  5. AS1299   brx-b4-link.ip.twelve99.net (62.115.116.231)               0.0%    10    4.4   4.7   3.6   6.3   0.9
-#  6. AS1299   belgacom-svc072813-ic360453.c.telia.net (62.115.173.117)   0.0%    10    5.5   5.1   3.9   5.8   0.6
-#  7. AS6774   80.84.23.43                                                0.0%    10    4.9   5.2   4.4   5.9   0.5
-#  8. AS5432   lg-10-304.msr41gre7.isp.belgacom.be (91.183.241.201)      10.0%    10    5.6   5.7   4.8   6.4   0.6
-#  9. AS???    ???                                                       100.0    10    0.0   0.0   0.0   0.0   0.0
-# 10. AS5432   34.123-67-87.adsl-dyn.isp.belgacom.be (87.67.123.34)       0.0%    10   13.4  12.6  11.7  13.4   0.5
+# HOST: V                                                                 Loss%   Snt   Last   Avg  Best  Wrst StDev
+#   1. AS64776  ae15-666.edge1.ams1.shadow.guru (185.253.168.253)          0.0%    10    0.1   0.1   0.1   0.5   0.1
+#   2. AS64776  ae0-666.edge2.ams1.shadow.guru (185.253.168.127)           0.0%    10    4.9   5.4   2.6  11.9   3.4
+#   3. AS1299   adm-b2-link.telia.net (213.248.81.24)                      0.0%    10    1.2   1.3   0.9   1.9   0.3
+#   4. AS1299   adm-bb4-link.ip.twelve99.net (62.115.141.38)               0.0%    10    4.3   5.3   3.9   7.9   1.1
+#   5. AS1299   brx-b4-link.ip.twelve99.net (62.115.116.231)               0.0%    10    4.8   4.6   3.9   5.5   0.6
+#   6. AS1299   belgacom-svc072813-ic360453.c.telia.net (62.115.173.117)   0.0%    10    4.6   5.1   4.1   6.0   0.7
+#   7. AS6774   80.84.23.43                                                0.0%    10    6.2   5.4   4.3   6.2   0.6
+#   8. AS5432   lg-10-304.msr41gre7.isp.belgacom.be (91.183.241.201)      10.0%    10    6.1   6.5   5.5   7.1   0.5
+#   9. AS???    ???                                                       100.0    10    0.0   0.0   0.0   0.0   0.0
+#  10. AS5432   34.123-67-87.adsl-dyn.isp.belgacom.be (87.67.123.34)       0.0%    10   12.7  13.4  11.8  17.8   1.7
+
