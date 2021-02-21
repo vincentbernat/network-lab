@@ -30,10 +30,10 @@ case $uts in
         ip link set dev eth1 master br1
         ip link set dev eth2 master br0
         ip link set dev eth3 master br1
-        echo 4 > /sys/class/net/eth0/brport/group_fwd_mask
-        echo 4 > /sys/class/net/eth1/brport/group_fwd_mask
-        echo 4 > /sys/class/net/eth2/brport/group_fwd_mask
-        echo 4 > /sys/class/net/eth3/brport/group_fwd_mask
+        ip link set dev eth0 type bridge_slave group_fwd_mask 4
+        ip link set dev eth1 type bridge_slave group_fwd_mask 4
+        ip link set dev eth2 type bridge_slave group_fwd_mask 4
+        ip link set dev eth3 type bridge_slave group_fwd_mask 4
         ip link set up dev br0
         ip link set up dev br1
         ;;
