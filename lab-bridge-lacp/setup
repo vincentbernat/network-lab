@@ -1,0 +1,37 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm H1 network 1,2
+spawn vm SW network 1,2,3,4
+spawn vm H2 network 3,4
+
+run
+
+case $uts in
+    H*)
+        ip link set down dev eth0
+        ip link set down dev eth1
+        ethtool -s eth0 speed 1000 duplex full
+        ethtool -s eth1 speed 1000 duplex full
+        modprobe bonding
+        ip link add name bond0 type bond mode 802.3ad  miimon 100 lacp_rate fast
+        ip link set dev eth0 master bond0
+        ip link set dev eth1 master bond0
+        ip link set up dev bond0
+        ip link set up dev eth0
+        ip link set up dev eth1
+        ;;
+    SW)
+        # This well err because we cannot allow LACP to be forwarded.
+        ip link add name br12 type bridge group_fwd_mask 4 stp_state 0
+        ip link add name br34 type bridge group_fwd_mask 4 stp_state 0
+        ip link set dev eth0 master br12
+        ip link set dev eth1 master br12
+        ip link set dev eth2 master br34
+        ip link set dev eth3 master br34
+        ip link set up dev br12
+        ip link set up dev br34
+        ;;
+esac
