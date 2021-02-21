@@ -38,14 +38,3 @@ case $uts in
         ip link set up dev br1
         ;;
 esac
-
-# H2$ ping fe80::5254:33ff:fe00:1 -I bond0 -c 3
-# ping: Warning: source address might be selected on device other than: bond0
-# PING fe80::5254:33ff:fe00:1(fe80::5254:33ff:fe00:1) from :: bond0: 56 data bytes
-# 64 bytes from fe80::5254:33ff:fe00:1%bond0: icmp_seq=1 ttl=64 time=0.370 ms
-# 64 bytes from fe80::5254:33ff:fe00:1%bond0: icmp_seq=2 ttl=64 time=1.92 ms
-# 64 bytes from fe80::5254:33ff:fe00:1%bond0: icmp_seq=3 ttl=64 time=1.91 ms
-#
-# --- fe80::5254:33ff:fe00:1 ping statistics ---
-# 3 packets transmitted, 3 received, 0% packet loss, time 2003ms
-# rtt min/avg/max/mdev = 0.370/1.399/1.921/0.727 ms
