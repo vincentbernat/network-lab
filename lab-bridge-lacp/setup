@@ -16,7 +16,7 @@ case $uts in
         ethtool -s eth0 speed 1000 duplex full
         ethtool -s eth1 speed 1000 duplex full
         modprobe bonding
-        ip link add name bond0 type bond mode 802.3ad  miimon 100 lacp_rate fast
+        ip link add name bond0 type bond mode 802.3ad miimon 100 lacp_rate fast
         ip link set dev eth0 master bond0
         ip link set dev eth1 master bond0
         ip link set up dev bond0
@@ -24,14 +24,17 @@ case $uts in
         ip link set up dev eth1
         ;;
     SW)
-        # This well err because we cannot allow LACP to be forwarded.
-        ip link add name br12 type bridge group_fwd_mask 4 stp_state 0
-        ip link add name br34 type bridge group_fwd_mask 4 stp_state 0
-        ip link set dev eth0 master br12
-        ip link set dev eth1 master br12
-        ip link set dev eth2 master br34
-        ip link set dev eth3 master br34
-        ip link set up dev br12
-        ip link set up dev br34
+        ip link add name br0 type bridge stp_state 0 # group_fwd_mask 4
+        ip link add name br1 type bridge stp_state 0 # group_fwd_mask 4
+        ip link set dev eth0 master br0
+        ip link set dev eth1 master br1
+        ip link set dev eth2 master br0
+        ip link set dev eth3 master br1
+        echo 4 > /sys/class/net/eth0/brport/group_fwd_mask
+        echo 4 > /sys/class/net/eth1/brport/group_fwd_mask
+        echo 4 > /sys/class/net/eth2/brport/group_fwd_mask
+        echo 4 > /sys/class/net/eth3/brport/group_fwd_mask
+        ip link set up dev br0
+        ip link set up dev br1
         ;;
 esac
