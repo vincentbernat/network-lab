@@ -254,6 +254,7 @@ spawn () {
     for net in $NET; do
         case $net in
             oob) ;;
+            rocker*) setup_switch ${net#rocker} ;;
             *) setup_switch $net ;;
         esac
     done
@@ -513,6 +514,7 @@ start_vm () {
     name=$NAME
     log_info_msg "Start VM $name"
     netargs=""
+    rockerports=""
     for net in $NET; do
         case $net in
             oob)
@@ -522,6 +524,11 @@ start_vm () {
                 [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
                 add_ssh_config $NAME $ssh
                 ;;
+            rocker*)
+                net=${net#rocker}
+                netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
+                rockerports="${rockerports} net$net"
+                ;;
             *)
                 mac=$(mac_address)
                 netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
@@ -529,6 +536,15 @@ start_vm () {
                 ;;
         esac
     done
+    [ -z "$rockerports" ] || {
+        count=0
+        str=""
+        for p in $rockerports; do
+            str="${str},ports[${count}]=$p"
+            count=$((count+1))
+        done
+        netargs="$netargs -device rocker,name=sw1,len-ports=${count}${str}"
+    }
 
     [ "$DISK" = "" ] || \
         netargs="$netargs -drive file=$DISK,if=virtio,media=disk"

@@ -1,0 +1,23 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm H1 network 1
+spawn vm H2 network 2
+spawn vm SW network rocker1,rocker2,rocker3,rocker4
+
+run
+
+case $uts in
+    SW)
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        sysctl -qw net.ipv4.conf.all.forwarding=1
+        ip addr add 192.168.1.1/24 dev eth0
+        ip addr add 192.168.2.1/24 dev eth1
+        ;;
+    H*)
+        ip addr add 192.168.${uts#H}.10/24 dev eth0
+        ip route add default via 192.168.${uts#H}.1
+        ;;
+esac
