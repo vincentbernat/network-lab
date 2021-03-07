@@ -1,0 +1,27 @@
+#!/bin/sh
+
+LABNAME="vmx"
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# This is a bit simplified as we don't have CE1/CE2
+#spawn vm CE1 network 1,2
+#spawn vm CE2 network 5,6
+
+spawn vm H1 network 2
+spawn juniper-vmx vMX network 2,3,3,4,4,5
+spawn vm H2 network 5
+
+run
+
+case $uts in
+    H1)
+        ip addr add 192.0.2.10/24 dev eth0
+        ip route add default via 192.0.2.1
+        ;;
+    H2)
+        ip addr add 203.0.113.10/24 dev eth0
+        ip route add default via 203.0.113.1
+        ;;
+esac
