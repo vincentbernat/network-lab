@@ -515,6 +515,7 @@ start_vm () {
     log_info_msg "Start VM $name"
     netargs=""
     rockerports=""
+    count=0
     for net in $NET; do
         case $net in
             oob)
@@ -526,15 +527,16 @@ start_vm () {
                 ;;
             rocker*)
                 net=${net#rocker}
-                netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-                rockerports="${rockerports} net$net"
+                netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+                rockerports="${rockerports} net${count}"
                 ;;
             *)
                 mac=$(mac_address)
-                netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-                netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+                netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+                netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count}"
                 ;;
         esac
+        count=$((count+1))
     done
     [ -z "$rockerports" ] || {
         count=0
@@ -608,6 +610,7 @@ start_img () {
     name=$NAME
     log_info_msg "Start image $name"
     netargs=""
+    count=0
     for net in $NET; do
         case $net in
             oob)
@@ -619,10 +622,11 @@ start_img () {
                 ;;
             *)
                 mac=$(mac_address)
-                netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-                netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+                netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+                netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count}"
                 ;;
         esac
+        count=$((count+1))
     done
 
     # /root is mounted with version 9p2000.u to allow access to /dev,
@@ -676,10 +680,12 @@ start_juniper_vrr () {
     netargs="$netargs -device e1000,mac=$oobmac,netdev=oob"
     [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh juniper
+    count=0
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device e1000,mac=$mac,netdev=net$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net${count}"
+        count=$((count+1))
     done
 
     # Have a look at /etc/rc.vmguest for what is done
@@ -744,10 +750,12 @@ start_juniper_vqfx () {
     netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=pfe"
     netargs="$netargs -device e1000,mac=$(mac_address),netdev=pfe"  # PFE
     netargs="$netargs -device e1000,mac=$(mac_address)" # unused
+    count=0
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device e1000,mac=$mac,netdev=net$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net${count}"
+        count=$((count+1))
     done
     cat <<EOF > "$TMP/vm-$name-re.exec"
 #!/bin/sh
@@ -932,10 +940,12 @@ EOF
     netargs="$netargs -device virtio-net-pci,mac=$(mac_address)" # OOB (unused)
     netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=re"
     netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=re"  # RE
+    count=0
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count}"
+        count=$((count+1))
     done
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
@@ -992,10 +1002,12 @@ start_juniper_vsrx () {
     netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
     [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh juniper
+    count=0
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count}"
+        count=$((count+1))
     done
 
     cat <<EOF > "$TMP/vm-$name.exec"
@@ -1055,10 +1067,12 @@ start_juniper_firefly () {
     netargs=""
     netargs="$netargs -netdev user,id=tftp,tftp=$TMP/tftp,hostname=$name"
     netargs="$netargs -device e1000,mac=$(mac_address),netdev=tftp"
+    count=0
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device e1000,mac=$mac,netdev=net$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net${count}"
+        count=$((count+1))
     done
 
     log_info_msg "Start Juniper vSRX $name"
@@ -1108,10 +1122,12 @@ start_cumulus_vx () {
     netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
     [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh cumulus
+    count=0
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count}"
+        count=$((count+1))
     done
 
     cat <<EOF > "$TMP/vm-$name.exec"
@@ -1184,10 +1200,12 @@ start_sonic () {
     netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
     [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh admin
+    count=0
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count}"
+        count=$((count+1))
     done
 
     cat <<EOF > "$TMP/vm-$name.exec"
@@ -1227,10 +1245,12 @@ start_cisco_iosxrv () {
     netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
     [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh cisco
+    count=0
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count}"
+        count=$((count+1))
     done
 
     cat <<EOF > "$TMP/vm-$name.exec"
@@ -1342,10 +1362,12 @@ start_hp_vsr1000 () {
     netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
     [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh hp
+    count=0
     for net in $NET; do
         mac=$(mac_address)
-        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net$net"
-        netargs="$netargs -device e1000,mac=$mac,netdev=net$net"
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net${count}"
+        count=$((count+1))
     done
 
     cat <<EOF > "$TMP/vm-$name.exec"
