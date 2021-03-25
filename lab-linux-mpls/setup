@@ -1,0 +1,88 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm C1 network 1
+spawn vm CE11 network 1,2
+spawn vm C2 network 3
+spawn vm CE12 network 3,4
+spawn vm PE1 network 2,4,5
+spawn vm P network 5,6
+spawn vm PE2 network 7,9,6
+spawn vm CE21 network 8,7
+spawn vm C3 network 8
+spawn vm CE22 network 10,9
+spawn vm C4 network 10
+
+run
+
+modprobe mpls-router
+modprobe mpls-iptunnel
+
+case $uts in
+    C1)
+        ip addr add 192.0.2.4/28 dev eth0
+        ip route add default via 192.0.2.1
+        ;;
+    C2)
+        ip addr add 192.0.2.20/28 dev eth0
+        ip route add default via 192.0.2.17
+        ;;
+    C3)
+        ip addr add 192.0.2.36/28 dev eth0
+        ip route add default via 192.0.2.33
+        ;;
+    C4)
+        ip addr add 192.0.2.52/28 dev eth0
+        ip route add default via 192.0.2.49
+        ;;
+    CE*)
+        y=${uts#CE?}            # customer
+        x=${uts#CE}
+        x=${x%$y}
+        base=$(( (x*2 + y - 3)*16 ))
+        ip addr add 192.0.2.$(( base + 1 ))/28 dev eth0
+        ip addr add 203.0.113.$(( base + 4 ))/28 dev eth1
+        sysctl -qw net.ipv4.ip_forward=1
+        template frr-bgpd.CExy.conf frr-bgpd.${uts}.conf \
+                 asn=654$x$y id="'$x.$y'" \
+                 neighbor="'203.0.113.$(( base + 1 ))'" remoteas=6540${x} \
+                 network="'192.0.2.${base}/28'"
+        service frr
+        ;;
+    PE*)
+        x=${uts#PE}
+        ip link add customer1 type vrf table 101
+        ip link add customer2 type vrf table 102
+        ip route add vrf customer1 unreachable default metric 4278198272
+        ip route add vrf customer2 unreachable default metric 4278198272
+        ip link set eth0 vrf customer1
+        ip link set eth1 vrf customer2
+        ip link set up dev customer1
+        ip link set up dev customer2
+        ip addr add 203.0.113.$(( (x-1)*32 + 1 ))/28 dev eth0
+        ip addr add 203.0.113.$(( (x-1)*32 + 17 ))/28 dev eth1
+        ip addr add 169.254.0.$(( x ))/31 dev eth2
+        ip addr add 192.168.0.$(( x ))/32 dev lo
+        sysctl -qw net.mpls.conf.eth2.input=1
+        sysctl -qw net.mpls.platform_labels=1048575
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.mpls.ip_ttl_propagate=1
+        template frr-ospfd.PEx.conf frr-ospfd.${uts}.conf x=$x
+        template frr-bgpd.PEx.conf frr-bgpd.${uts}.conf x=$x
+        template frr-ldpd.PEx.conf frr-ldpd.${uts}.conf x=$x
+        service frr
+        ;;
+    P)
+        ip addr add 169.254.0.0/31 dev eth0
+        ip addr add 169.254.0.3/31 dev eth1
+        ip addr add 192.168.0.0/32 dev lo
+        sysctl -qw net.mpls.conf.eth0.input=1
+        sysctl -qw net.mpls.conf.eth1.input=1
+        sysctl -qw net.mpls.platform_labels=1048575
+        sysctl -qw net.ipv4.ip_forward=1
+        sysctl -qw net.mpls.ip_ttl_propagate=1
+        service frr
+        ;;
+esac

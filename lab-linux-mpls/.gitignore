@@ -1,0 +1,10 @@
+/frr-ospfd.PE2.conf
+/frr-ospfd.PE1.conf
+/frr-bgpd.PE2.conf
+/frr-bgpd.PE1.conf
+/frr-bgpd.CE11.conf
+/frr-bgpd.CE12.conf
+/frr-bgpd.CE21.conf
+/frr-bgpd.CE22.conf
+/frr-ldpd.PE1.conf
+/frr-ldpd.PE2.conf
