@@ -1551,7 +1551,7 @@ service () {
             done
             services=$(ls /mnt/lab/$kind-*.conf 2> /dev/null \
                            | sed "s+/mnt/lab/$kind-\([^.-]*\).*+\1+" \
-                           | sort | uniq)
+                           | sort -r | uniq)
             for svc in $services; do
                 for p in "" /usr/lib/frr/ /usr/lib/quagga/ ""; do
                     ! command -v $p$svc > /dev/null || break
