@@ -635,7 +635,7 @@ echo
 printf "\e]2;$name\a"
 qemu-img create -f qcow2 -b $PWD/$name.img -F qcow2 $TMP/vm-$name.img
 truncate -s 10M $TMP/metadata-$name.img
-mkfs.vfat $TMP/metadata-$name.img
+mkfs.vfat -n CIDATA $TMP/metadata-$name.img
 mcopy -i $TMP/metadata-$name.img $name/* ::/.
 mcopy -i $TMP/metadata-$name.img $TMP/id_rsa.pub ::/.
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
