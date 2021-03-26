@@ -629,9 +629,6 @@ start_img () {
         count=$((count+1))
     done
 
-    # /root is mounted with version 9p2000.u to allow access to /dev,
-    # /sys and to mount new partitions over them. This is not the case
-    # for 9p2000.L.
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 echo
