@@ -635,18 +635,9 @@ echo
 printf "\e]2;$name\a"
 qemu-img create -f qcow2 -b $PWD/$name.img -F qcow2 $TMP/vm-$name.img
 truncate -s 10M $TMP/metadata-$name.img
-sfdisk $TMP/metadata-$name.img <<END
-label: dos
-label-id: 0xedb6ef59
-device: whatever
-unit: sectors
-sector-size: 512
-
-whatever1 : start=2048, size=$((10*1024*1024/512 - 2048)), type=b
-END
-mkfs.vfat --offset 2048 -n CIDATA $TMP/metadata-$name.img
-mcopy -i $TMP/metadata-$name.img@@1M $name/* ::/.
-mcopy -i $TMP/metadata-$name.img@@1M $TMP/id_rsa.pub ::/.
+mkfs.vfat -n CIDATA $TMP/metadata-$name.img
+mcopy -i $TMP/metadata-$name.img $name/* ::/.
+mcopy -i $TMP/metadata-$name.img $TMP/id_rsa.pub ::/.
 cat <<END > $TMP/meta-data-$name
 local-hostname: $name
 END
@@ -657,8 +648,8 @@ users:
     ssh-authorized-keys:
       - $(cat $TMP/id_rsa.pub)
 END
-mcopy -i $TMP/metadata-$name.img@@1M $TMP/meta-data-$name ::/meta-data
-mcopy -i $TMP/metadata-$name.img@@1M $TMP/user-data-$name ::/user-data
+mcopy -i $TMP/metadata-$name.img $TMP/meta-data-$name ::/meta-data
+mcopy -i $TMP/metadata-$name.img $TMP/user-data-$name ::/user-data
 truncate -s 1k
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
