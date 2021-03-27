@@ -640,7 +640,7 @@ cp $TMP/id_rsa.pub $TMP/metadata-$name
 cat <<END > $TMP/metadata-$name/meta-data
 local-hostname: $name
 END
-cat <<END > $TMP/metadata-$name/user-data
+cat user-data.$name - <<END 2> /dev/null > $TMP/metadata-$name/user-data
 #cloud-config
 users:
   - name: root
