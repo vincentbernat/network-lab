@@ -1,0 +1,9 @@
+#cloud-config
+runcmd:
+  - ip a l
+network:
+  version: 2
+  ethernets:
+    ens4:
+      addresses:
+        - 192.168.0.10/24
