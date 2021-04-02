@@ -12,5 +12,7 @@ runcmd:
     cp /mnt/lab/ospfd.conf /mnt/lab/ldpd.conf /etc
   - |
     chmod o-r /etc/ospfd.conf /etc/ldpd.conf
-    rcctl enable ospfd
-    rcctl enable ldpd
+    ifconfig vio1 mpls
+    ifconfig vio2 mpls
+    ospfd
+    ldpd
