@@ -1,0 +1,16 @@
+#cloud-config
+runcmd:
+  - pkg_add zsh
+  - |
+    ifconfig vio1 169.254.0.0/31 up
+    ifconfig vio2 169.254.0.3/31 up
+    ifconfig lo1 alias 192.168.0.0/32
+    sysctl -w net.inet.ip.forwarding=1
+  - |
+    mkdir /mnt/lab
+    mount /dev/cd0a /mnt/lab
+    cp /mnt/lab/ospfd.conf /mnt/lab/ldpd.conf /etc
+  - |
+    chmod o-r /etc/ospfd.conf /etc/ldpd.conf
+    rcctl enable ospfd
+    rcctl enable ldpd

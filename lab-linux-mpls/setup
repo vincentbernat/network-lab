@@ -8,12 +8,17 @@ spawn vm CE11 network 1,2
 spawn vm C2 network 3
 spawn vm CE12 network 3,4
 spawn vm PE1 network 2,4,5
-spawn vm P network 5,6
 spawn vm PE2 network 7,9,6
 spawn vm CE21 network 8,7
 spawn vm C3 network 8
 spawn vm CE22 network 10,9
 spawn vm C4 network 10
+
+## For P, choose:
+## Linux
+# spawn vm P1 network 5,6
+## OpenBSD
+spawn img P2 network oob,5,6
 
 run
 
@@ -74,7 +79,7 @@ case $uts in
         template frr-ldpd.PEx.conf frr-ldpd.${uts}.conf x=$x
         service frr
         ;;
-    P)
+    P1)
         ip addr add 169.254.0.0/31 dev eth0
         ip addr add 169.254.0.3/31 dev eth1
         ip addr add 192.168.0.0/32 dev lo

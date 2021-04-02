@@ -1,0 +1,7 @@
+version: 1
+config:
+  - type: physical
+    name: vio0
+    subnets:
+      type: dhcp
+# Only the OOB interface is configured. The remaining is done in user-data.
