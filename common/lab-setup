@@ -647,6 +647,7 @@ users:
     ssh-authorized-keys:
       - $(cat $TMP/id_rsa.pub)
 END
+cp network-config.$name $TMP/metadata-$name/network-config 2> /dev/null
 genisoimage -output $TMP/metadata-$name.iso -volid cidata -joliet -rock $TMP/metadata-$name/*
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
