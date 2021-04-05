@@ -16,9 +16,9 @@ spawn vm C4 network 10
 
 ## For P, choose:
 ## Linux
-# spawn vm P1 network 5,6
+spawn vm P1 network 5,6
 ## OpenBSD
-spawn img P2 network oob,5,6
+# spawn img P2 network oob,5,6
 
 run
 
