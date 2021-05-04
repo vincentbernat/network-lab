@@ -644,6 +644,7 @@ cat user-data.$name - <<END 2> /dev/null > $TMP/metadata-$name/user-data
 #cloud-config
 users:
   - name: root
+    plain_text_passwd: .Linux.
     ssh-authorized-keys:
       - $(cat $TMP/id_rsa.pub)
 END

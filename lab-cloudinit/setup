@@ -4,6 +4,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 spawn img openbsd network oob,1
+spawn img freebsd network oob,1
 spawn img ubuntu network oob,1
 spawn img debian network oob,1
 run
