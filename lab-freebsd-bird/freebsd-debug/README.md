@@ -8,5 +8,5 @@ Then, as usual:
 
     $ gdb /usr/lib/debug/boot/kernel/kernel.debug
     Reading symbols from /usr/lib/debug/boot/kernel/kernel.debug...
-    (gdb) target remote | socat STDIO UNIX:/tmp/gdb.pipe
-    Remote debugging using | socat STDIO UNIX:/tmp/gdb.pipe
+    (gdb) target remote /tmp/gdb.pipe
+    Remote debugging using /tmp/gdb.pipe

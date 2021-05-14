@@ -596,9 +596,9 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -append "uts=$name console=ttyS0 panic=1 TERM=$TERM quiet net.ifnames=0 nokaslr $KERNELPARAMS" \
      $netargs
 EOF
-    log_info_msg "GDB server listening on $TMP/vm-$name-gdb.pipe"
-    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
-    log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
+    log_info_msg "monitor listening on  $TMP/vm-$name-console.pipe"
+    log_info_msg "ttyS1 listening on    $TMP/vm-$name-serial.pipe"
+    log_info_msg "GDB server            gdb -ex='target remote $TMP/vm-$name-gdb.pipe'"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
 }
@@ -676,9 +676,9 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      $netargs
 EOF
-    log_info_msg "GDB server listening on $TMP/vm-$name-gdb.pipe"
-    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
-    log_info_msg "ttyS1 listening on      $TMP/vm-$name-serial.pipe"
+    log_info_msg "monitor listening on  $TMP/vm-$name-console.pipe"
+    log_info_msg "ttyS1 listening on    $TMP/vm-$name-serial.pipe"
+    log_info_msg "GDB server            gdb -ex='target remote $TMP/vm-$name-gdb.pipe'"
     chmod +x "$TMP/vm-$name.exec"
     tmux new-window -d -n $name "$TMP/vm-$name.exec"
 }
