@@ -24,7 +24,7 @@ service sshd onestart
 
 # Shell
 env ASSUME_ALWAYS_YES=YES pkg install zsh curl mg bird gmake autoconf bison git
-curl -s https://vincentbernat-zshrc.s3.amazonaws.com/zsh-install.sh | sh
+curl -sL https://github.com/vincentbernat/zshrc/releases/download/latest/zsh-install.sh | sh
 
 ifconfig lo0 inet 203.0.113.14/32 alias
 ifconfig vtnet1 inet 192.0.2.11/31

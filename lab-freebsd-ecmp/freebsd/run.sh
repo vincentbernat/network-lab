@@ -24,7 +24,7 @@ service sshd onestart
 
 # Shell
 env ASSUME_ALWAYS_YES=YES pkg install zsh curl mg subversion
-curl -s https://vincentbernat-zshrc.s3.amazonaws.com/zsh-install.sh | sh
+curl -sL https://github.com/vincentbernat/zshrc/releases/download/latest/zsh-install.sh | sh
 
 echo 'gateway_enable="YES"' >> /etc/rc.conf
 service routing restart
