@@ -1,0 +1,42 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Compile pping
+make -C bpf-examples/pping
+
+spawn vm H1 network 1
+spawn vm R network 1,2
+spawn vm H2 network 2
+
+run
+
+# Executed on each VM
+case $uts in
+    H1)
+        ip addr add 192.0.2.10/24 dev eth0
+        ip route add default via 192.0.2.1
+        ip addr add 2001:db8:1::10/64 dev eth0
+        ip route add default via 2001:db8:1::1
+        ;;
+    H2)
+        ip addr add 203.0.113.10/24 dev eth0
+        ip route add default via 203.0.113.1
+        ip addr add 2001:db8:2::10/64 dev eth0
+        ip route add default via 2001:db8:2::1
+        ;;
+    R)
+        ip addr add 192.0.2.1/24 dev eth0
+        ip addr add 203.0.113.1/24 dev eth1
+        sysctl -qw net.ipv4.ip_forward=1
+        ip addr add 2001:db8:1::1/64 dev eth0
+        ip addr add 2001:db8:2::1/64 dev eth1
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+
+        mount bpffs /sys/fs/bpf -t bpf
+        cd bpf-examples/pping
+        echo ./pping -i eth0
+        ;;
+esac
+service nginx
