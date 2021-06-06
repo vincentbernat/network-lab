@@ -594,7 +594,8 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -no-reboot \
      -initrd $TMP/initrd.gz \
      -append "uts=$name console=ttyS0 panic=1 TERM=$TERM quiet net.ifnames=0 nokaslr $KERNELPARAMS" \
-     $netargs
+     $netargs \
+     $QEMU_ARGS
 EOF
     log_info_msg "monitor listening on  $TMP/vm-$name-console.pipe"
     log_info_msg "ttyS1 listening on    $TMP/vm-$name-serial.pipe"
@@ -618,7 +619,7 @@ start_img () {
                 netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
                 netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
                 [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
-                add_ssh_config $NAME $ssh
+                add_ssh_config $NAME $ssh ${SSH_USER:-root}
                 ;;
             *)
                 mac=$(mac_address)
@@ -633,7 +634,7 @@ start_img () {
 #!/bin/sh
 echo
 printf "\e]2;$name\a"
-qemu-img create -f qcow2 -b $PWD/$name.img -F qcow2 $TMP/vm-$name.img
+qemu-img create -f qcow2 -b $PWD/$name.img -F qcow2 $TMP/vm-$name.img ${QEMU_IMG_SIZE}
 mkdir $TMP/metadata-$name
 cp -a $name/* $TMP/metadata-$name/. 2> /dev/null
 cp $TMP/id_rsa.pub $TMP/metadata-$name
@@ -674,7 +675,8 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
      -mon chardev=con0,mode=readline \
      \
-     $netargs
+     $netargs \
+     $QEMU_ARGS
 EOF
     log_info_msg "monitor listening on  $TMP/vm-$name-console.pipe"
     log_info_msg "ttyS1 listening on    $TMP/vm-$name-serial.pipe"

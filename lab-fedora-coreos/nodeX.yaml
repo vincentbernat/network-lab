@@ -1,0 +1,38 @@
+variant: fcos
+version: 1.3.0
+passwd:
+  users:
+    - name: core
+      password_hash: "$1$avyI22e2$Qs8P0WjiG0WgUWRGMXX16/" # .Linux.
+      ssh_authorized_keys:
+        - {{ ssh|replace(',', ' ') }}
+storage:
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: node{{ node }}
+    - path: /etc/NetworkManager/system-connections/ens3.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=ens3
+          type=ethernet
+          interface-name=ens3
+          [ipv4]
+          method=auto
+    - path: /etc/NetworkManager/system-connections/ens4.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=ens4
+          type=ethernet
+          interface-name=ens4
+          [ipv4]
+          address1=192.168.10.{{ node + 10 }}/24,192.168.10.1
+          dns=
+          dns-search=
+          may-fail=false
+          method=manual

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+NODES=3
+
+ssh-keygen -m pem -q -t rsa -b 2048 -N "" -f $TMP/id_rsa
+for n in $(seq 1 $NODES); do
+    template nodeX.yaml node${n}.bu node=${n} ssh="'$(cat $TMP/id_rsa.pub)'"
+    nix run nixpkgs.butane --command butane < node${n}.bu > node${n}.ign
+    export \
+        QEMU_ARGS="-fw_cfg name=opt/com.coreos/config,file=$PWD/node${n}.ign" \
+        QEMU_IMG_SIZE=15G \
+        MEM=2G \
+        SSH_USER=core
+    spawn img node${n} network oob,1
+done
+
+run
