@@ -6,24 +6,6 @@ passwd:
       password_hash: "$1$avyI22e2$Qs8P0WjiG0WgUWRGMXX16/" # .Linux.
       ssh_authorized_keys:
         - {{ ssh|replace(',', ' ') }}
-systemd:
-  units:
-    - name: rpm-ostree-install-zsh.service
-      enabled: true
-      contents: |
-        [Unit]
-        Description=Layer zsh with rpm-ostree
-        After=systemd-machine-id-commit.service
-        After=network-online.target
-        ConditionPathExists=!/usr/bin/zsh
-
-        [Service]
-        Type=oneshot
-        RemainAfterExit=yes
-        ExecStart=/usr/bin/rpm-ostree install --apply-live zsh
-
-        [Install]
-        WantedBy=multi-user.target
 storage:
   files:
     - path: /etc/hostname
