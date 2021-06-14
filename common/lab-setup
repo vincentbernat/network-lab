@@ -570,10 +570,10 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
-     -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server,nowait \
+     -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server=on,wait=off \
      -device isa-serial,chardev=charserial1,id=serial1 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      -fsdev local,security_model=passthrough,id=fsdev-root,path=${ROOT},multidevs=remap \
@@ -589,7 +589,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -fsdev local,security_model=none,id=fsdev-modules,path=${MODULES}/..,readonly \
      -device virtio-9p-pci,id=fs-modules,fsdev=fsdev-modules,mount_tag=moduleshare \
      \
-     -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
+     -gdb unix:$TMP/vm-$name-gdb.pipe,server=on,wait=off \
      -kernel $KERNEL \
      -no-reboot \
      -initrd $TMP/initrd.gz \
@@ -664,15 +664,15 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
-     -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server,nowait \
+     -chardev socket,id=charserial1,path=$TMP/vm-$name-serial.pipe,server=on,wait=off \
      -device isa-serial,chardev=charserial1,id=serial1 \
      \
      -boot c \
      -drive file=$TMP/vm-$name.img,if=virtio,media=disk \
      -drive file=$TMP/metadata-$name.iso,format=raw,if=ide,media=cdrom,read-only \
      \
-     -gdb unix:$TMP/vm-$name-gdb.pipe,server,nowait \
-     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -gdb unix:$TMP/vm-$name-gdb.pipe,server=on,wait=off \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs \
@@ -740,7 +740,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -816,7 +816,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-re-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-re-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -860,7 +860,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-pfe-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-pfe-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -938,7 +938,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-re-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-re-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -996,7 +996,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-pfe-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-pfe-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -1064,7 +1064,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -1116,7 +1116,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -1194,7 +1194,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -1239,7 +1239,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -1327,7 +1327,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
@@ -1448,7 +1448,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
      \
-     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server,nowait \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
      \
      $netargs
