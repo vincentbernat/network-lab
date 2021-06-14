@@ -564,6 +564,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-192M} \
+     -machine q35 \
      -cpu host \
      -smp ${CPUS:-1} \
      -device virtio-rng \
@@ -658,6 +659,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-256M} \
+     -machine q35 \
      -cpu host \
      -smp ${CPUS:-1} \
      -device virtio-rng \
@@ -805,6 +807,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-1G} \
+     -machine q35 \
      -cpu host \
      -device virtio-rng \
      \
@@ -848,6 +851,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -enable-kvm \
      -no-user-config -nodefaults \
      -display none \
+     -machine q35 \
      -cpu host,level=9,-avx2,-vmx \
      -m ${MEM:-1G} \
      -device virtio-rng \
@@ -925,6 +929,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
      -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-1G} \
+     -machine q35 \
      -cpu host \
      -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=VMX,product=VM-vcp_vmx1-161-re-0,version=0.1.0 \
      -device virtio-rng \
@@ -957,8 +962,13 @@ EOF
     count=0
     for net in $NET; do
         mac=$(mac_address)
+        bridge=$(( $count / 16 + 1 ))
+        if [ $(( $count % 16  )) -eq 0 ]; then
+            netargs="$netargs -device pcie-root-port,bus=pcie.0,id=rp${bridge},slot=${bridge}"
+            netargs="$netargs -device pcie-pci-bridge,id=br${bridge},bus=rp${bridge}"
+        fi
         netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
-        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count}"
+        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count},bus=br${bridge},addr=$(( $count % 16 + 1 ))"
         count=$((count+1))
     done
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
@@ -984,6 +994,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
      -no-user-config -nodefaults \
      -display none \
      -smp cpus=$vcpus \
+     -machine q35 \
      -cpu host \
      -m ${MEM:-3G} \
      -device virtio-rng \
@@ -1051,6 +1062,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-4G} \
+     -machine q35 \
      -cpu host \
      -smp cpus=2 \
      -smbios type=0,vendor=Juniper -smbios type=1,manufacturer=Juniper,product=VSRX \
@@ -1101,7 +1113,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -enable-kvm \
      -no-user-config -nodefaults \
      -display none \
-     -machine pc \
+     -machine q35 \
      -cpu host \
      -smp cpus=2 \
      -rtc base="2014-06-09" \
@@ -1316,6 +1328,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-4G} \
+     -machine q35 \
      -cpu host \
      -device virtio-rng \
      \
@@ -1439,6 +1452,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -no-user-config -nodefaults \
      -display none \
      -m ${MEM:-1G} \
+     -machine q35 \
      -cpu host \
      -device virtio-rng \
      \
