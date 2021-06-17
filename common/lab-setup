@@ -909,6 +909,7 @@ chassis {
   }
 }
 END
+# This comes from metadata-usb-re.img
 cat <<END > $TMP/metadata-$name/boot/loader.conf
 vmtype="0"
 vm_retype="RE-VMX"
@@ -916,6 +917,15 @@ vm_i2cid="0xBAA"
 vm_chassis_i2cid="161"
 vm_instance="0"
 console="vidconsole,comconsole"
+END
+# This comes from https://www.juniper.net/us/en/dm/free-vmx-trial/
+# See https://kb.juniper.net/InfoCenter/index?page=content&id=KB36478&cat=VMX&actp=LIST
+mkdir $TMP/metadata-$name/config/license
+cat <<END > $TMP/metadata-$name/config/license/JUNOS1234.lic
+E435890758 aeaqic aiagij cpabsc idycyi giydco bqgiyd
+           sdapoz gvqlkk ovxgs4 dfojcx mylma4 uhfs7p
+           etdlfc ex2i5k 4mo4fa ew2xbz ujzbol 4fl44z
+           ya3md2 drdgjf preowc 5ubrju kyq
 END
 tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
 mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vmm-config.tgz
