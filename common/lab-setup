@@ -951,7 +951,8 @@ EOF
     log_info_msg "Start Juniper vMX $name (PFE)"
     vcpus=4
     netargs=""
-    netargs="$netargs -device virtio-net-pci,mac=$(mac_address)" # OOB (unused)
+    netargs="$netargs -netdev user,id=oob"
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=oob" # OOB
     netargs="$netargs -netdev vde,sock=$TMP/switch-$name-internal.sock,id=re"
     netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=re"  # RE
     count=0
