@@ -20,9 +20,13 @@ case $uts in
     CE1)
         ip addr add 192.0.2.10/24 dev eth0
         ip route add default via 192.0.2.1
+        ip addr add 2001:db8:ce1::10/64 dev eth0
+        ip route add default via 2001:db8:ce1::1
         ;;
     CE2)
         ip addr add 203.0.113.10/24 dev eth0
         ip route add default via 203.0.113.1
+        ip addr add 2001:db8:ce2::10/64 dev eth0
+        ip route add default via 2001:db8:ce2::1
         ;;
 esac
