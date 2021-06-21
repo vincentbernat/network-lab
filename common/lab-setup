@@ -895,7 +895,7 @@ qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-re-hdd.img $TMP/junos-$n
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
-cat - $TMP/ssh-junos.conf junos-common.conf junos-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
+cat - $TMP/ssh-junos.conf junos-$name.conf junos-common.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
 interfaces {
   protect: fxp0 unit 0 {
     family inet dhcp;

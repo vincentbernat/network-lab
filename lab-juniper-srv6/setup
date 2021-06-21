@@ -1,13 +1,18 @@
 #!/bin/sh
 
-LABNAME="vmx"
-
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 spawn vm CE1 network 1
 spawn vm CE2 network 2
-spawn juniper-vmx vMX network 1,2,$(seq -s, 3 18 | sed -E 's/([0-9]+)/\1,\1/g')
+spawn juniper-vmx R0 network 1,3,4
+spawn juniper-vmx R1 network 3,5,6,7
+spawn juniper-vmx R2 network 7,8,10,11,12
+spawn juniper-vmx R3 network 11,13,15,17
+spawn juniper-vmx R4 network 4,5,8,9
+spawn juniper-vmx R5 network 6,9,10,13,14
+spawn juniper-vmx R6 network 12,14,16,17
+spawn juniper-vmx R7 network 2,15,16
 
 run
 
