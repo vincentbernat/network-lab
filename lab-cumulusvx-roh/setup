@@ -7,7 +7,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 #  https://github.com/CumulusNetworks/cldemo-roh-ansible
 
 # Generate templates
-if onhost then
+if onhost; then
     for host in leaf01 leaf02 leaf03 leaf04 spine01 spine02; do
         rm -rf $host
         find cumulusX -type f | while read source; do
