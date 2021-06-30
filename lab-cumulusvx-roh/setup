@@ -35,6 +35,7 @@ if onhost; then
                     ;;
                 *)
                     cp $source $target
+                    grep -Fqx /$target .gitignore 2>/dev/null || echo /$target >> .gitignore
                     ;;
             esac
         done

@@ -1,0 +1,34 @@
+auto lo
+iface lo inet loopback
+
+auto mgmt
+iface mgmt
+    vrf-table auto
+    address 127.0.0.1/8
+
+auto eth0
+iface eth0 inet dhcp
+    vrf mgmt
+    post-up sysctl -w net.ipv6.conf.eth0.accept_ra=2
+
+{% for iface in neighbors.split(",") %}
+auto {{ iface }}
+iface {{ iface }}
+{% endfor %}
+
+{% for iface in servers.split(",") if iface %}
+auto {{ iface }}
+iface {{ iface }}
+auto bond-{{ iface }}
+iface bond-{{ iface }}
+    bond-slaves {{ iface }}
+    bond-ad-actor-system 44:38:39:be:ef:{{ "%02x"|format((number+1) // 2) }}
+auto bond-{{ iface }}.100
+iface bond-{{ iface }}.100
+    address 203.0.113.254/32
+    post-up sysctl -w net/ipv4/conf/$IFACE/proxy_arp=1
+    post-up sysctl -w net/ipv4/neigh/$IFACE/proxy_delay=0
+
+    # This should be handled dynamically by an agent
+    post-up ip route add 203.0.113.{{ 10 + loop.index + ((number-1)//2*2) }}/32 metric 10 dev $IFACE
+{% endfor %}

@@ -1,0 +1,101 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Generate templates
+if onhost; then
+    for host in leaf01 leaf02 leaf03 leaf04 spine01 spine02; do
+        rm -rf $host
+        find cumulusX -type f | while read source; do
+            target=$host/${source#*/}
+            mkdir -p $(dirname $target)
+            case $host in
+                leaf*)
+                    neighbors="swp3 swp4"
+                    servers="swp1 swp2"
+                    offset=10
+                    number=${host#leaf}
+                    ;;
+                spine*)
+                    neighbors="swp1 swp2 swp3 swp4"
+                    offset=20
+                    number=${host#spine}
+                    ;;
+            esac
+            case $source in
+                *.j2)
+                    target=${target%.j2}
+                    template $source $target \
+                             loopback="'10.0.0.$((offset + number))'" \
+                             asn=$((65000 + offset + number)) \
+                             number=$((number)) \
+                             neighbors="'$neighbors'" \
+                             servers="'$servers'"
+                    ;;
+                *)
+                    cp $source $target
+                    grep -Fqx /$target .gitignore 2>/dev/null || echo /$target >> .gitignore
+                    ;;
+            esac
+        done
+    done
+fi
+
+spawn cumulus-vx leaf01 networks 1,3,13,14
+spawn cumulus-vx leaf02 networks 2,4,15,16
+spawn cumulus-vx leaf03 networks 5,7,17,18
+spawn cumulus-vx leaf04 networks 6,8,19,20
+spawn cumulus-vx spine01 networks 13,15,17,19
+spawn cumulus-vx spine02 networks 14,16,18,20
+
+spawn vm server01 networks 1,2
+spawn vm server02 networks 3,4
+spawn vm server03 networks 5,6
+spawn vm server04 networks 7,8
+
+run
+
+case $uts in
+    server*)
+        # Create a bond device
+        ip link add name lagg0 type bond mode 802.3ad miimon 100 lacp_rate fast
+        ethtool -s eth0 speed 1000 duplex full
+        ethtool -s eth1 speed 1000 duplex full
+        ip link set down dev eth0
+        ip link set down dev eth1
+        ip link set master lagg0 dev eth0
+        ip link set master lagg0 dev eth1
+        ip link set up dev lagg0
+
+        # Create a public VLAN and a private VLAN
+        ip link add name lagg0.public link lagg0 type vlan id 100
+        ip link add name lagg0.private link lagg0 type vlan id 10
+        ip link set up dev lagg0.public
+        ip link set up dev lagg0.private
+
+        # Use static IPv4 for public (for now)
+        ip addr add 203.0.113.$((${uts#server} + 10))/24 dev lagg0.public
+        ip route add default via 203.0.113.254 # doesn't exist
+        # TODO: get the IP address through DHCP
+
+        # For IPv6, Routing is done on link-local address and we can
+        # route the /48 as we see fit. In case we have forwarding
+        # enabled, force accept_ra, this is how we get our default
+        # route.
+        sysctl -qw net/ipv6/conf/lagg0.public/accept_ra=2
+        # Don't enable autoconf, we don't want an address (we won't get one).
+        sysctl -qw net/ipv6/conf/lagg0.public/autoconf=0
+        # We have a /48 and we choose an arbitrary address
+        # in the first /64.
+        ip -6 addr add 2001:db8:$((${uts#server} + 10)):0::1/64 dev lo
+        # TODO: the /48 prefix could be obtained through DHCPv6 PD.
+
+        # Use static IP for private (no DHCP server present, easy to add)
+        ip addr add 192.168.$((${uts#server} % 2)).$((${uts#server} + 10))/24 dev lagg0.private
+
+        # Put up the interfaces
+        ip link set up dev lagg0.public
+        ip link set up dev lagg0.private
+        ;;
+esac

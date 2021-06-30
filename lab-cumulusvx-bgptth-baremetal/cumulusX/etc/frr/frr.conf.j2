@@ -1,0 +1,29 @@
+frr defaults datacenter
+service integrated-vtysh-config
+log syslog informational
+zebra nexthop proto only
+
+{% for iface in neighbors.split(",") %}
+interface {{ iface }}
+  no ipv6 nd suppress-ra
+  ipv6 nd ra-interval 3
+!
+{% endfor %}
+router bgp {{ asn }}
+ bgp router-id {{ loopback }}
+ bgp bestpath as-path multipath-relax
+ neighbor underlay peer-group
+ neighbor underlay remote-as external
+ neighbor underlay soft-reconfiguration inbound
+{% for iface in neighbors.split(",") %}
+ neighbor {{ iface }} interface peer-group underlay
+ neighbor {{ iface }} soft-reconfiguration inbound
+{% endfor %}
+ address-family ipv4 unicast
+  redistribute kernel
+ exit-address-family
+ !
+ address-family ipv6 unicast
+  redistribute kernel
+ exit-address-family
+!
