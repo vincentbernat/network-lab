@@ -7,4 +7,5 @@ spawn img openbsd network oob,1
 spawn img freebsd network oob,1
 spawn img ubuntu network oob,1
 spawn img debian network oob,1
+MEM=512M spawn img centos network oob,1
 run
