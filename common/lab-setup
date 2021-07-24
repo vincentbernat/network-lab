@@ -69,9 +69,8 @@ setup_screen() {
             "env ROOT=$ROOT TMPDIR=$TMPDIR VERSION=$VERSION LINUX=$LINUX $PROGNAME $PROGARGS || read"
     fi
     sleep 1
-    tmux set-option -q prefix C-b
-    tmux set-option -q set-remain-on-exit on
-    tmux set-hook window-linked "set-window-option remain-on-exit on" 2> /dev/null || true
+    tmux set-option prefix C-b
+    tmux set-hook window-linked "set-option -w remain-on-exit on"
     tmux bind-key r respawn-window
     printf "\e]2;main\a"
 }
@@ -507,7 +506,7 @@ ssh -t -F $TMP/ssh_config $vm.lab unshare --pid --mount --uts --fork --mount-pro
         env uts=$ns STATE=BEGIN NOGETTY=1 nsenter --net=/run/netns/$ns /mnt/lab/setup
 EOF
     chmod +x "$TMP/ns-$vm--$ns.exec"
-    tmux new-window -d -n $NAME "$TMP/ns-$vm--$ns.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $NAME "$TMP/ns-$vm--$ns.exec") remain-on-exit on
 }
 
 start_vm () {
@@ -556,7 +555,6 @@ start_vm () {
     # for 9p2000.L.
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
-echo
 printf "\e]2;$name\a"
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
@@ -601,7 +599,7 @@ EOF
     log_info_msg "ttyS1 listening on    $TMP/vm-$name-serial.pipe"
     log_info_msg "GDB server            gdb -ex='target remote $TMP/vm-$name-gdb.pipe'"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $NAME "$TMP/vm-$name.exec") remain-on-exit on
 }
 
 start_img () {
@@ -632,7 +630,6 @@ start_img () {
 
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
-echo
 printf "\e]2;$name\a"
 qemu-img create -f qcow2 -b $PWD/$name.img -F qcow2 $TMP/vm-$name.img ${QEMU_IMG_SIZE}
 mkdir $TMP/metadata-$name
@@ -682,7 +679,7 @@ EOF
     log_info_msg "ttyS1 listening on    $TMP/vm-$name-serial.pipe"
     log_info_msg "GDB server            gdb -ex='target remote $TMP/vm-$name-gdb.pipe'"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name.exec") remain-on-exit on
 }
 
 start_juniper_vrr () {
@@ -747,7 +744,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name.exec") remain-on-exit on
     tmux_resize $name 80 24
 }
 
@@ -823,7 +820,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
 EOF
     log_info_msg "monitor listening on $TMP/vm-$name-re-console.pipe"
     chmod +x "$TMP/vm-$name-re.exec"
-    tmux new-window -d -n $name/RE "$TMP/vm-$name-re.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name/RE "$TMP/vm-$name-re.exec") remain-on-exit on
     tmux_resize $name/RE 80 24
 
     log_info_msg "Start Juniper vQFX $name (PFE)"
@@ -867,7 +864,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-pfe-console.pipe"
     chmod +x "$TMP/vm-$name-pfe.exec"
-    tmux new-window -d -n $name/PFE "$TMP/vm-$name-pfe.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name/PFE "$TMP/vm-$name-pfe.exec") remain-on-exit on
     tmux_resize $name/PFE 80 24
 }
 
@@ -946,7 +943,7 @@ exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-re-console.pipe"
     chmod +x "$TMP/vm-$name-re.exec"
-    tmux new-window -d -n $name/RE "$TMP/vm-$name-re.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name/RE "$TMP/vm-$name-re.exec") remain-on-exit on
     tmux_resize $name/RE 80 24
 
     log_info_msg "Start Juniper vMX $name (PFE)"
@@ -1011,7 +1008,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-pfe.pid" \
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-pfe-console.pipe"
     chmod +x "$TMP/vm-$name-pfe.exec"
-    tmux new-window -d -n $name/PFE "$TMP/vm-$name-pfe.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name/PFE "$TMP/vm-$name-pfe.exec") remain-on-exit on
     tmux_resize $name/PFE 80 24
 }
 
@@ -1079,7 +1076,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name.exec") remain-on-exit on
     tmux_resize $name 80 24
 }
 
@@ -1130,7 +1127,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name.exec") remain-on-exit on
     tmux_resize $name 80 24
 }
 
@@ -1208,7 +1205,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name.exec") remain-on-exit on
     tmux_resize $name 80 24
 }
 
@@ -1253,7 +1250,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name.exec") remain-on-exit on
     tmux_resize $name 80 24
 }
 
@@ -1370,7 +1367,7 @@ EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name-real.exec"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name-real.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name-real.exec") remain-on-exit on
     tmux_resize $name 80 24
 }
 
@@ -1462,7 +1459,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
 EOF
     log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
     chmod +x "$TMP/vm-$name.exec"
-    tmux new-window -d -n $name "$TMP/vm-$name.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name.exec") remain-on-exit on
     tmux_resize $name 80 24
 }
 
