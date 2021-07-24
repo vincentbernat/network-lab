@@ -58,7 +58,7 @@ case $uts in
         ip -n private addr add 192.168.$asn.$((vpn + 10))/24 dev eth2         # with router
 
         # We order asn,vpn,rasn,rvpn pairs such that we can get an IP address by getting the index
-        pairs=$(python -c 'import itertools;print(":".join([",".join((str(y) for y in x)) for x in itertools.chain(*[((asn,vpn,rasn,rvpn),(rasn,rvpn,asn,vpn)) for asn in range(1,'$asns'+1) for vpn in range(1,'$vpns'+1) for rasn in range(1,'$asns'+1) for rvpn in range(1,'$vpns'+1) if asn < rasn])]))')
+        pairs=$(python3 -c 'import itertools;print(":".join([",".join((str(y) for y in x)) for x in itertools.chain(*[((asn,vpn,rasn,rvpn),(rasn,rvpn,asn,vpn)) for asn in range(1,'$asns'+1) for vpn in range(1,'$vpns'+1) for rasn in range(1,'$asns'+1) for rvpn in range(1,'$vpns'+1) if asn < rasn])]))')
 
         template bird6.Vx-y.public.conf  bird6.$uts.conf asn=$asn vpn=$vpn
         template bird6.Vx-y.private.conf bird6.$uts.private.conf asn=$asn vpn=$vpn asns=$asns vpns=$vpns pairs='"'$pairs'"'
