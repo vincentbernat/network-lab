@@ -1319,7 +1319,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -enable-kvm \
      -no-user-config -nodefaults \
      -display none \
-     -m ${MEM:-4G} \
+     -m ${MEM:-6G} \
      -cpu host \
      -device virtio-rng \
      \
