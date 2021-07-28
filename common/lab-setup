@@ -1255,12 +1255,17 @@ EOF
 }
 
 start_cisco_iosxrv () {
+    # This is for IOS XRv 7+. Compared to 6:
+    #  - 2 additional dummy interfaces
+    #  - MGMT interface has a different name
     name=$NAME
     log_info_msg "Start Cisco IOS XRv $name"
     netargs=""
     ssh=$(tcp_port)
-    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -netdev user,id=oob,tftp=$TMP/metadata-$name,hostfwd=tcp:127.0.0.1:${ssh}-:22"
     netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address)" # control (unused)
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address)" # dev (unused)
     [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh cisco
     count=0
@@ -1277,16 +1282,21 @@ printf "\e]2;$name\a"
 
 qemu-img create -q -f qcow2 -b $PWD/../images/cisco-iosxrv.img $TMP/cisco-$name.img
 mkdir -p $TMP/metadata-$name
-cat - cisco-common.conf cisco-$name.conf <<END 2>/dev/null > $TMP/metadata-$name/iosxr_config.txt
+cat - cisco-common.conf cisco-$name.conf <<'END' 2>/dev/null > $TMP/metadata-$name/iosxr_config.txt
 hostname $name
-clock timezone UTC 0
+clock timezone UTC UTC
 vrf MGMT
  address-family ipv4 unicast
 !
-interface MgmtEth0/0/CPU0/0
+interface MgmtEth0/RP0/CPU0/0
  vrf MGMT
  ipv4 address dhcp
  no shut
+!
+username cisco
+ group root-lr
+ group cisco-support
+ secret 10 \$6\$GHb941otWliMA41.\$L1OTJWUtD3tOPEM2u2x8fMcCP1my2/JyUMyM7.B6WbM1OxRKLNky9X4tKkn7zEf1nUCObfS3o48uwVwj47PZ9.
 !
 router static
  vrf MGMT
@@ -1308,24 +1318,20 @@ line default
 !
 END
 echo end >> $TMP/metadata-$name/iosxr_config.txt
+cp $TMP/id_rsa.pub $TMP/metadata-$name/public-keys.txt
 genisoimage -iso-level 2 -l -V config-1 -relaxed-filenames -quiet -o $TMP/cisco-$name.iso $TMP/metadata-$name
-
-truncate -s 10M $TMP/cisco-$name-additional.img
-mkfs.vfat $TMP/cisco-$name-additional.img
-cut -f 2 -d ' ' $TMP/id_rsa.pub | base64 -d | mcopy -i $TMP/cisco-$name-additional.img - ::/sshkey
 
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(which qemu-system-x86_64) -- \
      -enable-kvm \
      -no-user-config -nodefaults \
      -display none \
-     -m ${MEM:-6G} \
+     -m ${MEM:-9G} \
      -cpu host \
      -device virtio-rng \
      \
      -boot c \
      -drive file=$TMP/cisco-$name.img,if=ide,media=disk \
-     -drive file=$TMP/cisco-$name-additional.img,format=raw,if=ide,media=disk \
      -drive file=$TMP/cisco-$name.iso,if=ide,media=cdrom \
      \
      -chardev stdio,id=charserial0,signal=off \
@@ -1340,33 +1346,37 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      $netargs
 EOF
-    # IOS XRv is great for provisioning (sarcasm)
+    # Recent versions of IOS XRv seems to have some bits to retrieve
+    # the public key, but I am unable to find exactly where to put it.
+    # See /pkg/bin/xrv9k_rp_cloudinit.sh for some related code, and
+    # /etc/rc.d/init.d/pd-lxchook-functions.sh.
     cat <<EOF > "$TMP/vm-$name-real.exec"
 #!$(which expect) -f
 spawn $TMP/vm-$name.exec
-set timeout 240
+set timeout 480
 expect {
-  "MGBL-CVAC-4-CONFIG_DONE" { send "\r" }
-  "MGBL-CVAC-3-CONFIG_ERROR" { send "\r" }
+  "Cisco Calvados console" { exp_continue }
+  "con0/RP0/CPU0 is now available" { exp_continue }
+  "MGBL-CVAC-4-CONFIG_START" { exp_continue }
+  -re "MGBL-CVAC-.-CONFIG_(DONE|ERROR)" {
+    send "\r"
+    set timeout 10
+    expect "Username: "
+    send "cisco\r"
+    expect "Password: "
+    send "cisco\r"
+    expect "RP/0/RP0/CPU0:*#"
+    send "crypto key import authentication rsa\r"
+    expect "Enter the public key"
+    send "$(cat $TMP/id_rsa.pub)\r\r"
+    expect "RP/0/RP0/CPU0:*#"
+    interact
+  }
   timeout {
     send_user "TIMEOUT!\n"
     interact
   }
 }
-
-set timeout 10
-expect "Username: "
-send "cisco\r"
-expect "Password: "
-send "cisco\r"
-expect "RP/0/0/CPU0:*#"
-send "crypto key generate rsa\r"
-expect "How many bits"
-send "\r"
-expect "RP/0/0/CPU0:*#"
-send "crypto key import authentication rsa disk1:/sshkey\r"
-expect "RP/0/0/CPU0:*#"
-interact
 EOF
     log_info_msg "monitor listening on          $TMP/vm-$name-console.pipe"
     log_info_msg "aux console listening on      $TMP/vm-$name-serial1.pipe"

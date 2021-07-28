@@ -12,6 +12,12 @@ using KVM.
 `lab-generic` should always contain the latest iteration of the lab
 and be used as a base for other labs.
 
+For labs exposing some serial console, you can use `socat` to connect:
+
+```
+socat $(tty),raw,echo=0 UNIX-CONNECT:/tmp/tmp.N3BTQ07qSG/vm-IOS1-serial2.pipe
+```
+
 Previously, labs were self-contained. This was done to avoid any
 breakage when introducing "new features". However, this didn't work as
 expected and labs become broken because of external changes (kernel
