@@ -1330,6 +1330,10 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -chardev stdio,id=charserial0,signal=off \
      -device isa-serial,chardev=charserial0,id=serial0 \
+     -chardev socket,id=charserial1,path=$TMP/vm-$name-serial1.pipe,server=on,wait=off \
+     -device isa-serial,chardev=charserial1,id=serial1 \
+     -chardev socket,id=charserial2,path=$TMP/vm-$name-serial2.pipe,server=on,wait=off \
+     -device isa-serial,chardev=charserial2,id=serial2 \
      \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
@@ -1364,7 +1368,9 @@ send "crypto key import authentication rsa disk1:/sshkey\r"
 expect "RP/0/0/CPU0:*#"
 interact
 EOF
-    log_info_msg "monitor listening on    $TMP/vm-$name-console.pipe"
+    log_info_msg "monitor listening on          $TMP/vm-$name-console.pipe"
+    log_info_msg "aux console listening on      $TMP/vm-$name-serial1.pipe"
+    log_info_msg "Calvados console listening on $TMP/vm-$name-serial2.pipe"
     chmod +x "$TMP/vm-$name-real.exec"
     chmod +x "$TMP/vm-$name.exec"
     tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name-real.exec") remain-on-exit on
