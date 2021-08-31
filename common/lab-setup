@@ -631,7 +631,7 @@ start_img () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 printf "\e]2;$name\a"
-qemu-img create -f qcow2 -b $PWD/$name.img -F qcow2 $TMP/vm-$name.img ${QEMU_IMG_SIZE}
+qemu-img create -f qcow2 -F qcow2 -b $PWD/$name.img $TMP/vm-$name.img ${QEMU_IMG_SIZE}
 mkdir $TMP/metadata-$name
 cp -a $name/* $TMP/metadata-$name/. 2> /dev/null
 cp $TMP/id_rsa.pub $TMP/metadata-$name
@@ -703,7 +703,7 @@ start_juniper_vrr () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 printf "\e]2;$name\a"
-qemu-img create -q -f qcow2 -b $PWD/../images/junos-vrr.img $TMP/junos-$name.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-vrr.img $TMP/junos-$name.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
@@ -771,7 +771,7 @@ start_juniper_vqfx () {
     cat <<EOF > "$TMP/vm-$name-re.exec"
 #!/bin/sh
 printf "\e]2;$name\a"
-qemu-img create -q -f qcow2 -b $PWD/../images/junos-vqfx-re.img $TMP/junos-$name-re.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-vqfx-re.img $TMP/junos-$name-re.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
@@ -831,7 +831,7 @@ EOF
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
 printf "\e]2;$name\a"
-qemu-img create -q -f qcow2 -b $PWD/../images/junos-vqfx-pfe.img $TMP/junos-$name-pfe.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-vqfx-pfe.img $TMP/junos-$name-pfe.img
 truncate -s 10M $TMP/metadata-$name-pfe.img
 mkfs.vfat $TMP/metadata-$name-pfe.img
 mkdir -p $TMP/metadata-$name-pfe/boot
@@ -887,8 +887,8 @@ start_juniper_vmx () {
     cat <<EOF > "$TMP/vm-$name-re.exec"
 #!/bin/sh
 printf "\e]2;$name RE\a"
-qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-re.img $TMP/junos-$name-re.img
-qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-re-hdd.img $TMP/junos-$name-re-hdd.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-vmx-re.img $TMP/junos-$name-re.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-vmx-re-hdd.img $TMP/junos-$name-re-hdd.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
@@ -968,7 +968,7 @@ EOF
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
 printf "\e]2;$name PFE\a"
-qemu-img create -q -f qcow2 -b $PWD/../images/junos-vmx-pfe.img $TMP/junos-$name-pfe.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-vmx-pfe.img $TMP/junos-$name-pfe.img
 truncate -s 10M $TMP/metadata-$name-pfe.img
 mkfs.vfat $TMP/metadata-$name-pfe.img
 mkdir -p $TMP/metadata-$name-pfe/boot
@@ -1032,7 +1032,7 @@ start_juniper_vsrx () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 printf "\e]2;$name\a"
-qemu-img create -q -f qcow2 -b $PWD/../images/junos-vsrx.img $TMP/junos-$name.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-vsrx.img $TMP/junos-$name.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 mkdir -p $TMP/metadata-$name/boot
@@ -1098,7 +1098,7 @@ start_juniper_firefly () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 printf "\e]2;$name\a"
-qemu-img create -q -f qcow2 -b $PWD/../images/junos-firefly.img $TMP/junos-$name.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-firefly.img $TMP/junos-$name.img
 mkdir -p $TMP/tftp
 cat junos-common.conf junos-$name.conf 2>/dev/null > $TMP/tftp/$name.conf
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
@@ -1151,7 +1151,7 @@ start_cumulus_vx () {
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
 printf "\e]2;$name\a"
-qemu-img create -q -f qcow2 -b $PWD/../images/cumulus-vx.img $TMP/cumulus-$name.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/cumulus-vx.img $TMP/cumulus-$name.img
 truncate -s 10M $TMP/metadata-$name.img
 mkfs.vfat $TMP/metadata-$name.img
 
@@ -1228,7 +1228,7 @@ start_sonic () {
 
     cat <<EOF > "$TMP/vm-$name.exec"
 #!/bin/sh
-qemu-img create -q -f qcow2 -b $PWD/../images/sonic.img $TMP/sonic-$name.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/sonic.img $TMP/sonic-$name.img
 exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      --start --startas $(command -v qemu-system-x86_64) -- \
      -enable-kvm \
@@ -1280,7 +1280,7 @@ start_cisco_iosxrv () {
 #!/bin/sh
 printf "\e]2;$name\a"
 
-qemu-img create -q -f qcow2 -b $PWD/../images/cisco-iosxrv.img $TMP/cisco-$name.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/cisco-iosxrv.img $TMP/cisco-$name.img
 mkdir -p $TMP/metadata-$name
 cat - cisco-common.conf cisco-$name.conf <<'END' 2>/dev/null > $TMP/metadata-$name/iosxr_config.txt
 hostname $name
@@ -1408,7 +1408,7 @@ start_hp_vsr1000 () {
 #!/bin/sh
 printf "\e]2;$name\a"
 
-qemu-img create -q -f qcow2 -b $PWD/../images/hp-vsr1000.img $TMP/hp-$name.img
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/hp-vsr1000.img $TMP/hp-$name.img
 mkdir -p $TMP/tftp-$name
 cat - hp-common.conf hp-$name.conf <<END 2>/dev/null > $TMP/tftp-$name/device.cfg
 sysname $name
