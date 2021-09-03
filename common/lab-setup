@@ -632,7 +632,7 @@ start_img () {
 #!/bin/sh
 printf "\e]2;$name\a"
 qemu-img create -f qcow2 -F qcow2 -b $PWD/$name.img $TMP/vm-$name.img ${QEMU_IMG_SIZE}
-mkdir $TMP/metadata-$name
+mkdir -p $TMP/metadata-$name
 cp -a $name/* $TMP/metadata-$name/. 2> /dev/null
 cp $TMP/id_rsa.pub $TMP/metadata-$name
 cat <<END > $TMP/metadata-$name/meta-data
