@@ -666,7 +666,7 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      \
      -boot c \
      -drive file=$TMP/vm-$name.img,if=virtio,media=disk \
-     -drive file=$TMP/metadata-$name.iso,format=raw,if=ide,media=cdrom,read-only \
+     -drive file=$TMP/metadata-$name.iso,format=raw,if=ide,media=cdrom,read-only=on \
      \
      -gdb unix:$TMP/vm-$name-gdb.pipe,server=on,wait=off \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
