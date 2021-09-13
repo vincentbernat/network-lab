@@ -1,0 +1,39 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm SubAS1 network 1
+spawn vm SubAS2 network 2
+spawn vm SubAS3 network 3
+spawn vm SubAS4 network 4
+spawn vm C1 network 1,13,10
+spawn vm C2 network 2,10,11
+spawn vm C3 network 3,11,12
+spawn vm C4 network 4,12,13
+
+run
+
+sysctl -qw net.ipv4.ip_forward=1
+case $uts in
+    SubAS*)
+        ip addr add 203.0.113.$((${uts#SubAS} * 16 + 1))/28 dev dummy0
+        ip addr add 192.0.2.${uts#SubAS}/32 dev lo
+        ip addr add 198.51.100.$((${uts#SubAS} * 2))/31 dev eth0
+        template bird.SubASX.conf bird.${uts}.conf id=${uts#SubAS}
+        ;;
+    C*)
+        ip addr add 192.0.2.1${uts#C}/32 dev lo
+        ip addr add 198.51.100.$((${uts#C} * 2 + 1))/31 dev eth0
+        if [ $uts = "C1" ]; then
+            ip addr add 198.51.100.59/31 dev eth1
+        else
+            ip addr add 198.51.100.$((${uts#C} * 2 + 49))/31 dev eth1
+        fi
+        ip addr add 198.51.100.$((${uts#C} * 2 + 50))/31 dev eth2
+        template bird.CX.conf bird.${uts}.conf id=${uts#C} \
+                 peer1=$((${uts#C} % 4 + 1)) \
+                 peer2=$(((${uts#C} + 2) % 4 + 1))
+        ;;
+esac
+service bird
