@@ -1,0 +1,41 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm H1 network 1
+spawn vm H2 network 3
+spawn vm wiretap network 1,3
+
+run
+
+# Executed on each VM
+case $uts in
+    H*)
+        ip addr add 203.0.113.${uts#H}/24 dev eth0
+        ;;
+    wiretap)
+        A=eth0
+        B=eth1
+
+        # Tentative to avoid local traffic. This does not work: even
+        # mirred trafic goes through egress tc handling
+        #tc qdisc add dev $A root netem loss 100%
+        #tc qdisc add dev $B root netem loss 100%
+
+        # Just disable IPv6 processing.
+        sysctl -qw net.ipv6.conf.$A.disable_ipv6=0
+        sysctl -qw net.ipv6.conf.$B.disable_ipv6=0
+
+        # Port mirroring
+        tc qdisc add dev $A ingress
+        tc filter add dev $A parent ffff: matchall action mirred egress redirect dev $B
+        tc qdisc add dev $B ingress
+        tc filter add dev $B parent ffff: matchall action mirred egress redirect dev $A
+
+        # Promisc
+        ip link set promisc on dev $A
+        ip link set promisc on dev $B
+
+        ;;
+esac
