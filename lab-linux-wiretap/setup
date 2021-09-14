@@ -18,14 +18,23 @@ case $uts in
         A=eth0
         B=eth1
 
-        # Tentative to avoid local traffic. This does not work: even
-        # mirred trafic goes through egress tc handling
+        # First tentative to avoid local traffic. This does not work:
+        # even mirred trafic goes through egress tc handling
         #tc qdisc add dev $A root netem loss 100%
         #tc qdisc add dev $B root netem loss 100%
 
-        # Just disable IPv6 processing.
-        sysctl -qw net.ipv6.conf.$A.disable_ipv6=0
-        sysctl -qw net.ipv6.conf.$B.disable_ipv6=0
+        # Second tentative: just disable IPv6 processing (weaker).
+        #sysctl -qw net.ipv6.conf.$A.disable_ipv6=0
+        #sysctl -qw net.ipv6.conf.$B.disable_ipv6=0
+
+        # Drop locally-generated traffic. The idea is that
+        # locally-generated trafic has a bound socket and a family.
+        # Alternatively "pkt_type eq 0" also seems to work, but as it
+        # means "to us", it seems more fragile.
+        tc qdisc add dev $A root prio
+        tc filter add dev $A basic match 'meta(sk_family gt 0)' action drop
+        tc qdisc add dev $B root prio
+        tc filter add dev $B basic match 'meta(sk_family gt 0)' action drop
 
         # Port mirroring
         tc qdisc add dev $A ingress
