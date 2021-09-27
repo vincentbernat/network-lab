@@ -1353,7 +1353,7 @@ EOF
     cat <<EOF > "$TMP/vm-$name-real.exec"
 #!$(command -v expect) -f
 spawn $TMP/vm-$name.exec
-set timeout 480
+set timeout 640
 expect {
   "Cisco Calvados console" { exp_continue }
   "con0/RP0/CPU0 is now available" { exp_continue }
