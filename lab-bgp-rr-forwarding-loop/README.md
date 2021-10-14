@@ -14,7 +14,20 @@ also says:
 > dangerously close to it in a well-designed network after one or more
 > IBGP session failures.
 
-You don't need RR to have loops if you allow iBGP sessions to be
+You can reproduce the failure described in this post by issuing `birdc
+disable PEER2` on `R2`. and `birdc disable PEER6` on `R3`, then:
+
+```console
+R3$ ping -c2 2001:db8::f
+PING 2001:db8::f(2001:db8::f) 56 data bytes
+From 2001:db8:3::1 icmp_seq=1 Time exceeded: Hop limit
+From 2001:db8:3::1 icmp_seq=2 Time exceeded: Hop limit
+
+--- 2001:db8::f ping statistics ---
+2 packets transmitted, 0 received, +2 errors, 100% packet loss, time 1001ms
+```
+
+But you don't need RR to have loops if you allow iBGP sessions to be
 broken while the underlying IGP is working just fine. Just build two
 different paths to a target, full-mesh iBGP on loopbacks and break the
 iBGP session between the penultimate hop and the last hop and you'll
