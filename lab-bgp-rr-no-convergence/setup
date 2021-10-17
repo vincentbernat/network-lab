@@ -27,6 +27,6 @@ esac
 ip addr add fe80::1/64 dev lo scope link
 ip addr add 2001:db8:ff::${id}/128 dev lo
 
-template bird.x.conf bird.$uts.conf id=$id uts="'$uts'"
+template bird.x.conf bird.$uts.conf id=$id uts="'$uts'" rr=True
 sysctl -qw net.ipv6.conf.all.forwarding=1
 service bird
