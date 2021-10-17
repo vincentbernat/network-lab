@@ -1,0 +1,32 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm B0 network 1,2
+spawn vm B1 network 3,4
+spawn vm B2 network 5,6
+spawn vm R0 network 3,2
+spawn vm R1 network 5,4
+spawn vm R2 network 1,6
+
+run
+
+case $uts in
+    R*)
+        id=${uts#R}
+        ;;
+    B*)
+        id=$((${uts#B}+10))
+        ip addr add 2001:db8::1/128 dev dummy0
+        ;;
+esac
+
+# Workaround for stub lo interface in BIRD. See
+# https://bird.network.cz/pipermail/bird-users/2017-May/011240.html.
+ip addr add fe80::1/64 dev lo scope link
+ip addr add 2001:db8:ff::${id}/128 dev lo
+
+template bird.x.conf bird.$uts.conf id=$id uts="'$uts'"
+sysctl -qw net.ipv6.conf.all.forwarding=1
+service bird

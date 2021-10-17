@@ -31,9 +31,8 @@ But you don't need RR to have loops if you allow iBGP sessions to be
 broken while the underlying IGP is working just fine. Just build two
 different paths to a target, full-mesh iBGP on loopbacks and break the
 iBGP session between the penultimate hop and the last hop and you'll
-have a routing loop because the router with the broken iBGP session
-will believe it should use the longer path while the one before it
-knows it should use the shorter path.
+have a routing loop. RR only relax a bit the full mesh requirement but
+not totally.
 
 This seems more an argument to only use eBGP sessions for underlay and
 overlay (IPv4/IPv6 unicast for underlay, VPNv4/VPNv6 for overlay).
