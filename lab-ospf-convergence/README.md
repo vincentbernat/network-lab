@@ -77,3 +77,22 @@ increased rmem to avoid dropped Netlink messages.
 [2021-10-23T00:19:07.594997] [nsid current]Deleted 2001:db8::2:1 via fe80::5254:33ff:fe00:3 dev eth2 proto bird metric 32 pref medium
 [2021-10-23T00:19:09.199965] [nsid 2]2001:db8::8:48 via fe80::5c8e:b8ff:fe49:8304 dev eth2 proto bird metric 32 pref medium
 ```
+
+## Same but without installing routes in kernel
+
+The kernel protocol is disabled and we use route debugging to check convergence times.
+
+```
+for v in $(seq 10); do
+  ssh -F /tmp/tmp*/ssh_config(om[1]) V$v.lab grep -h 00:37: /var/log/bird.\*.log
+done | sort | awk 'NR == 1 { print } END { print }'
+```
+
+### Shutting down link between V1 and V2
+
+```
+2021-10-23 00:37:50.672 <TRACE> UNDERLAY.ipv6 > added [best] 2001:db8::2:1/128 unicast
+2021-10-23 00:37:52.255 <TRACE> UNDERLAY.ipv6 > added [best] 2001:db8::ff:9/128 unicast
+```
+
+Not much changes...
