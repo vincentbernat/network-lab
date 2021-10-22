@@ -63,10 +63,10 @@ setup_tmp () {
 
 # Run our lab in tmux
 setup_screen() {
-    if [ -z "$TMUX" ] || [ x"$(tmux list-panes -F '#{session_name}')" != x"$LABNAME" ]; then
+    if [ -z "$TMUX" ] || [ x"$(tmux -L "$LABNAME" list-panes -F '#{session_name}')" != x"$LABNAME" ]; then
         unset TMUX
-        exec tmux new-session -s "$LABNAME" -n main \
-            "env ROOT=$ROOT TMPDIR=$TMPDIR VERSION=$VERSION LINUX=$LINUX $PROGNAME $PROGARGS || read"
+        exec tmux  -L "$LABNAME" new-session -s "$LABNAME" -n main \
+            "$PROGNAME $PROGARGS || read"
     fi
     sleep 1
     tmux set-option prefix C-b
