@@ -1,0 +1,65 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+VMs=30
+NSs=50
+
+for vm in $(seq $VMs); do
+    MEM=512M spawn vm V${vm} network oob,1
+done
+run
+
+case $uts in
+    V*)
+        vm=${uts#V}
+        ip addr add fe80::1/64 dev lo scope link
+        ip addr add 2001:db8::ff:${vm}/128 dev lo
+        (echo "router id $vm.0.2.0;"; cat bird.x.conf) > bird.$uts.conf
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        service bird
+
+        for ns in $(seq $NSs); do
+            ip netns add NS$ns
+            ip -n NS$ns link set up dev lo
+            ip -n NS$ns addr add fe80::1/64 dev lo scope link
+            ip -n NS$ns addr add 2001:db8::${vm}:${ns}/128 dev lo
+        done
+        for ns in $(seq $NSs); do
+            # Link each NS to one of the previous ones
+            case $ns in
+                1) ip link add type veth peer netns NS$ns ;;
+                *)
+                    other=$(shuf -i 1-$((ns-1)) -n 1)
+                    ip -n NS$ns link add type veth peer netns NS$other
+                    ;;
+            esac
+            # Add a few random links
+            for other in $(shuf -i 0-$NSs -n 2); do
+                [ $other -ne $ns ] || continue
+                case $other in
+                    0) ip link add type veth peer netns NS$ns ;;
+                    *) ip -n NS$ns link add type veth peer netns NS$other ;;
+                esac
+            done
+            (echo "router id $vm.0.1.$ns;"; cat bird.x.conf) > bird.$uts.$ns.conf
+            ip netns exec NS$ns bird -s /var/run/bird.$ns.ctl -c /mnt/lab/bird.$uts.$ns.conf
+        done
+        ip -br link | while read iface; do
+            iface=${iface%@*}
+                case $iface in
+                    veth*) ip link set up dev $iface ;;
+                esac
+        done
+        for ns in $(seq $NSs); do
+            ip netns exec NS$ns sysctl -qw net.ipv6.conf.all.forwarding=1
+            ip -n NS$ns -br link | while read iface; do
+                iface=${iface%@*}
+                case $iface in
+                    veth*) ip -n NS$ns link set up dev $iface ;;
+                esac
+            done
+        done
+        ;;
+esac
