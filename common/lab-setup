@@ -491,6 +491,7 @@ link () {
 
 
 start_ns () {
+    local vm ns
     vm=${NAME%%/*}
     ns=${NAME#*/}
     log_info_msg "Start namespace $ns in VM $vm"
