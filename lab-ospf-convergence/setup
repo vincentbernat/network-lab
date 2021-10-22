@@ -3,21 +3,29 @@
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
-VMs=30
-NSs=50
+VMs=${VMs:-30}
+NSs=${NSs:-50}
+EXTRA_LINKs=${EXTRA_LINKs:-2}
 
 for vm in $(seq $VMs); do
-    MEM=512M spawn vm V${vm} network oob,1
+    MEM=512M spawn vm V${vm} network oob,$vm,$((vm%VMs+1))
 done
 run
 
 case $uts in
     V*)
+        sysctl -qw net.ipv6.conf.all.forwarding=1
+        sysctl -qw net.core.rmem_max=2129920
+        sysctl -qw net.core.rmem_default=2129920
+
         vm=${uts#V}
         ip addr add fe80::1/64 dev lo scope link
         ip addr add 2001:db8::ff:${vm}/128 dev lo
-        (echo "router id $vm.0.2.0;"; cat bird.x.conf) > bird.$uts.conf
-        sysctl -qw net.ipv6.conf.all.forwarding=1
+        (
+            echo "router id $vm.0.2.0;"
+            echo 'log "/var/log/bird.log" all;'
+            cat bird.x.conf
+        ) > bird.$uts.conf
         service bird
 
         for ns in $(seq $NSs); do
@@ -36,14 +44,18 @@ case $uts in
                     ;;
             esac
             # Add a few random links
-            for other in $(shuf -i 0-$NSs -n 2); do
+            for other in $(shuf -i 0-$NSs -n $EXTRA_LINKs); do
                 [ $other -ne $ns ] || continue
                 case $other in
                     0) ip link add type veth peer netns NS$ns ;;
                     *) ip -n NS$ns link add type veth peer netns NS$other ;;
                 esac
             done
-            (echo "router id $vm.0.1.$ns;"; cat bird.x.conf) > bird.$uts.$ns.conf
+            (
+                echo "router id $vm.0.1.$ns;"
+                echo 'log "/var/log/bird.'$ns'.log" all;'
+                cat bird.x.conf
+            ) > bird.$uts.$ns.conf
             ip netns exec NS$ns bird -s /var/run/bird.$ns.ctl -c /mnt/lab/bird.$uts.$ns.conf
         done
         ip -br link | while read iface; do
@@ -61,5 +73,7 @@ case $uts in
                 esac
             done
         done
+
+        ip -ts monitor route all-nsid > monitor.$uts &
         ;;
 esac

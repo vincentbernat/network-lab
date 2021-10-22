@@ -1,2 +1,4 @@
 /bird.*.conf
 !/bird.x.conf
+
+/monitor.*
