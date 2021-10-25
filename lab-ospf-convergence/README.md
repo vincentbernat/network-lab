@@ -96,3 +96,25 @@ done | sort | awk 'NR == 1 { print } END { print }'
 ```
 
 Not much changes...
+
+## 30 VMs, but on a 18-core processor
+
+We get 1500 routers, each of them has 1.2% of a core.
+
+### Shutting down link between V1 and V2
+
+```
+[2021-10-25T10:26:01.472769] [nsid current]Deleted 2001:db8::2:1 via fe80::5254:33ff:fe00:3 dev eth2 proto bird metric 32 pref medium
+[2021-10-25T10:26:07.746016] [nsid 4]Deleted 2001:db8::28:7 via fe80::382f:c0ff:feef:b0a2 dev dummy0 proto bird metric 32 pref medium
+```
+
+It should be noticed that we are still losing netlink messages, so
+it's dubious if `ip monitor` is the right tool here (it's suspicious
+that the last event is a delete).
+
+### Without installing routes in kernel
+
+```
+2021-10-25 10:34:02.537 <TRACE> UNDERLAY.ipv6 > added [best] 2001:db8::10:1/128 unicast
+2021-10-25 10:34:04.411 <TRACE> UNDERLAY.ipv6 > added [best] 2001:db8::ff:30/128 unicast
+```
