@@ -12,68 +12,64 @@ for vm in $(seq $VMs); do
 done
 run
 
-case $uts in
-    V*)
-        sysctl -qw net.ipv6.conf.all.forwarding=1
-        sysctl -qw net.core.rmem_max=2129920
-        sysctl -qw net.core.rmem_default=2129920
+sysctl -qw net.ipv6.conf.all.forwarding=1
+sysctl -qw net.core.rmem_max=2129920
+sysctl -qw net.core.rmem_default=2129920
 
-        vm=${uts#V}
-        ip addr add fe80::1/64 dev lo scope link
-        ip addr add 2001:db8::ff:${vm}/128 dev lo
-        (
-            echo "router id $vm.0.2.0;"
-            echo 'log "/var/log/bird.log" all;'
-            cat bird.x.conf
-        ) > bird.$uts.conf
-        service bird
+vm=${uts#V}
+ip addr add fe80::1/64 dev lo scope link
+ip addr add 2001:db8::ff:${vm}/128 dev lo
+(
+    echo "router id $vm.0.2.0;"
+    echo 'log "/var/log/bird.log" all;'
+    cat bird.x.conf
+) > bird.$uts.conf
+service bird
 
-        for ns in $(seq $NSs); do
-            ip netns add NS$ns
-            ip -n NS$ns link set up dev lo
-            ip -n NS$ns addr add fe80::1/64 dev lo scope link
-            ip -n NS$ns addr add 2001:db8::${vm}:${ns}/128 dev lo
-        done
-        for ns in $(seq $NSs); do
-            # Link each NS to one of the previous ones
-            case $ns in
-                1) ip link add type veth peer netns NS$ns ;;
-                *)
-                    other=$(shuf -i 1-$((ns-1)) -n 1)
-                    ip -n NS$ns link add type veth peer netns NS$other
-                    ;;
-            esac
-            # Add a few random links
-            for other in $(shuf -i 0-$NSs -n $EXTRA_LINKs); do
-                [ $other -ne $ns ] || continue
-                case $other in
-                    0) ip link add type veth peer netns NS$ns ;;
-                    *) ip -n NS$ns link add type veth peer netns NS$other ;;
-                esac
-            done
-            (
-                echo "router id $vm.0.1.$ns;"
-                echo 'log "/var/log/bird.'$ns'.log" all;'
-                cat bird.x.conf
-            ) > bird.$uts.$ns.conf
-            ip netns exec NS$ns bird -s /var/run/bird.$ns.ctl -c /mnt/lab/bird.$uts.$ns.conf
-        done
-        ip -br link | while read iface; do
-            iface=${iface%@*}
-                case $iface in
-                    veth*) ip link set up dev $iface ;;
-                esac
-        done
-        for ns in $(seq $NSs); do
-            ip netns exec NS$ns sysctl -qw net.ipv6.conf.all.forwarding=1
-            ip -n NS$ns -br link | while read iface; do
-                iface=${iface%@*}
-                case $iface in
-                    veth*) ip -n NS$ns link set up dev $iface ;;
-                esac
-            done
-        done
+for ns in $(seq $NSs); do
+    ip netns add NS$ns
+    ip -n NS$ns link set up dev lo
+    ip -n NS$ns addr add fe80::1/64 dev lo scope link
+    ip -n NS$ns addr add 2001:db8::${vm}:${ns}/128 dev lo
+done
+for ns in $(seq $NSs); do
+    # Link each NS to one of the previous ones
+    case $ns in
+        1) ip link add type veth peer netns NS$ns ;;
+        *)
+            other=$(shuf -i 1-$((ns-1)) -n 1)
+            ip -n NS$ns link add type veth peer netns NS$other
+            ;;
+    esac
+    # Add a few random links
+    for other in $(shuf -i 0-$NSs -n $EXTRA_LINKs); do
+        [ $other -ne $ns ] || continue
+        case $other in
+            0) ip link add type veth peer netns NS$ns ;;
+            *) ip -n NS$ns link add type veth peer netns NS$other ;;
+        esac
+    done
+    (
+        echo "router id $vm.0.1.$ns;"
+        echo 'log "/var/log/bird.'$ns'.log" all;'
+        cat bird.x.conf
+    ) > bird.$uts.$ns.conf
+    ip netns exec NS$ns bird -s /var/run/bird.$ns.ctl -c /mnt/lab/bird.$uts.$ns.conf
+done
+ip -br link | while read iface; do
+    iface=${iface%@*}
+    case $iface in
+        veth*) ip link set up dev $iface ;;
+    esac
+done
+for ns in $(seq $NSs); do
+    ip netns exec NS$ns sysctl -qw net.ipv6.conf.all.forwarding=1
+    ip -n NS$ns -br link | while read iface; do
+        iface=${iface%@*}
+        case $iface in
+            veth*) ip -n NS$ns link set up dev $iface ;;
+        esac
+    done
+done
 
-        ip -ts monitor route all-nsid > monitor.$uts &
-        ;;
-esac
+ip -ts monitor route all-nsid > monitor.$uts &
