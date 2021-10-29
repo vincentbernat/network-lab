@@ -1358,6 +1358,7 @@ set timeout 640
 expect {
   "Cisco Calvados console" { exp_continue }
   "con0/RP0/CPU0 is now available" { exp_continue }
+  "INFRA-INSTAGENT-4-" { exp_continue }
   "MGBL-CVAC-4-CONFIG_START" { exp_continue }
   -re "MGBL-CVAC-.-CONFIG_(DONE|ERROR)" {
     send "\r"
