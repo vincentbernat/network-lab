@@ -295,6 +295,9 @@ spawn () {
         cisco-iosxrv)
             start_cisco_iosxrv
             ;;
+        cisco-nxos)
+            start_cisco_nxos
+            ;;
         hp-vsr1000)
             start_hp_vsr1000
             ;;
@@ -1387,6 +1390,79 @@ EOF
     chmod +x "$TMP/vm-$name-real.exec"
     chmod +x "$TMP/vm-$name.exec"
     tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name-real.exec") remain-on-exit on
+    tmux_resize $name 80 24
+}
+
+start_cisco_nxos () {
+    name=$NAME
+    log_info_msg "Start Cisco Nexus 9000v $name"
+    netargs=""
+    ssh=$(tcp_port)
+    netargs="$netargs -netdev user,id=oob,tftp=$TMP/metadata-$name,hostfwd=tcp:127.0.0.1:${ssh}-:22${hostfwd+,hostfwd=}${hostfwd}"
+    netargs="$netargs -device e1000,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
+    add_ssh_config $NAME $ssh cisco
+    count=0
+    for net in $NET; do
+        mac=$(mac_address)
+        netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net${count}"
+        count=$((count+1))
+    done
+
+    cat <<EOF > "$TMP/vm-$name.exec"
+#!/bin/sh
+printf "\e]2;$name\a"
+
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/cisco-nxos.img $TMP/cisco-$name.img
+mkdir -p $TMP/metadata-$name
+cat - cisco-common.conf cisco-$name.conf <<'END' 2>/dev/null > $TMP/metadata-$name/nxos_config.txt
+hostname $name
+interface mgmt0
+ vrf member management
+ ip address dhcp
+ no shut
+!
+username cisco password 5 \$1\$JbjM\$0SIk5bmGRwYFTUjZAQeTb. role network-admin
+username cisco sshkey $(cat $TMP/id_rsa.pub)
+!
+vrf context management
+ ip route 0.0.0.0/0 mgmt0 10.0.2.2
+!
+END
+genisoimage -iso-level 2 -l -V config-1 -relaxed-filenames -quiet -o $TMP/cisco-$name.iso $TMP/metadata-$name
+
+exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
+     --start --startas $(command -v qemu-system-x86_64) -- \
+     -enable-kvm \
+     -no-user-config -nodefaults \
+     -display none \
+     -m ${MEM:-8G} \
+     -cpu host \
+     -smp ${CPU:-2} \
+     -machine smm=off \
+     -device virtio-rng \
+     \
+     -boot c \
+     -bios /usr/share/qemu/OVMF.fd \
+     -device ahci,id=ahci0,bus=pci.0 \
+     -drive file=$TMP/cisco-$name.img,if=none,media=disk,id=boot \
+     -device ide-hd,bus=ahci0.0,drive=boot,id=boot \
+     -drive file=$TMP/cisco-$name.iso,if=ide,media=cdrom \
+     \
+     -chardev stdio,id=charserial0,signal=off \
+     -device isa-serial,chardev=charserial0,id=serial0 \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
+     -mon chardev=con0,mode=readline \
+     \
+     $netargs
+EOF
+    log_info_msg "monitor listening on          $TMP/vm-$name-console.pipe"
+    log_info_msg "aux console listening on      $TMP/vm-$name-serial1.pipe"
+    log_info_msg "Calvados console listening on $TMP/vm-$name-serial2.pipe"
+    chmod +x "$TMP/vm-$name.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name.exec") remain-on-exit on
     tmux_resize $name 80 24
 }
 
