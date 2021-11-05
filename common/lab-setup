@@ -1569,6 +1569,7 @@ template () {
     args="$(echo $@ | sed 's/ /,/g')"
     python3 - <<EOF > $output
 from jinja2 import Template, Environment, FileSystemLoader, StrictUndefined
+from yaml import safe_load
 
 env = Environment(loader=FileSystemLoader("."))
 env.undefined = StrictUndefined
@@ -1579,6 +1580,7 @@ try:
     env.filters['regex_replace'] = regex_replace
     env.filters['ipaddr'] = ipaddr
     env.filters['ipmath'] = ipmath
+    env.globals['yaml'] = lambda f: safe_load(open(f))
 except ImportError:
     pass
 
