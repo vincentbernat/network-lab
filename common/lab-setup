@@ -1284,7 +1284,7 @@ start_cisco_iosxrv () {
 #!/bin/sh
 printf "\e]2;$name\a"
 
-qemu-img create -q -f qcow2 $TMP/cisco-$name.img 20G
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/cisco-iosxrv.img $TMP/cisco-$name.img
 mkdir -p $TMP/metadata-$name
 cat - cisco-common.conf cisco-$name.conf <<'END' 2>/dev/null > $TMP/metadata-$name/iosxr_config.txt
 hostname $name
@@ -1334,9 +1334,8 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -cpu host \
      -device virtio-rng \
      \
-     -boot once=d \
+     -boot c \
      -drive file=$TMP/cisco-$name.img,if=ide,media=disk \
-     -drive file=$PWD/../images/cisco-iosxrv.iso,if=ide,media=cdrom \
      -drive file=$TMP/cisco-$name.iso,if=ide,media=cdrom \
      \
      -chardev stdio,id=charserial0,signal=off \
