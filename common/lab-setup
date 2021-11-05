@@ -1568,20 +1568,20 @@ template () {
     args="$(echo $@ | sed 's/ /,/g')"
     python3 - <<EOF > $output
 from jinja2 import Template, Environment, FileSystemLoader, StrictUndefined
+from ansible.plugins.filter.core import regex_search, regex_replace
+from ansible_collections.ansible.netcommon.plugins.filter.ipaddr import ipaddr, ipmath
 from yaml import safe_load
 
-env = Environment(loader=FileSystemLoader("."))
+env = Environment(loader=FileSystemLoader("."),
+                  trim_blocks=True,
+                  lstrip_blocks=True,
+                  keep_trailing_newline=True)
 env.undefined = StrictUndefined
-try:
-    from ansible.plugins.filter.core import regex_search, regex_replace
-    from ansible.plugins.filter.ipaddr import ipaddr, ipmath
-    env.filters['regex_search'] = regex_search
-    env.filters['regex_replace'] = regex_replace
-    env.filters['ipaddr'] = ipaddr
-    env.filters['ipmath'] = ipmath
-    env.globals['yaml'] = lambda f: safe_load(open(f))
-except ImportError:
-    pass
+env.filters['regex_search'] = regex_search
+env.filters['regex_replace'] = regex_replace
+env.filters['ipaddr'] = ipaddr
+env.filters['ipmath'] = ipmath
+env.globals['yaml'] = lambda f: safe_load(open(f))
 
 template = env.get_template("${input}")
 print(template.render(${args}))
