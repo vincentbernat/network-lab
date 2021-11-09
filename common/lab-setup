@@ -1567,6 +1567,7 @@ template () {
     shift 2
     args="$(echo $@ | sed 's/ /,/g')"
     python3 - <<EOF > $output
+import os
 from jinja2 import Template, Environment, FileSystemLoader, StrictUndefined
 from ansible.plugins.filter.core import regex_search, regex_replace
 from ansible_collections.ansible.netcommon.plugins.filter.ipaddr import ipaddr, ipmath
@@ -1584,7 +1585,7 @@ env.filters['ipmath'] = ipmath
 env.globals['yaml'] = lambda f: safe_load(open(f))
 
 template = env.get_template("${input}")
-print(template.render(${args}))
+print(template.render(uts=os.environ.get("uts"), ${args}))
 EOF
     case $output in
         /*) ;;
