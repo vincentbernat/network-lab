@@ -1,0 +1,29 @@
+H1:
+  profile: server
+  ip: 203.0.113.1
+  upstream: L1
+  service: 192.0.2.10
+H2:
+  profile: server
+  ip: 203.0.113.2
+  upstream: L1
+  service: 192.0.2.11
+H3:
+  profile: server
+  ip: 203.0.113.17
+  upstream: L2
+  service: 192.0.2.10
+H4:
+  profile: server
+  ip: 203.0.113.18
+  upstream: L2
+  service: 192.0.2.11
+L1:
+  profile: leaf
+  ip: 203.0.113.14
+L2:
+  profile: leaf
+  ip: 203.0.113.30
+S1:
+  profile: spine
+  ip: 203.0.113.254

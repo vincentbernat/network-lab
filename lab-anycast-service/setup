@@ -1,0 +1,63 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm H1 network 1
+spawn vm H2 network 2
+spawn vm H3 network 3
+spawn vm H4 network 4
+spawn vm L1 networks 5,1,2
+spawn vm L2 networks 6,3,4
+spawn vm S1 network 5,6
+
+run
+
+case $uts in
+    S1)
+        ip addr add 203.0.113.32/31 dev eth0
+        ip addr add 203.0.113.34/31 dev eth1
+        ip addr add 203.0.113.254/32 dev lo
+        sysctl -qw net.ipv4.conf.all.forwarding=1
+        ;;
+    H*)
+        case $uts in
+            H1)
+                ip addr add 203.0.113.1/28 dev eth0
+                ip route add default via 203.0.113.14
+                ;;
+            H2) ip addr add 203.0.113.2/28 dev eth0
+                ip route add default via 203.0.113.14
+                ;;
+            H3) ip addr add 203.0.113.17/28 dev eth0
+                ip route add default via 203.0.113.30
+                ;;
+            H4) ip addr add 203.0.113.18/28 dev eth0
+                ip route add default via 203.0.113.30
+                ;;
+        esac
+        template keepalived.x.conf keepalived.$uts.conf uts="'$uts'"
+        service keepalived -P -f $PWD/keepalived.$uts.conf
+        service nginx
+        ;;
+    L*)
+        ip link add br0 type bridge
+        ip link set master br0 dev eth1
+        ip link set master br0 dev eth2
+        ip link set up dev br0
+        sysctl -qw net.ipv4.conf.br0.send_redirects = 0
+        case $uts in
+            L1)
+                ip addr add 203.0.113.14/28 dev br0
+                ip addr add 203.0.113.33/31 dev eth0
+                ;;
+            L2)
+                ip addr add 203.0.113.30/28 dev br0
+                ip addr add 203.0.113.35/31 dev eth0
+                ;;
+        esac
+        sysctl -qw net.ipv4.conf.all.forwarding=1
+        ;;
+esac
+template bird.x.conf bird.$uts.conf uts="'$uts'"
+service bird
