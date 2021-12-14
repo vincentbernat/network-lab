@@ -103,12 +103,6 @@ Internet Protocol Version 6, Src: 2001::1, Dst: 2001:0:8:3:42::
     Hop Limit: 254
     Source Address: 2001::1
     Destination Address: 2001:0:8:3:42::
-    [Source Teredo Server IPv4: 0.0.0.0]
-    [Source Teredo Port: 65535]
-    [Source Teredo Client IPv4: 255.255.255.254]
-    [Destination Teredo Server IPv4: 0.8.0.3]
-    [Destination Teredo Port: 65535]
-    [Destination Teredo Client IPv4: 255.255.255.255]
 Internet Protocol Version 4, Src: 203.0.113.1, Dst: 192.0.2.7
 Internet Control Message Protocol
 ```
