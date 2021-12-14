@@ -12,6 +12,14 @@ vrf 1
    1:1
   !
  !
+ address-family ipv6 unicast
+  import route-target
+   1:1
+  !
+  export route-target
+   1:1
+  !
+ !
 !
 {% endif %}
 
@@ -31,6 +39,7 @@ interface GigabitEthernet0/0/0/2
  description Towards CE
  vrf 1
  ipv4 address {{ data.ipce | ipaddr("address") }} {{ data.ipce | ipaddr("netmask") }}
+ ipv6 address 2001:db8::{{ data.ipce | ipaddr("address") }}/{{ data.ipce | ipaddr("prefix") + 96 }}
  no shut
 !
 
@@ -79,11 +88,13 @@ router isis 1
 router bgp 65000
  bgp router-id {{ index }}.{{ index }}.{{ index }}.{{ index }}
  address-family vpnv4 unicast
+ address-family vpnv6 unicast
  !
  neighbor 2001::{{ alldata[data.otherpe].index }}
   remote-as 65000
   update-source Loopback0
   address-family vpnv4 unicast
+  address-family vpnv6 unicast
   !
  !
  vrf 1
@@ -95,9 +106,22 @@ router bgp 65000
    !
    redistribute connected
   !
+  address-family ipv6 unicast
+   segment-routing srv6
+    locator MAIN
+    alloc mode per-ce
+   !
+   redistribute connected
+  !
   neighbor {{ data.ipce | ipaddr("peer") }}
    remote-as {{ data.ceas }}
    address-family ipv4 unicast
+    route-policy PASS in
+    route-policy PASS out
+  !
+  neighbor 2001:db8::{{ data.ipce | ipaddr("peer") }}
+   remote-as {{ data.ceas }}
+   address-family ipv6 unicast
     route-policy PASS in
     route-policy PASS out
  !

@@ -6,12 +6,13 @@ dCloud][1]. The main differences are:
 - using RFC5737 for IP addresses used by CE devices
 - Linux is used as a CE device (less memory)
 - use LLA for interface between P and PE routers
+- VPNv6 is also added (this requires XRv 7.2+)
 
 [1]: https://dcloud-cms.cisco.com/demo_news/cisco-srv6-l3-vpn-with-flexible-algorithm-and-ti-lfa-v1
 
 ![](lab.svg)
 
-From ce6, you should be able to `ping 192.0.2.7`.
+From ce6, you should be able to `ping 192.0.2.7` or `ping 2001:db8::192.0.2.7`.
 
 Useful commands:
 
