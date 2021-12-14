@@ -1,11 +1,13 @@
 #  Cisco SRv6 L3 VPN with Flexible Algorithm and TI-LFA
 
-This lab is heavily derivated from the lab of the same name in Cisco
-dCloud. The main differences are:
+This lab is heavily derivated from the [lab of the same name in Cisco
+dCloud][1]. The main differences are:
 
 - using RFC5737 for IP addresses used by CE devices
 - Linux is used as a CE device (less memory)
 - use LLA for interface between P and PE routers
+
+[1]: https://dcloud-cms.cisco.com/demo_news/cisco-srv6-l3-vpn-with-flexible-algorithm-and-ti-lfa-v1
 
 ![](lab.svg)
 
