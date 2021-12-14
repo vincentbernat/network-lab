@@ -1,0 +1,137 @@
+{% set alldata = yaml("data.yaml") %}
+{% set data = alldata[uts] %}
+{% set index = data.index %}
+
+{% if data.pe %}
+vrf 1
+ address-family ipv4 unicast
+  import route-target
+   1:1
+  !
+  export route-target
+   1:1
+  !
+ !
+!
+{% endif %}
+
+interface Loopback0
+ ipv6 address 2001::{{ index }}/128
+!
+interface GigabitEthernet0/0/0/0
+ ipv6 enable
+ no shut
+!
+interface GigabitEthernet0/0/0/1
+ ipv6 enable
+ no shut
+!
+{% if data.pe %}
+interface GigabitEthernet0/0/0/2
+ description Towards CE
+ vrf 1
+ ipv4 address {{ data.ipce | ipaddr("address") }} {{ data.ipce | ipaddr("netmask") }}
+ no shut
+!
+
+route-policy PASS
+  pass
+end-policy
+{% endif %}
+
+router isis 1
+ is-type level-2-only
+ net 49.0000.0000.000{{ index }}.00
+ flex-algo 128
+  metric-type delay
+  advertise-definition
+ !
+ address-family ipv6 unicast
+  metric-style wide
+  segment-routing srv6
+   locator MAIN
+   !
+   locator LATENCY
+   !
+  !
+ !
+ interface Loopback0
+  address-family ipv6 unicast
+  !
+ !
+ interface GigabitEthernet0/0/0/0
+  point-to-point
+  address-family ipv6 unicast
+   fast-reroute per-prefix
+   fast-reroute per-prefix ti-lfa
+  !
+ !
+ interface GigabitEthernet0/0/0/1
+  point-to-point
+  address-family ipv6 unicast
+   fast-reroute per-prefix
+   fast-reroute per-prefix ti-lfa
+  !
+ !
+!
+
+{% if data.pe %}
+router bgp 65000
+ bgp router-id {{ index }}.{{ index }}.{{ index }}.{{ index }}
+ address-family vpnv4 unicast
+ !
+ neighbor 2001::{{ alldata[data.otherpe].index }}
+  remote-as 65000
+  update-source Loopback0
+  address-family vpnv4 unicast
+  !
+ !
+ vrf 1
+  rd 1:1
+  address-family ipv4 unicast
+   segment-routing srv6
+    locator LATENCY
+    alloc mode per-ce
+   !
+   redistribute connected
+  !
+  neighbor {{ data.ipce | ipaddr("peer") }}
+   remote-as {{ data.ceas }}
+   address-family ipv4 unicast
+    route-policy PASS in
+    route-policy PASS out
+ !
+!
+{% endif %}
+
+segment-routing
+ srv6
+{% if data.pe %}
+  encapsulation
+   source-address 2001::{{ index }}
+  !
+{% endif %}
+  locators
+   locator MAIN
+    prefix 2001:0:0:{{ index }}::/64
+   !
+   locator LATENCY
+    prefix 2001:0:8:{{ index }}::/64
+    algorithm 128
+   !
+  !
+ !
+!
+
+performance-measurement
+ interface GigabitEthernet0/0/0/0
+  delay-measurement
+   advertise-delay {{ data.delays[0] }}
+  !
+ !
+ interface GigabitEthernet0/0/0/1
+  delay-measurement
+   advertise-delay {{ data.delays[1] }}
+  !
+ !
+!

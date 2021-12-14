@@ -1,0 +1,35 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+if onhost; then
+    for R in 1 2 3 4 5; do
+        uts=r$R template rX.conf.j2 cisco-r$R.conf index=$R
+    done
+fi
+
+spawn cisco-iosxrv r1 networks r1r2,r1r5,r1r6
+spawn cisco-iosxrv r2 networks r1r2,r2r3
+spawn cisco-iosxrv r3 networks r2r3,r3r4,r3r7
+spawn cisco-iosxrv r4 networks r3r4,r4r5
+spawn cisco-iosxrv r5 networks r4r5,r1r5
+spawn vm ce6 network r1r6
+spawn vm ce7 network r3r7
+
+run
+
+case $uts in
+    ce6)
+        ip addr add 192.0.2.6/32 dev dummy0
+        ip addr add 203.0.113.1/31 dev eth0
+        template bird.ceX.conf bird.ce6.conf index=1
+        service bird
+        ;;
+    ce7)
+        ip addr add 192.0.2.7/32 dev dummy0
+        ip addr add 203.0.113.3/31 dev eth0
+        template bird.ceX.conf bird.ce7.conf index=2
+        service bird
+        ;;
+esac
