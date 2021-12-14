@@ -1,3 +1,4 @@
+---
 r1:
   pe: true
   index: 1
@@ -21,7 +22,7 @@ r3:
   ceas: 65102
   delays:
     - 2000
-    - 1000
+    - 100
 r4:
   pe: false
   index: 4

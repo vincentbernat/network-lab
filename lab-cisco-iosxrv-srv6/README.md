@@ -7,6 +7,8 @@ dCloud. The main differences are:
 - Linux is used as a CE device (less memory)
 - use LLA for interface between P and PE routers
 
+![](lab.svg)
+
 From ce6, you should be able to `ping 192.0.2.7`.
 
 Useful commands:
