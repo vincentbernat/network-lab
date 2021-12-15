@@ -24,7 +24,7 @@ vrf 1
 {% endif %}
 
 interface Loopback0
- ipv6 address 2001::{{ index }}/128
+ ipv6 address 2001:db8::{{ index }}/128
 !
 interface GigabitEthernet0/0/0/0
  ipv6 enable
@@ -93,7 +93,7 @@ router bgp 65000
  address-family vpnv6 unicast
  !
 {% for other, odata in alldata.items() if other != uts and odata.ce is defined %}
- neighbor 2001::{{ odata.index }}
+ neighbor 2001:db8::{{ odata.index }}
   remote-as 65000
   update-source Loopback0
   address-family vpnv4 unicast
@@ -106,7 +106,7 @@ router bgp 65000
   address-family ipv4 unicast
    segment-routing srv6
     locator LATENCY
-    alloc mode per-ce
+    alloc mode per-vrf
    !
    redistribute connected
   !
@@ -138,15 +138,25 @@ segment-routing
  srv6
 {% if data.ce is defined %}
   encapsulation
-   source-address 2001::{{ index }}
+   source-address 2001:db8::{{ index }}
   !
 {% endif %}
   locators
    locator MAIN
-    prefix 2001:0:0:{{ index }}::/64
+{% if alldata.microsegments %}
+    micro-segment behavior unode psp-usd
+    prefix fcbb:bb00:{{ index }}::/48
+{% else %}
+    prefix fcbb:0:0:{{ index }}::/64
+{% endif %}
    !
    locator LATENCY
-    prefix 2001:0:8:{{ index }}::/64
+{% if alldata.microsegments %}
+    micro-segment behavior unode psp-usd
+    prefix fcbb:bb08:{{ index }}::/48
+{% else %}
+    prefix fcbb:0:8:{{ index }}::/64
+{% endif %}
     algorithm 128
    !
   !
