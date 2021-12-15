@@ -2,7 +2,7 @@
 {% set data = alldata[uts] %}
 {% set index = data.index %}
 
-{% if data.pe %}
+{% if data.ce is defined %}
 vrf 1
  address-family ipv4 unicast
   import route-target
@@ -34,14 +34,16 @@ interface GigabitEthernet0/0/0/1
  ipv6 enable
  no shut
 !
-{% if data.pe %}
-interface GigabitEthernet0/0/0/2
- description Towards CE
+{% if data.ce is defined %}
+  {% for ce in data.ce %}
+interface GigabitEthernet0/0/0/{{ 2 + loop.index0 }}
+ description Towards {{ ce }}
  vrf 1
- ipv4 address {{ data.ipce | ipaddr("address") }} {{ data.ipce | ipaddr("netmask") }}
- ipv6 address 2001:db8::{{ data.ipce | ipaddr("address") }}/{{ data.ipce | ipaddr("prefix") + 96 }}
+ ipv4 address {{ alldata[ce].ip | ipaddr("peer") }} {{ alldata[ce].ip | ipaddr("netmask") }}
+ ipv6 address 2001:db8::{{ alldata[ce].ip | ipaddr("peer") }}/{{ alldata[ce].ip | ipaddr("prefix") + 96 }}
  no shut
 !
+  {% endfor %}
 
 route-policy PASS
   pass
@@ -84,19 +86,21 @@ router isis 1
  !
 !
 
-{% if data.pe %}
+{% if data.ce is defined %}
 router bgp 65000
  bgp router-id {{ index }}.{{ index }}.{{ index }}.{{ index }}
  address-family vpnv4 unicast
  address-family vpnv6 unicast
  !
- neighbor 2001::{{ alldata[data.otherpe].index }}
+{% for other, odata in alldata.items() if other != uts and odata.ce is defined %}
+ neighbor 2001::{{ odata.index }}
   remote-as 65000
   update-source Loopback0
   address-family vpnv4 unicast
   address-family vpnv6 unicast
   !
  !
+{% endfor %}
  vrf 1
   rd 1:1
   address-family ipv4 unicast
@@ -109,28 +113,30 @@ router bgp 65000
   address-family ipv6 unicast
    segment-routing srv6
     locator MAIN
-    alloc mode per-ce
+    alloc mode per-vrf
    !
    redistribute connected
   !
-  neighbor {{ data.ipce | ipaddr("peer") }}
-   remote-as {{ data.ceas }}
+{% for ce in data.ce %}
+  neighbor {{ alldata[ce].ip | ipaddr("address") }}
+   remote-as {{ alldata[ce].as }}
    address-family ipv4 unicast
     route-policy PASS in
     route-policy PASS out
   !
-  neighbor 2001:db8::{{ data.ipce | ipaddr("peer") }}
-   remote-as {{ data.ceas }}
+  neighbor 2001:db8::{{ alldata[ce].ip | ipaddr("address") }}
+   remote-as {{ alldata[ce].as }}
    address-family ipv6 unicast
     route-policy PASS in
     route-policy PASS out
  !
 !
+{% endfor %}
 {% endif %}
 
 segment-routing
  srv6
-{% if data.pe %}
+{% if data.ce is defined %}
   encapsulation
    source-address 2001::{{ index }}
   !

@@ -1,0 +1,8 @@
+{% set alldata = yaml("data.yaml") %}
+{% set data = alldata[uts] %}
+{% set index = data.index %}
+
+ip addr add 192.0.2.{{ index }}/32 dev dummy0
+ip -6 addr add 2001:db8::192.0.2.{{ index }}/128 dev dummy0
+ip addr add {{ data.ip }} dev eth0
+ip -6 addr add 2001:db8::{{ data.ip | ipaddr("address") }}/{{ data.ip | ipaddr("prefix") + 96 }} dev eth0

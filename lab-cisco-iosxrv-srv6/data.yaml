@@ -1,37 +1,38 @@
 ---
 r1:
-  pe: true
   index: 1
-  otherpe: r3
-  ipce: 203.0.113.0/31
-  ceas: 65101
+  ce:
+    - ce6
   delays:
     - 5000
     - 100
 r2:
-  pe: false
   index: 2
   delays:
     - 5000
     - 2000
 r3:
-  pe: true
   index: 3
-  otherpe: r1
-  ipce: 203.0.113.2/31
-  ceas: 65102
+  ce:
+    - ce7
   delays:
     - 2000
     - 100
 r4:
-  pe: false
   index: 4
   delays:
     - 100
     - 1000
 r5:
-  pe: false
   index: 5
   delays:
     - 1000
     - 100
+ce6:
+  index: 1
+  as: 65101
+  ip: 203.0.113.1/31
+ce7:
+  index: 2
+  as: 65102
+  ip: 203.0.113.3/31

@@ -5,7 +5,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 if onhost; then
     for R in 1 2 3 4 5; do
-        uts=r$R template rX.conf.j2 cisco-r$R.conf index=$R
+        uts=r$R template cisco-rX.conf.j2 cisco-r$R.conf
     done
 fi
 
@@ -20,20 +20,10 @@ spawn vm ce7 network r3r7
 run
 
 case $uts in
-    ce6)
-        ip addr add 192.0.2.6/32 dev dummy0
-        ip -6 addr add 2001:db8::192.0.2.6/128 dev dummy0
-        ip addr add 203.0.113.1/31 dev eth0
-        ip -6 addr add 2001:db8::203.0.113.1/127 dev eth0
-        template bird.ceX.conf bird.ce6.conf index=1
-        service bird
-        ;;
-    ce7)
-        ip addr add 192.0.2.7/32 dev dummy0
-        ip -6 addr add 2001:db8::192.0.2.7/128 dev dummy0
-        ip addr add 203.0.113.3/31 dev eth0
-        ip -6 addr add 2001:db8::203.0.113.3/127 dev eth0
-        template bird.ceX.conf bird.ce7.conf index=2
+    ce*)
+        template run-ceX.j2 run.$uts
+        sh run.$uts
+        template bird.ceX.conf.j2 bird.$uts.conf
         service bird
         ;;
 esac

@@ -1,3 +1,7 @@
+{% set alldata = yaml("data.yaml") %}
+{% set data = alldata[uts] %}
+{% set index = data.index %}
+
 log "/var/log/bird.log" all;
 router id from "dummy0";
 
@@ -24,19 +28,19 @@ template bgp PE {
   connect retry time 5;
   error wait time 1,5;
   error forget time 10;
-  local as {{ 65100 + index }};
+  local as {{ data.as }};
 }
 protocol bgp PEv4 from PE {
   ipv4 {
     export all;
     import all;
   };
-  neighbor 203.0.113.{{ index * 2 - 2 }} as 65000;
+  neighbor {{ data.ip | ipaddr("peer") }} as 65000;
 }
 protocol bgp PEv6 from PE {
   ipv6 {
     export all;
     import all;
   };
-  neighbor 2001:db8::203.0.113.{{ index * 2 - 2 }} as 65000;
+  neighbor 2001:db8::{{ data.ip | ipaddr("peer") }} as 65000;
 }
