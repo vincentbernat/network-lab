@@ -4,5 +4,12 @@
 
 ip addr add 192.0.2.{{ index }}/32 dev dummy0
 ip -6 addr add 2001:db8::192.0.2.{{ index }}/128 dev dummy0
-ip addr add {{ data.ip }} dev eth0
-ip -6 addr add 2001:db8::{{ data.ip | ipaddr("address") }}/{{ data.ip | ipaddr("prefix") + 96 }} dev eth0
+
+ip link add name eth0.l3 link eth0 type vlan id 30
+ip link set up dev eth0.l3
+ip addr add {{ data.ip }} dev eth0.l3
+ip -6 addr add 2001:db8::{{ data.ip | ipaddr("address") }}/{{ data.ip | ipaddr("prefix") + 96 }} dev eth0.l3
+
+ip link add name eth0.l2 link eth0 type vlan id 20
+ip link set up dev eth0.l2
+ip addr add 192.168.0.{{ index + 10 }}/24 dev eth0.l2

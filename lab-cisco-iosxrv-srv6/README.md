@@ -7,6 +7,7 @@ dCloud][1]. The main differences are:
 - small changes in addressing and AS numbers
 - use LLA for interface between P/PE routers
 - VPNv6 is also added (this requires XRv 7.2.2+)
+- E-LINE (End.DX2) is also added
 - µSID (this requires XRv 7.3.2+, can be toggled off in `data.yaml`)
 
 [1]: https://dcloud-cms.cisco.com/demo_news/cisco-srv6-l3-vpn-with-flexible-algorithm-and-ti-lfa-v1

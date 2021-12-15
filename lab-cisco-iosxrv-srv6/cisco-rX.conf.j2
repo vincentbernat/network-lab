@@ -38,11 +38,30 @@ interface GigabitEthernet0/0/0/1
   {% for ce in data.ce %}
 interface GigabitEthernet0/0/0/{{ 2 + loop.index0 }}
  description Towards {{ ce }}
+ no shut
+interface GigabitEthernet0/0/0/{{ 2 + loop.index0 }}.30
+ description Towards {{ ce }} (L3)
+ encapsulation dot1q 30
  vrf 1
  ipv4 address {{ alldata[ce].ip | ipaddr("peer") }} {{ alldata[ce].ip | ipaddr("netmask") }}
  ipv6 address 2001:db8::{{ alldata[ce].ip | ipaddr("peer") }}/{{ alldata[ce].ip | ipaddr("prefix") + 96 }}
- no shut
 !
+interface GigabitEthernet0/0/0/{{ 2 + loop.index0 }}.20 l2transport
+ description Towards {{ ce }} (L2)
+ encapsulation dot1q 20
+!
+  {% endfor %}
+
+{# E-LINE between two distant CE. Since it is p2p, we only support two CE. #}
+l2vpn
+ xconnect group lab
+  {% for ce in data.ce %}
+  {% if loop.first %}
+  p2p {{ ce }}
+   interface GigabitEthernet 0/0/0/{{ 2 + loop.index0 }}.20
+   neighbor evpn evi 200 service 3234 segment-routing srv6
+    locator MAIN
+  {% endif %}
   {% endfor %}
 
 route-policy PASS
@@ -87,10 +106,15 @@ router isis 1
 !
 
 {% if data.ce is defined %}
+evpn
+ segment-routing srv6
+  locator MAIN
+!
 router bgp 65000
  bgp router-id {{ index }}.{{ index }}.{{ index }}.{{ index }}
  address-family vpnv4 unicast
  address-family vpnv6 unicast
+ address-family l2vpn evpn
  !
 {% for other, odata in alldata.items() if other != uts and odata.ce is defined %}
  neighbor 2001:db8::{{ odata.index }}
@@ -98,6 +122,7 @@ router bgp 65000
   update-source Loopback0
   address-family vpnv4 unicast
   address-family vpnv6 unicast
+  address-family l2vpn evpn
   !
  !
 {% endfor %}
