@@ -1,0 +1,16 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm bird network 1
+spawn cisco-iosxrv xrv1 network 1
+
+run
+
+case $uts in
+    bird)
+        ip addr add 192.0.2.31/31 dev eth0
+        service bird
+        ;;
+esac
