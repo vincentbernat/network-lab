@@ -1,0 +1,40 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm injector network 1
+spawn vm internet network 2
+spawn vm customer network 3
+spawn cisco-iosxrv xrv1 network 1,2,3
+
+run
+
+case $uts in
+    injector)
+        ip addr add 192.0.2.25/29 dev eth0
+        ip route add default via 192.0.2.30
+        service bird
+        sysctl -w net.ipv4.conf.all.send_redirects=0
+        nft add table nat
+        nft add chain nat prerouting '{ type nat hook prerouting priority dstnat; }'
+        nft add rule ip nat prerouting iif eth0 tcp dport 80 counter redirect to 80
+        nft add rule ip nat prerouting iif eth0 tcp dport 443 counter redirect to 443
+        service nginx
+
+        ip route add blackhole 8.8.8.8/32 table 100
+        ip route add blackhole 8.8.4.4/32 table 100
+        ;;
+    internet)
+        ip addr add 192.0.2.10/31 dev eth0
+        ip route add default via 192.0.2.11
+        ip addr add 8.8.8.8/32 dev dummy0
+        ip addr add 8.8.4.4/32 dev dummy0
+        ip addr add 1.1.1.1/32 dev dummy0
+        service nginx
+        ;;
+    customer)
+        ip addr add 203.0.113.15/24 dev eth0
+        ip route add default via 203.0.113.254
+        ;;
+esac
