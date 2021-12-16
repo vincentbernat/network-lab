@@ -12,7 +12,7 @@ run
 
 case $uts in
     injector)
-        ip addr add 172.19.0.10/24 dev eth0
+        ip addr add 192.0.2.20/31 dev eth0
         service bird
         ;;
     internet)
