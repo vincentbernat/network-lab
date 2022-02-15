@@ -151,6 +151,7 @@ Host $1.lab
   PasswordAuthentication no
   KexAlgorithms +diffie-hellman-group1-sha1
   Ciphers +aes128-cbc
+  PubkeyAcceptedKeyTypes +ssh-rsa
   IdentitiesOnly yes
   LogLevel FATAL
   IdentityFile $TMP/id_rsa
