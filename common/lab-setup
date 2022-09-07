@@ -906,7 +906,9 @@ interfaces {
 chassis {
   fpc 0 {
     protect: lite-mode;
-    protect: pic 0 number-of-ports ${nbports};
+    pic 0 {
+      protect: number-of-ports ${nbports};
+    }
     # protect: interface-type xe;
   }
 }
