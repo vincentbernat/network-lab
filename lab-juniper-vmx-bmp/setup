@@ -1,0 +1,21 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+# Which VM to spawn
+spawn vm collector network 1
+spawn juniper-vmx vMX network 1
+
+run
+
+# On collector
+ip addr add 203.0.113.1/31 dev eth0
+tcpdump -pni eth0 -w - -U port 10179 > bmp.pcap &
+nc -l -p 10179 > /dev/null < /dev/null &
+
+# Local Variables:
+# mode: sh
+# indent-tabs-mode: nil
+# sh-basic-offset: 4
+# End:
