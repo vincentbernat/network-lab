@@ -975,7 +975,11 @@ EOF
     cat <<EOF > "$TMP/vm-$name-pfe.exec"
 #!/bin/sh
 printf "\e]2;$name PFE\a"
-qemu-img create -q -f qcow2 -F raw -b $PWD/../images/junos-vmx-pfe.img $TMP/junos-$name-pfe.img
+if file -L $PWD/../images/junos-vmx-pfe.img | grep -q QCOW2; then
+  qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-vmx-pfe.img $TMP/junos-$name-pfe.img
+else
+  qemu-img create -q -f qcow2 -F raw -b $PWD/../images/junos-vmx-pfe.img $TMP/junos-$name-pfe.img
+fi
 truncate -s 10M $TMP/metadata-$name-pfe.img
 mkfs.vfat $TMP/metadata-$name-pfe.img
 mkdir -p $TMP/metadata-$name-pfe/boot
