@@ -5,7 +5,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 # Which VM to spawn
 spawn vm collector network 1
-spawn juniper-vmx vMX network 1
+spawn juniper-vmx vMX network 1,2
 
 run
 
