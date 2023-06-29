@@ -1577,7 +1577,8 @@ template () {
 import os
 from jinja2 import Template, Environment, FileSystemLoader, StrictUndefined
 from ansible.plugins.filter.core import regex_search, regex_replace
-from ansible_collections.ansible.netcommon.plugins.filter.ipaddr import ipaddr, ipmath
+from ansible_collections.ansible.utils.plugins.filter.ipaddr import ipaddr
+from ansible_collections.ansible.utils.plugins.filter.ipmath import ipmath
 from yaml import safe_load
 
 env = Environment(loader=FileSystemLoader("."),
