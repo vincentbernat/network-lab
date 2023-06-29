@@ -1,0 +1,117 @@
+{% set index = uts[1] | int %}
+
+{% if uts == "r1" %}
+vrf 1
+ rd 1:1
+ address-family ipv4 unicast
+  export route-target
+   1:1
+  !
+ !
+{% elif uts == "r2" %}
+vrf 1
+ rd 1:1
+ address-family ipv4 unicast
+  import route-target
+   1:1
+  !
+  export route-target
+   1:2
+  !
+ !
+{% endif %}
+
+interface Loopback0
+ ipv6 address 2001:db8::{{ index }}/128
+!
+{% if uts == "r1" %}
+interface GigabitEthernet0/0/0/0
+ description Towards CE0
+ no shut
+interface GigabitEthernet0/0/0/0.30
+ description Towards CE0 (L3)
+ encapsulation dot1q 30
+ vrf 1
+ ipv4 address 203.0.113.1/31
+!
+{% set interfaces = [1] %}
+{% elif uts == "r2" %}
+{% set interfaces = [0,1] %}
+{% elif uts == "r3" %}
+{% set interfaces = [0] %}
+{% endif %}
+{% for iface in interfaces %}
+interface GigabitEthernet0/0/0/{{ iface }}
+ ipv6 enable
+ no shut
+!
+{% endfor %}
+
+route-policy PASS
+  pass
+end-policy
+
+router isis 1
+ is-type level-2-only
+ net 49.0000.0000.000{{ index }}.00
+ address-family ipv6 unicast
+  metric-style wide
+  segment-routing srv6
+   locator MAIN
+   !
+  !
+ !
+ interface Loopback0
+  address-family ipv6 unicast
+  !
+ !
+{% for iface in interfaces %}
+ interface GigabitEthernet0/0/0/{{ iface }}
+  point-to-point
+  address-family ipv6 unicast
+   fast-reroute per-prefix
+   fast-reroute per-prefix ti-lfa
+  !
+ !
+{% endfor %}
+!
+
+router bgp 65001
+ bgp router-id {{ index }}.{{ index }}.{{ index }}.{{ index }}
+ address-family vpnv4 unicast
+  retain route-target all
+ {% for oindex in [1, 2, 3] if oindex - index == 1 or index - oindex == 1 %}
+ neighbor 2001:db8::{{ oindex }}
+  remote-as 65001
+  update-source Loopback0
+  address-family vpnv4 unicast
+   {% if uts == "r2" %}
+     route-reflector-client
+   {% endif %}
+  !
+ !
+ {% endfor %}
+ {% if uts in ["r1", "r2"] %}
+ vrf 1
+  rd 1:1
+  address-family ipv4 u
+   segment-routing srv6
+    alloc mode per-vrf
+    locator MAIN
+  !
+  {% if uts == "r1" %}
+  neighbor 203.0.113.0
+   remote-as 65101
+   address-family ipv4 unicast
+    route-policy PASS in
+    route-policy PASS out
+  !
+  {% endif %}
+ {% endif %}
+
+segment-routing
+ srv6
+  locators
+   locator MAIN
+    prefix fcbb:0:0:{{ index }}::/64
+!

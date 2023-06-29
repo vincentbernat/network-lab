@@ -1,0 +1,31 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+if onhost; then
+    for R in 1 2 3; do
+        uts=r$R template cisco-rX.conf.j2 cisco-r$R.conf
+    done
+fi
+
+spawn cisco-iosxrv r1 networks ce0r1,r1r2
+spawn cisco-iosxrv r2 networks r1r2,r2r3
+spawn cisco-iosxrv r3 networks r2r3
+spawn vm ce0 network ce0r1
+
+run
+
+case $uts in
+    ce0)
+        ip addr add 192.0.2.1/32 dev dummy0
+        ip addr add 192.0.2.2/32 dev dummy0
+        ip addr add 192.0.2.3/32 dev dummy0
+
+        ip link add name eth0.l3 link eth0 type vlan id 30
+        ip link set up dev eth0.l3
+        ip addr add 203.0.113.0/31 dev eth0.l3
+
+        service bird
+        ;;
+esac
