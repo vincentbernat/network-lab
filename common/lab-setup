@@ -67,6 +67,8 @@ setup_screen() {
         unset TMUX
         exec tmux  -L "$LABNAME" new-session -s "$LABNAME" -n main \
             "$PROGNAME $PROGARGS || read"
+    else
+        log_error_msg "lab already running"
     fi
     sleep 1
     tmux set-option prefix C-b
