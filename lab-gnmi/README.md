@@ -1,6 +1,7 @@
-# XRv and gNMI
+# gNMI lab
 
-This can be tested with [gNMIc](https://gnmic.openconfig.net/).
+It features IOS XRv and Juniper vMX with a basic configuration for gNMI. This
+can be tested with [gNMIc](https://gnmic.openconfig.net/).
 
 ## Capabilities
 

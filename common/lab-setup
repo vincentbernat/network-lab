@@ -162,6 +162,7 @@ Host $1.lab
   Hostname 127.0.0.1
 
 EOF
+    # Password for is .Juniper. for non-root user.
     cat <<EOF > $TMP/ssh-junos.conf
 system {
   protect: host-name $1;
@@ -171,6 +172,7 @@ system {
       class super-user;
       authentication {
         ssh-rsa "$(cat $TMP/id_rsa.pub)";
+        encrypted-password "$6$DM.sF/YV$lBF3Fi.OhyuRDNyVZPzaYSnPb.mE285t6lmIvYshbhVorUJhbI1RGA/i0812cn/uNeuzd2aNqC6iWj4k0bkk4."; ## SECRET-DATA
       }
     }
   }
@@ -183,11 +185,11 @@ system {
       authorization info;
     }
   }
-  protect: services {
-    ssh {
+  services {
+    protect: ssh {
       root-login allow;
     }
-    netconf {
+    protect: netconf {
       ssh;
     }
   }
@@ -881,7 +883,7 @@ start_juniper_vmx () {
     log_info_msg "Start Juniper vMX $name (RE)"
     netargs=""
     ssh=$(tcp_port)
-    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22"
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22${hostfwd+,hostfwd=}${hostfwd}"
     netargs="$netargs -device e1000,mac=$oobmac,netdev=oob"
     [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
     add_ssh_config $NAME $ssh juniper
