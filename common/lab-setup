@@ -162,7 +162,7 @@ Host $1.lab
   Hostname 127.0.0.1
 
 EOF
-    # Password for is .Juniper. for non-root user.
+    # Password for non-root user is .Juniper.
     cat <<EOF > $TMP/ssh-junos.conf
 system {
   protect: host-name $1;
@@ -172,7 +172,7 @@ system {
       class super-user;
       authentication {
         ssh-rsa "$(cat $TMP/id_rsa.pub)";
-        encrypted-password "$6$DM.sF/YV$lBF3Fi.OhyuRDNyVZPzaYSnPb.mE285t6lmIvYshbhVorUJhbI1RGA/i0812cn/uNeuzd2aNqC6iWj4k0bkk4."; ## SECRET-DATA
+        encrypted-password "$6$Ao5xGi8O$NfYrA0nDH5cdcB9Ykr4eZgfy45qULqwlMA2ScbQZj4CosgY7majbWh9ipBZMLuZPIOnBIO7OpTfIt9l9Vm6YX0"; ## SECRET-DATA
       }
     }
   }
