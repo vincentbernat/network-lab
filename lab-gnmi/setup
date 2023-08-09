@@ -4,7 +4,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 grpc_port=$(tcp_port)
-hostfwd=tcp:127.0.0.1:${grpc_port}-:57777 spawn cisco-iosxrv XRv network 1,2,3
+hostfwd=tcp:127.0.0.1:${grpc_port}-:57777 spawn cisco-iosxrv XRv network 1,2,3,4
 log_info_msg "gRPC on port ${grpc_port}"
 
 grpc_port=$(tcp_port)
