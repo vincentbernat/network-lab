@@ -172,7 +172,7 @@ system {
       class super-user;
       authentication {
         ssh-rsa "$(cat $TMP/id_rsa.pub)";
-        encrypted-password "\$6\$Ao5xGi8O$NfYrA0nDH5cdcB9Ykr4eZgfy45qULqwlMA2ScbQZj4CosgY7majbWh9ipBZMLuZPIOnBIO7OpTfIt9l9Vm6YX0"; ## SECRET-DATA
+        encrypted-password "\$6\$Ao5xGi8O\$NfYrA0nDH5cdcB9Ykr4eZgfy45qULqwlMA2ScbQZj4CosgY7majbWh9ipBZMLuZPIOnBIO7OpTfIt9l9Vm6YX0"; ## SECRET-DATA
       }
     }
   }
