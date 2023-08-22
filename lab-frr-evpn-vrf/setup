@@ -1,0 +1,58 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm R1 network 1,2
+spawn vm R2 network 1,3
+spawn vm H1 network 2
+spawn vm H2 network 3
+
+run
+
+case $uts in
+    R*)
+        ip link add name eth0.A link eth0 type vlan id 10
+        ip link add name eth0.B link eth0 type vlan id 20
+        ip link add VRFA type vrf table 10
+        ip link add VRFB type vrf table 20
+        ip addr add 203.0.113.${uts#R}/28 dev eth0
+        ip addr add 192.0.2.${uts#R}/28 dev eth0.A
+        ip addr add 192.0.2.$((${uts#R} + 16))/28 dev eth0.B
+        ip link add name vxlanA type vxlan id 80001 local 203.0.113.${uts#R} dstport 4789
+        ip link add name vxlanB type vxlan id 80002 local 203.0.113.${uts#R} dstport 4789
+
+        for C in A B; do
+            ip link set up dev eth0.$C
+            ip link set master VRF$C dev eth0.$C
+            ip link set up dev VRF$C
+            ip link add bridge$C type bridge
+            ip link set master VRF$C bridge$C
+            ip link set master bridge$C vxlan$C
+            ip link set up dev bridge$C
+            ip link set up dev vxlan$C
+        done
+
+        case $uts in
+            R1)
+                ip link set master bridgeA dev eth1
+                ip addr add 192.0.2.46/28 dev bridgeA
+                ;;
+            R2)
+                ip link set master bridgeB dev eth1
+                ip addr add 192.0.2.62/28 dev bridgeB
+                ;;
+        esac
+
+        template frr-bgpd.Rx.conf frr-bgpd.$uts.conf digit=${uts#R}
+        service frr
+        ;;
+    H1)
+        ip addr add 192.0.2.33/28 dev eth0
+        ip route add default via 192.0.2.46
+        ;;
+    H2)
+        ip addr add 192.0.2.49/28 dev eth0
+        ip route add default via 192.0.2.62
+        ;;
+esac
