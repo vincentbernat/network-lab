@@ -3,56 +3,71 @@
 cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
-spawn vm R1 network 1,2
-spawn vm R2 network 1,3
-spawn vm H1 network 2
-spawn vm H2 network 3
+spawn vm R1 network 1,3,4
+spawn vm R2 network 1,5,6
+spawn vm H1 network 3
+spawn vm H2 network 5
+spawn vm H3 network 4
+spawn vm H4 network 6
 
 run
 
 case $uts in
     R*)
-        ip link add name eth0.A link eth0 type vlan id 10
-        ip link add name eth0.B link eth0 type vlan id 20
-        ip link add VRFA type vrf table 10
-        ip link add VRFB type vrf table 20
-        ip addr add 203.0.113.${uts#R}/28 dev eth0
-        ip addr add 192.0.2.${uts#R}/28 dev eth0.A
-        ip addr add 192.0.2.$((${uts#R} + 16))/28 dev eth0.B
-        ip link add name vxlanA type vxlan id 80001 local 203.0.113.${uts#R} dstport 4789
-        ip link add name vxlanB type vxlan id 80002 local 203.0.113.${uts#R} dstport 4789
+        ip addr add 100.64.0.${uts#R}/28 dev eth0
 
-        for C in A B; do
-            ip link set up dev eth0.$C
-            ip link set master VRF$C dev eth0.$C
-            ip link set up dev VRF$C
-            ip link add bridge$C type bridge
-            ip link set master VRF$C bridge$C
-            ip link set master bridge$C vxlan$C
-            ip link set up dev bridge$C
-            ip link set up dev vxlan$C
-        done
+        # L3VNI
+        while read vni vrf; do
+            ip link add $vrf type vrf table $vni
+            ip link set up $vrf
+            ip link add br$vni type bridge
+            ip link set br$vni master $vrf addrgenmode none
+            ip link set br$vni addr aa:bb:cc:00:0${uts#R}:$(printf %x $vni)
+            ip link add l3vni$vni type vxlan local 100.64.0.${uts#R} dstport 4789 id $vni nolearning
+            ip link set l3vni$vni master br$vni addrgenmode none
+            ip link set l3vni$vni type bridge_slave neigh_suppress on learning off
+            ip link set l3vni$vni up
+            ip link set br$vni up
+        done <<EOF
+100 vrf1
+200 vrf2
+EOF
 
-        case $uts in
-            R1)
-                ip link set master bridgeA dev eth1
-                ip addr add 192.0.2.46/28 dev bridgeA
-                ;;
-            R2)
-                ip link set master bridgeB dev eth1
-                ip addr add 192.0.2.62/28 dev bridgeB
-                ;;
-        esac
+        # L2VNI
+        while read router iface vni vrf ip4 ip6; do
+           [ $uts = $router ] || continue
+           ip link add br$vni type bridge
+           [ $vrf = _ ] || ip link set br$vni master $vrf
+           ip link set br$vni addr aa:bb:cc:00:00:$(printf %x $vni)
+           ip addr add $ip4 dev br$vni
+           ip addr add $ip6 dev br$vni
+           ip link add l2vni$vni type vxlan local 100.64.0.${uts#R} dstport 4789 id $vni nolearning
+           ip link set l2vni$vni master br$vni addrgenmode none
+           ip link set l2vni$vni type bridge_slave neigh_suppress on learning off
+           ip link set l2vni$vni up
+           ip link set br$vni up
+
+           ip link set $iface master br$vni
+        done <<EOF
+R1 eth1 110 vrf1 10.0.10.1/24 2001:db8:0:10::1/64
+R2 eth1 220 vrf2 10.0.20.1/24 2001:db8:0:20::1/64
+R1 eth2 30  _    10.0.30.1/24 2001:db8:0:30::1/64
+R2 eth2 30  _    10.0.30.1/24 2001:db8:0:30::1/64
+EOF
 
         template frr-bgpd.Rx.conf frr-bgpd.$uts.conf digit=${uts#R}
         service frr
         ;;
-    H1)
-        ip addr add 192.0.2.33/28 dev eth0
-        ip route add default via 192.0.2.46
+    H1|H2)
+        ip addr add 10.0.${uts#H}0.10/24 dev eth0
+        ip addr add 2001:db8:0:${uts#H}0::100/64 dev eth0
+        ip route add default via 10.0.${uts#H}0.1
+        ip route add default via 2001:db8:0:${uts#H}0::1
         ;;
-    H2)
-        ip addr add 192.0.2.49/28 dev eth0
-        ip route add default via 192.0.2.62
+    H3|H4)
+        ip addr add 10.0.30.${uts#H}0/24 dev eth0
+        ip addr add 2001:db8:0:30::${uts#H}00/64 dev eth0
+        ip route add default via 10.0.30.1
+        ip route add default via 2001:db8:0:30::1
         ;;
 esac
