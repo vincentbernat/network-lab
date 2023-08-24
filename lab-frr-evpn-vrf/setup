@@ -22,6 +22,7 @@ case $uts in
         ip link set br0 addr aa:bb:cc:00:00:0${uts#R}
         ip link set br0 up
         ip link set vx0 up
+        sysctl -qw net.ipv4.conf.vx0.forwarding=1
 
         # L3VNI
         while read vni vrf; do
@@ -35,6 +36,7 @@ case $uts in
             bridge vlan add dev vx0 vid $vni master
             bridge vlan add dev vx0 vid $vni tunnel_info id $vni master
             bridge vlan set dev vx0 vid $vni neigh_suppress on
+            sysctl -qw net.ipv4.conf.l3vni$vni.forwarding=1
         done <<EOF
 100 vrf1
 200 vrf2
@@ -48,7 +50,10 @@ EOF
             ip link set l2vni$vni up
             ip addr add $ip4 dev l2vni$vni
             ip addr add $ip6 dev l2vni$vni
-            [ $vrf = _ ] || ip link set l2vni$vni master $vrf
+            [ $vrf = _ ] || {
+                ip link set l2vni$vni master $vrf
+                sysctl -qw net.ipv4.conf.l2vni$vni.forwarding=1
+            }
             bridge vni add dev vx0 vni $vni
             bridge vlan add dev vx0 vid $vni master
             bridge vlan add dev vx0 vid $vni tunnel_info id $vni master
