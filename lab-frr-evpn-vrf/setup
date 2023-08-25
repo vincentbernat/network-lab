@@ -64,7 +64,7 @@ EOF
             bridge vlan set dev vx0 vid $vni neigh_suppress on
 
             ip link set $iface master br0
-            ip link set $iface type bridge_slave neigh_suppress on
+            ip link set $iface type bridge_slave neigh_vlan_suppress on
             bridge vlan add dev $iface vid $vni master pvid untagged
         done <<EOF
 R1 eth1 110 vrf1 10.0.10.1/24 2001:db8:0:10::1/64
@@ -76,7 +76,7 @@ EOF
         # One more host for L2 VNI 110
         [ $uts != R1 ] || {
             ip link set eth3 master br0
-            ip link set eth3 type bridge_slave neigh_suppress on
+            ip link set eth3 type bridge_slave neigh_vlan_suppress on
             bridge vlan add dev eth3 vid 110 master pvid untagged
         }
 
