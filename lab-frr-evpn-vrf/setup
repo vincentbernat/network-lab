@@ -69,6 +69,7 @@ EOF
             ip link set $iface master br0
             ip link set $iface type bridge_slave neigh_vlan_suppress on
             bridge vlan add dev $iface vid $vni master pvid untagged
+            bridge vlan set dev $iface vid $vni neigh_suppress on
         done <<EOF
 R1 eth1 110 vrf1 10.0.10.1/24 2001:db8:0:10::1/64
 R2 eth1 220 vrf2 10.0.20.1/24 2001:db8:0:20::1/64
