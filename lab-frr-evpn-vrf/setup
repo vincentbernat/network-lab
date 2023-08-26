@@ -44,6 +44,10 @@ case $uts in
 200 vrf2
 EOF
 
+        # vrf3
+        ip link add vrf3 type vrf table 300
+        ip link set up vrf3
+
         # L2VNI
         while read router iface vni vrf ip4 ip6; do
             [ $uts = $router ] || continue
@@ -68,8 +72,8 @@ EOF
         done <<EOF
 R1 eth1 110 vrf1 10.0.10.1/24 2001:db8:0:10::1/64
 R2 eth1 220 vrf2 10.0.20.1/24 2001:db8:0:20::1/64
-R1 eth2 30  _    10.0.30.1/24 2001:db8:0:30::1/64
-R2 eth2 30  _    10.0.30.1/24 2001:db8:0:30::1/64
+R1 eth2 30  vrf3 10.0.30.1/24 2001:db8:0:30::1/64
+R2 eth2 30  vrf3 10.0.30.1/24 2001:db8:0:30::1/64
 EOF
 
         template frr-bgpd.Rx.conf frr-bgpd.$uts.conf digit=${uts#R}
