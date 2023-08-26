@@ -18,7 +18,7 @@ case $uts in
         ip link add vx0 type vxlan local 100.64.0.${uts#R} dstport 4789 external vnifilter nolearning
         ip link add br0 type bridge vlan_filtering 1 vlan_stats_enabled 1 vlan_stats_per_port 1
         ip link set vx0 master br0
-        ip link set vx0 type bridge_slave vlan_tunnel on
+        ip link set vx0 type bridge_slave vlan_tunnel on neigh_vlan_suppress on
         ip link set br0 addr aa:bb:cc:00:00:0${uts#R}
         ip link set br0 up
         ip link set vx0 up
