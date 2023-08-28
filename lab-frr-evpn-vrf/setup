@@ -56,11 +56,10 @@ EOF
             ip link set l2vni$vni up
             ip addr add $ip4 dev l2vni$vni
             ip addr add $ip6 dev l2vni$vni
-            [ $vrf = _ ] || {
-                ip link set l2vni$vni master $vrf
-                sysctl -qw net.ipv4.conf.l2vni$vni.forwarding=1
-                sysctl -qw net.ipv6.conf.l2vni$vni.forwarding=1
-            }
+            ip link set l2vni$vni master $vrf
+            sysctl -qw net.ipv4.conf.l2vni$vni.forwarding=1
+            sysctl -qw net.ipv6.conf.l2vni$vni.forwarding=1
+
             bridge vni add dev vx0 vni $vni
             bridge vlan add dev vx0 vid $vni master
             bridge vlan add dev vx0 vid $vni tunnel_info id $vni master
