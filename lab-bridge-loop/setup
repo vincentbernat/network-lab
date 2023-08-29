@@ -4,19 +4,33 @@ cd "$(dirname "$(readlink -f "$0")")"
 . ../common/lab-setup
 
 spawn vm R1
+spawn vm R2
 run
 
-ip link add br0 type bridge
-ip link add br1 type bridge
-ip link add type veth
-ip link add type veth
-ip link set veth0 master br0
-ip link set veth1 master br1
-ip link set veth2 master br0
-ip link set veth3 master br1
-ip link set up dev veth0
-ip link set up dev veth1
-ip link set up dev veth2
-ip link set up dev veth3
-ip link set up dev br0
-ip link set up dev br1
+case $uts in
+    R1)
+        ip link add br0 type bridge
+        ip link add br1 type bridge
+        ip link add type veth
+        ip link add type veth
+        ip link set veth0 master br0
+        ip link set veth1 master br1
+        ip link set veth2 master br0
+        ip link set veth3 master br1
+        ip link set up dev veth0
+        ip link set up dev veth1
+        ip link set up dev veth2
+        ip link set up dev veth3
+        ip link set up dev br0
+        ip link set up dev br1
+        ;;
+    R2)
+        # This setup is not permitted
+        ip link add br0 type bridge
+        ip link add br1 type bridge
+        ip link set br0 master br1
+        ip link set br1 master br0
+        ip link set up dev br0
+        ip link set up dev br1
+        ;;
+esac
