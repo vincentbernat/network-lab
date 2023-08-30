@@ -18,7 +18,7 @@ case $uts in
         ip link add vx0 type vxlan local 100.64.0.${uts#R} dstport 4789 external vnifilter nolearning
         ip link add br0 type bridge vlan_filtering 1 vlan_stats_enabled 1 vlan_stats_per_port 1
         ip link set vx0 master br0
-        ip link set vx0 type bridge_slave vlan_tunnel on neigh_vlan_suppress on
+        ip link set vx0 type bridge_slave vlan_tunnel on neigh_vlan_suppress on learning off
         ip link set br0 addr aa:bb:cc:00:00:0${uts#R}
         ip link set br0 up
         ip link set vx0 up
@@ -36,7 +36,7 @@ case $uts in
             bridge vni add dev vx0 vni $vni
             bridge vlan add dev vx0 vid $vni master
             bridge vlan add dev vx0 vid $vni tunnel_info id $vni master
-            bridge vlan set dev vx0 vid $vni neigh_suppress on
+            bridge vlan set dev vx0 vid $vni neigh_suppress on learning off
             sysctl -qw net.ipv4.conf.l3vni$vni.forwarding=1
             sysctl -qw net.ipv6.conf.l3vni$vni.forwarding=1
         done <<EOF
@@ -63,12 +63,10 @@ EOF
             bridge vni add dev vx0 vni $vni
             bridge vlan add dev vx0 vid $vni master
             bridge vlan add dev vx0 vid $vni tunnel_info id $vni master
-            bridge vlan set dev vx0 vid $vni neigh_suppress on
+            bridge vlan set dev vx0 vid $vni neigh_suppress on learning off
 
             ip link set $iface master br0
-            ip link set $iface type bridge_slave neigh_vlan_suppress on
             bridge vlan add dev $iface vid $vni master pvid untagged
-            bridge vlan set dev $iface vid $vni neigh_suppress on
         done <<EOF
 R1 eth1 110 vrf1 10.0.10.1/24 2001:db8:0:10::1/64
 R2 eth1 220 vrf2 10.0.20.1/24 2001:db8:0:20::1/64
