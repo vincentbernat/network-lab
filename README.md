@@ -29,22 +29,24 @@ checkout for it (`git checkout 22f22864632a`).
 
 This lab doesn't work on Ubuntu because they are missing VDE support
 in QEMU. The easiest way is to use `schroot` to work on a Debian
-Buster:
+Bookworm:
 
-    #!/bin/sh
-    sudo debootstrap buster buster
-    cat <<EOF | sudo tee /etc/schroot/chroot.d/lab
-    [lab]
-    type=directory
-    description=Network lab
-    directory=$PWD/buster
-    users=$USER
-    shell=$SHELL
-    profile=default
-    EOF
-    sudo schroot -c lab apt install \
-        qemu-system-x86 sudo tmux busybox ssh vde2 python3 binutils \
-        dosfstools mtools ansible jq linux-image-amd64 nginx
+```
+#!/bin/sh
+sudo debootstrap bookworm bookworm
+cat <<EOF | sudo tee /etc/schroot/chroot.d/lab
+[lab]
+type=directory
+description=Network lab
+directory=$PWD/bookworm
+users=$USER
+shell=$SHELL
+profile=default
+EOF
+sudo schroot -c lab apt install --no-install-recommends \
+    qemu-system-x86 sudo tmux busybox ssh vde2 python3 binutils \
+    dosfstools mtools ansible jq linux-image-amd64 nginx rsyslog
+```
 
 You may need to uncomment `/dev/shm` line in
 `/etc/schroot/default/fstab`. You also have to add yourself to `kvm`
