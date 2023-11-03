@@ -288,6 +288,9 @@ spawn () {
         juniper-vmx)
             start_juniper_vmx
             ;;
+        juniper-vjunos)
+            start_juniper_vjunos
+            ;;
         juniper-firefly)
             start_juniper_firefly
             ;;
@@ -1025,6 +1028,77 @@ EOF
     chmod +x "$TMP/vm-$name-pfe.exec"
     tmux set-option -wt $(tmux new-window -Pdn $name/PFE "$TMP/vm-$name-pfe.exec") remain-on-exit on
     tmux_resize $name/PFE 80 24
+}
+
+start_juniper_vjunos () {
+    name=$NAME
+    setup_switch $name-pfe
+    setup_switch $name-rpio
+    log_info_msg "Start Juniper vJunos $name"
+    netargs=""
+    ssh=$(tcp_port)
+    netargs="$netargs -netdev user,id=oob,hostfwd=tcp:127.0.0.1:${ssh}-:22${hostfwd+,hostfwd=}${hostfwd}"
+    netargs="$netargs -device virtio-net-pci,mac=$oobmac,netdev=oob"
+    [ x$SWITCH_MON = x ] || netargs="$netargs -object filter-dump,id=f1,netdev=oob,file=$TMP/oob-$name.pcap"
+    add_ssh_config $NAME $ssh juniper
+    netargs="$netargs -netdev vde,sock=$TMP/switch-$name-pfe.sock,id=pfe1"
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=pfe1"
+    netargs="$netargs -netdev vde,sock=$TMP/switch-$name-rpio.sock,id=rpio1"
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=rpio1"
+    netargs="$netargs -netdev vde,sock=$TMP/switch-$name-rpio.sock,id=rpio2"
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=rpio2"
+    netargs="$netargs -netdev vde,sock=$TMP/switch-$name-pfe.sock,id=pfe2"
+    netargs="$netargs -device virtio-net-pci,mac=$(mac_address),netdev=pfe2"
+    nbports=0
+    for net in $NET; do
+        nbports=$((nbports + 1))
+    done
+    cat <<EOF > "$TMP/vm-$name-re.exec"
+#!/bin/sh
+printf "\e]2;$name\a"
+qemu-img create -q -f qcow2 -F qcow2 -b $PWD/../images/junos-vjunos.img $TMP/junos-$name.img
+truncate -s 1M $TMP/metadata-$name.img
+mkfs.vfat -n vmm-data $TMP/metadata-$name.img
+mkdir -p $TMP/metadata-$name
+cat - $TMP/ssh-junos.conf junos-$name.conf junos-common.conf <<END 2>/dev/null > $TMP/metadata-$name/juniper.conf
+interfaces {
+  protect: re0:mgmt-0 unit 0 {
+    family inet dhcp;
+  }
+}
+END
+tar -C $TMP/metadata-$name -zcf $TMP/metadata-$name.tgz .
+mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name.tgz ::/vmm-config.tgz
+mcopy -i $TMP/metadata-$name.img $TMP/metadata-$name/juniper.conf ::/juniper.conf
+exec start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name-re.pid" \
+     --start --startas $(command -v qemu-system-x86_64) -- \
+     -enable-kvm \
+     -no-user-config -nodefaults \
+     -display none \
+     -m ${MEM:-8G} \
+     -smp 4,sockets=1,cores=4,threads=1 \
+     -cpu host \
+     -smbios type=0,vendor=Bochs,version=Bochs \
+     -smbios type=1,manufacturer=Bochs,product=Bochs,serial=chassis_no=0:slot=0:type=1:assembly_id=0x0D20:platform=251:master=0:channelized=no \
+     -smbios type=3,manufacturer=Bochs \
+     -device virtio-rng \
+     \
+     -boot c \
+     -drive file=$TMP/junos-$name.img,if=virtio,media=disk \
+     -drive file=$TMP/metadata-$name.img,format=raw,if=virtio,media=disk \
+     \
+     -chardev stdio,id=charserial0,signal=off \
+     -device isa-serial,chardev=charserial0,id=serial0 \
+     \
+     -chardev socket,id=con0,path=$TMP/vm-$name-re-console.pipe,server=on,wait=off \
+     -mon chardev=con0,mode=readline \
+     \
+     $netargs
+EOF
+    log_info_msg "monitor listening on    $TMP/vm-$name-re-console.pipe"
+    chmod +x "$TMP/vm-$name-re.exec"
+    tmux set-option -wt $(tmux new-window -Pdn $name/RE "$TMP/vm-$name-re.exec") remain-on-exit on
+    tmux_resize $name/RE 80 24
 }
 
 start_juniper_vsrx () {
