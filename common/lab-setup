@@ -1415,9 +1415,10 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -enable-kvm \
      -no-user-config -nodefaults \
      -display none \
-     -m ${MEM:-20G} \
+     -m ${MEM:-16G} \
      -cpu host \
-     -smp ${CPUS:-4} \
+     -smp ${CPUS:-2} \
+     -machine smm=off \
      -device virtio-rng \
      \
      -boot c \
