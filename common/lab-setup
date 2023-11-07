@@ -1361,7 +1361,7 @@ start_cisco_iosxrv () {
     for net in $NET; do
         mac=$(mac_address)
         netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
-        netargs="$netargs -device virtio-net-pci,mac=$mac,netdev=net${count}"
+        netargs="$netargs -device e1000,mac=$mac,netdev=net${count}"
         count=$((count+1))
     done
 
@@ -1415,8 +1415,9 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -enable-kvm \
      -no-user-config -nodefaults \
      -display none \
-     -m ${MEM:-9G} \
+     -m ${MEM:-20G} \
      -cpu host \
+     -smp ${CPUS:-4} \
      -device virtio-rng \
      \
      -boot c \
@@ -1429,6 +1430,8 @@ exec nice start-stop-daemon --make-pidfile --pidfile "$TMP/vm-$name.pid" \
      -device isa-serial,chardev=charserial1,id=serial1 \
      -chardev socket,id=charserial2,path=$TMP/vm-$name-serial2.pipe,server=on,wait=off \
      -device isa-serial,chardev=charserial2,id=serial2 \
+     -chardev socket,id=charserial3,path=$TMP/vm-$name-serial3.pipe,server=on,wait=off \
+     -device isa-serial,chardev=charserial3,id=serial3 \
      \
      -chardev socket,id=con0,path=$TMP/vm-$name-console.pipe,server=on,wait=off \
      -mon chardev=con0,mode=readline \
@@ -1471,6 +1474,7 @@ EOF
     log_info_msg "monitor listening on          $TMP/vm-$name-console.pipe"
     log_info_msg "aux console listening on      $TMP/vm-$name-serial1.pipe"
     log_info_msg "Calvados console listening on $TMP/vm-$name-serial2.pipe"
+    log_info_msg "Calvados aux listening on     $TMP/vm-$name-serial3.pipe"
     chmod +x "$TMP/vm-$name-real.exec"
     chmod +x "$TMP/vm-$name.exec"
     tmux set-option -wt $(tmux new-window -Pdn $name "$TMP/vm-$name-real.exec") remain-on-exit on
