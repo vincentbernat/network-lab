@@ -11,8 +11,7 @@ spawn vm R1 network 1,2,3,4,5,6
 
 run
 
-# Comment to not use VXLAN but native unicast (requires a non-released
-# version of Keepalived)
+# Comment to not use VXLAN but native unicast (requires 2.1.0+)
 VXLAN=1
 
 # Executed on each VM
