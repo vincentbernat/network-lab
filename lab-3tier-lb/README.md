@@ -6,6 +6,10 @@ load-balancing (with HAProxy). Direct return is used to bypass the L4
 load-balancing layer. To accomodate cloud-environments or fully-routed
 environments, IPIP tunnels are used.
 
+See this [blog
+post](https://vincent.bernat.ch/en/blog/2018-multi-tier-loadbalancer) for more
+details.
+
 From the `users` VM, we can issue a curl command to test if everything
 works as expected:
 
