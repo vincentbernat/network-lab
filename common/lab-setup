@@ -259,6 +259,7 @@ spawn () {
         case $net in
             oob) ;;
             rocker*) setup_switch ${net#rocker} ;;
+            *@*) setup_switch ${net##*@} ;;
             *) setup_switch $net ;;
         esac
     done
@@ -540,6 +541,11 @@ start_vm () {
                 net=${net#rocker}
                 netargs="$netargs -netdev vde,sock=$TMP/switch-$net.sock,id=net${count}"
                 rockerports="${rockerports} net${count}"
+                ;;
+            *@*)
+                mac=$(mac_address)
+                netargs="$netargs -netdev vde,sock=$TMP/switch-${net##*@}.sock,id=net${count}"
+                netargs="$netargs -device ${net%@*},mac=$mac,netdev=net${count}"
                 ;;
             *)
                 mac=$(mac_address)
