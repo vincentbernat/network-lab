@@ -2007,7 +2007,8 @@ EOF
                 $oobmac)
                     intf=${intf##*/}
                     log_info_msg "Setup OOB interface on $intf"
-                    dhclient $intf
+                    rm -f /usr/sbin/resolvconf /etc/resolv.conf
+                    dhcpcd -q $intf
                     # Run sshd in a not very secure way
                     mkdir /dev/pts
                     mount -n -t devpts devpts /dev/pts
