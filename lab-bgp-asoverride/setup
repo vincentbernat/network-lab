@@ -1,0 +1,13 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+SWITCH_MON=1
+
+spawn cisco-iosxrv C0 network 1
+spawn cisco-iosxrv C1 network 1
+spawn cisco-iosxrv R1 network 1
+spawn cisco-iosxrv R2 network 1
+
+run
