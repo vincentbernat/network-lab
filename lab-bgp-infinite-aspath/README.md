@@ -1,6 +1,6 @@
-# Fun with AS override
+# Fun with confederations AS override
 
-Combining confederations and as-override is a recipe for disaster:
+Combining confederations and AS override is a recipe for disaster:
 
 ```
 RP/0/RP0/CPU0:R2#show bgp ipv6 u 2001:db8::1/128
