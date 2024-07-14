@@ -5,9 +5,9 @@ cd "$(dirname "$(readlink -f "$0")")"
 
 SWITCH_MON=1
 
-spawn cisco-iosxrv C0 network 1
-spawn cisco-iosxrv C1 network 1
+spawn cisco-iosxrv R0 network 1
 spawn cisco-iosxrv R1 network 1
 spawn cisco-iosxrv R2 network 1
+spawn cisco-iosxrv R3 network 1
 
 run
