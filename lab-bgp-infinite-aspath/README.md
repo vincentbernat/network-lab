@@ -21,3 +21,7 @@ Paths: (1 available, best #1)
       Origin IGP, metric 0, localpref 100, valid, confed-external, best, group-best
       Received Path ID 0, Local Path ID 1, version 38
 ```
+
+More details on [this blog post][].
+
+[this blog post]: https://vincent.bernat.ch/en/blog/2024-bgp-endless-aspath
