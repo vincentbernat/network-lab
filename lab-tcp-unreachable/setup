@@ -1,0 +1,31 @@
+#!/bin/sh
+
+cd "$(dirname "$(readlink -f "$0")")"
+. ../common/lab-setup
+
+spawn vm H1 network oob,1
+spawn vm H2 network oob,1
+
+run
+
+case $uts in
+    H1)
+        sysctl -w net.ipv6.conf.eth0.disable_ipv6=1
+        ip addr add 2001:db8::1/128 dev lo
+        ip addr add 2001:db8:a::/127 dev eth1
+        ip route add 2001:db8::2/128 via 2001:db8:a::1
+
+        # - socat STDIO 'TCP-CONNECT:[2001:db8::2]:80'
+        # On another shell:
+        # - ip route del 2001:db8::2 via 2001:db8:a::1
+        # And check if the TCP connection is broken.
+        # Answer: no :/
+        ;;
+    H2)
+        sysctl -w net.ipv6.conf.eth0.disable_ipv6=1
+        ip addr add 2001:db8::2/128 dev lo
+        ip addr add 2001:db8:a::1/127 dev eth1
+        ip route add 2001:db8::1/128 via 2001:db8:a::
+        ;;
+esac
+service nginx
