@@ -2023,6 +2023,8 @@ EOF
                     mount -n -t devpts devpts /dev/pts
                     mkdir /var/run/sshd
                     adduser --quiet --system --no-create-home --home /var/run/sshd --shell /usr/sbin/nologin sshd || true
+                    rm -f /etc/shadow
+                    echo "root:*:::::::" > /etc/shadow
                     $(command -v sshd) \
                         -f /dev/null \
                         -h /tmp/lab/id_rsa \
