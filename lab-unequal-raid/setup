@@ -14,5 +14,7 @@ spawn vm host network oob
 run
 
 mount -t tmpfs tmpfs /etc/lvm
-modprobe md
+
+# This is not very reliable since we may race with the kernel.
+mdadm --stop --scan || true
 mdadm --assemble --scan || true
