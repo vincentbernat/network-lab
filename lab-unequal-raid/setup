@@ -15,4 +15,4 @@ run
 
 mount -t tmpfs tmpfs /etc/lvm
 modprobe md
-mdadm --assemble --scan
+mdadm --assemble --scan || true
