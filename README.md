@@ -1,5 +1,4 @@
-Various network related labs
-============================
+# Various network related labs
 
 I use those labs to test various stuff. Most of them are tailored to
 my need. The most recent ones are more likely to work than the older
@@ -60,8 +59,7 @@ look at
 `minimal-configuration` script to compile a kernel that should work
 with the lab as well.
 
-License
--------
+## License
 
 All the labs are distributed under the ISC license:
 
@@ -77,11 +75,14 @@ All the labs are distributed under the ISC license:
 > ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 > OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-Other tools
------------
+## Other tools
 
-There exist many other tools to run network labs that may not be as
-hacky as this one:
+Many other tools exist to run network labs that may not be as hacky as this one:
+
+ - [ContainerLab](https://containerlab.dev/). It uses Docker images to run both
+   containerized router images as well as VM-based one through
+   [vrnetlab](https://containerlab.dev/manual/vrnetlab/). It's the state of art
+   lab environment.
 
  - [CORE](http://www.nrl.navy.mil/itd/ncs/products/core). It uses
    Linux network namespaces and provides a GUI tool. This is a very
