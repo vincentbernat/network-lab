@@ -1,37 +1,45 @@
 #!/usr/bin/env bash
 
-set -e
+# This script configures the environment to run Containerlab. The environment is
+# reproducible (through Nix) and rootless (through bwrap). This is done in
+# several stages.
+
+set -euo pipefail
 
 PATH=@sandbox@/bin
-labname=${PWD##*/}
-gum=@gum@/bin/gum
 
+gum=@gum@/bin/gum
 progress() {
   local title="$1"
   shift
-  $gum spin --spinner points --title "$1" --show-error -- "$@"
+  $gum spin --spinner points --title "$title" --show-error -- "$@"
 }
-
 log() {
   local level="$1"
   shift
   $gum log --time=datetime --structured --level "$level" "$@"
 }
 
-setup_workspace() {
-  # Setup the temporary workspace
+run_stage1() {
+  # Stage 1 configures the isolated filesystem. The network is shared with the
+  # current namespace.
+
+  log info "Setup stage 1..."
+  labname=${PWD##*/}
+
+  # Create the temporary workspace
   workspace=$(mktemp -d)
   trap "rm -rf $workspace" EXIT
 
-  # Set the SHELL variable
+  # Set the SHELL variable matching the current user.
   case $(getent passwd $USER) in
     */zsh) SHELL=@sandbox@/bin/zsh ;;
     *) SHELL=@sandbox@/bin/bash ;;
   esac
-  log info "Shell is $SHELL"
+  log debug "Shell is $SHELL"
 
-  # Setup system files
-  log info "Creating workspace..." directory "$workspace"
+  # Create some system files
+  log debug "Creating workspace..." directory "$workspace"
   cat > "$workspace/passwd" <<EOF
 root:x:0:0:root:/home/lab:$SHELL
 EOF
@@ -40,18 +48,28 @@ root:x:0:
 EOF
   cat > "$workspace/hosts" <<EOF
 127.0.0.1 localhost.localdomain localhost
-127.0.1.1 $labname
+127.0.1.1 $labname.home.arpa $labname
 ::1       ip6-localhost ip6-loopback
 EOF
-  cp /etc/resolv.conf "$workspace/resolv.conf"
+  cat > "$workspace/nsswitch.conf" <<EOF
+passwd: compat
+group:  compat
+shadow: compat
 
-  # Setup an SSH key
+hosts:    files dns
+networks: files
+
+protocols: db files
+services:  db files
+ethers:    db files
+rpc:       db files
+EOF
+
+  # Create an SSH key
   install -m 0700 -d "$workspace/home/.ssh"
   progress "Creating an SSH key..." ssh-keygen -q -t rsa -f "$workspace/home/.ssh/id_rsa" -N ""
   log debug "SSH key created"
-}
 
-setup_isolation() {
   # Prepare bubblewrap
   declare -a args
   args=(
@@ -68,7 +86,7 @@ setup_isolation() {
     --ro-bind "$workspace/passwd" /etc/passwd
     --ro-bind "$workspace/group" /etc/group
     --ro-bind "$workspace/hosts" /etc/hosts
-    --ro-bind "$workspace/resolv.conf" /etc/resolv.conf
+    --ro-bind "$workspace/nsswitch.conf" /etc/nsswitch.conf
     --tmpfs /etc/ssh/ssh_config.d
     # Environment
     --clearenv
@@ -76,15 +94,16 @@ setup_isolation() {
     --setenv HOME "/home/lab"
     --setenv TERM "$TERM"
     --setenv TERMINFO "@ncurses@/share/terminfo"
-    --setenv STEP 2
+    --setenv LANG "C.utf8"
+    --setenv STAGE 2
     --hostname $labname
     --chdir "/lab"
     --uid 0 --gid 0
     # Podman
     --bind "$HOME/.local/share/containers/storage" /var/lib/containers/storage
     --setenv CLAB_RUNTIME podman
-    # Unshare everything
-    --unshare-all
+    # Unshare everything except network
+    --unshare-all --share-net
     --die-with-parent
   )
   case $SHELL in
@@ -94,7 +113,8 @@ setup_isolation() {
         --ro-bind-try "$HOME/.zshrc" /home/lab/.zshrc
         --ro-bind-try "$HOME/.zshenv" /home/lab/.zshenv
         # This is specific to my Zsh setup
-        --tmpfs "/home/lab/.zsh/run"
+        --tmpfs "$HOME/.zsh/run"
+        --bind-try "$HOME/.zsh/run/u" /home/lab/.zsh/run/u
         --setenv VBE_SHELL_ISOLATED true
       )
       ;;
@@ -110,12 +130,52 @@ setup_isolation() {
   @bubblewrap@/bin/bwrap ''${args[@]} @setup@
 }
 
-case ${STEP:-1} in
+run_stage2() {
+  # Stage 2 switches to tmux to be able to spawn more shells.
+
+  exec env STAGE=3 tmux -L "$(uname -n)" new-session -s "$(uname -n)" -n main @setup@
+}
+
+run_stage3() {
+  # Stage 3 configures tmux, spawn network namespace, configure pasta
+
+  log debug "Configure tmux"
+  tmux set-option prefix C-b
+  tmux set-option -w remain-on-exit on
+  tmux set-hook window-linked "set-option -w remain-on-exit on"
+  tmux bind-key r respawn-window
+
+  log info "Prepare network namespace"
+  mkfifo /run/sync-netns
+  tmux split-window -v -l 1 -t '{top}' env STAGE=4 unshare --user --net @setup@
+  read < /run/sync-netns
+  rm /run/sync-netns
+
+  echo @passt@
+
+  $SHELL -i
+}
+
+run_stage4() {
+  # Stage 4 keeps the network namespace alive (we prefer to use a PID than a
+  # mountpoint to not leak namespaces)
+
+  echo $$ > /run/netns.pid
+  echo > /run/sync-netns
+  progress "Network namespace" sleep infinity
+}
+
+case $STAGE in
   1)
-    setup_workspace
-    setup_isolation
+    run_stage1
+    # We have to explicitely exit as stage 1 is sourced from Nix shell hook.
     exit
     ;;
-  2)
-    exec tmux
+  2) run_stage2 ;;
+  3) run_stage3 ;;
+  4) run_stage4 ;;
+  *)
+    log error "Unknown stage" stage "$STAGE"
+    exit 1
+    ;;
 esac

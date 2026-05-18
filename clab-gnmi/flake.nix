@@ -12,8 +12,7 @@
         sandbox = pkgs.buildEnv {
           name = "sandbox";
           paths = with pkgs; [
-            bashInteractive
-            containerlab
+            # Basic environment
             coreutils
             findutils
             gawk
@@ -24,18 +23,24 @@
             less
             locale
             nix
+            procps
+            util-linux
+            # tmux
+            tmux
+            # Shells
+            bashInteractive
+            zsh
+            # containerlab
+            containerlab
             openssh
             podman
-            procps
-            tmux
-            zsh
           ];
         };
         setup = pkgs.replaceVarsWith {
           src = ./setup.sh;
           replacements = {
             inherit sandbox;
-            inherit (pkgs) ncurses bubblewrap gum;
+            inherit (pkgs) ncurses bubblewrap gum passt;
             setup = placeholder "out";
           };
           isExecutable = true;
@@ -44,7 +49,10 @@
       {
         devShells.default = pkgs.mkShell {
           name = "containerlab";
-          shellHook = builtins.readFile setup;
+          shellHook = ''
+            STAGE=1
+            source ${setup}
+          '';
         };
       });
 }
