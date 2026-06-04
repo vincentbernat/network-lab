@@ -2,7 +2,12 @@
 
 # This script configures the environment to run Containerlab. The environment is
 # reproducible (through Nix) and rootless (through bwrap). This is done in
-# several stages.
+# several stages:
+#
+# - Stage 1. Setup the mount namespace to ensure we use Nix for all dependencies.
+# - Stage 2. Setup the network namespace with pasta (as well as user namespace).
+# - Stage 3. Setup the remaining namespaces (PID) to complete isolation.
+# - Stage 4. Run tmux.
 
 set -euo pipefail
 
@@ -21,10 +26,9 @@ log() {
 }
 
 run_stage1() {
-  # Stage 1 configures the isolated filesystem. The network is shared with the
-  # current namespace.
-
+  # Stage 1 configures the mount namespace (and uname).
   log info "Setup stage 1..."
+  log debug "Setup is @setup@"
   labname=${PWD##*/}
 
   # Create the temporary workspace
@@ -64,6 +68,10 @@ services:  db files
 ethers:    db files
 rpc:       db files
 EOF
+  cat > "$workspace/resolv.conf" <<EOF
+nameserver 8.8.8.8
+search clab
+EOF
 
   # Create an SSH key
   install -m 0700 -d "$workspace/home/.ssh"
@@ -73,37 +81,40 @@ EOF
   # Prepare bubblewrap
   declare -a args
   args=(
+    # UTS
+    --unshare-uts
+    --hostname $labname
     # Home and lab
     --bind "$workspace/home" /home/lab
-    --bind-try "$HOME/.tmux.conf" /home/lab/.tmux.conf
+    --ro-bind-try "$HOME/.tmux.conf" /home/lab/.tmux.conf
     --bind "$PWD" /lab
     # System
     --ro-bind /nix /nix
-    --dev /dev
+    --dev-bind /dev /dev
     --proc /proc
     --tmpfs /tmp
     --tmpfs /run
+    --tmpfs /var/log
     --ro-bind "$workspace/passwd" /etc/passwd
     --ro-bind "$workspace/group" /etc/group
     --ro-bind "$workspace/hosts" /etc/hosts
     --ro-bind "$workspace/nsswitch.conf" /etc/nsswitch.conf
+    --ro-bind "$workspace/resolv.conf" /etc/resolv.conf
     --tmpfs /etc/ssh/ssh_config.d
     # Environment
     --clearenv
     --setenv PATH "@sandbox@/bin"
     --setenv HOME "/home/lab"
+    --setenv SHELL "$SHELL"
     --setenv TERM "$TERM"
     --setenv TERMINFO "@ncurses@/share/terminfo"
+    --setenv SSL_CERT_FILE "@cacert@/etc/ssl/certs/ca-bundle.crt"
     --setenv LANG "C.utf8"
     --setenv STAGE 2
-    --hostname $labname
     --chdir "/lab"
-    --uid 0 --gid 0
     # Podman
     --bind "$HOME/.local/share/containers/storage" /var/lib/containers/storage
     --setenv CLAB_RUNTIME podman
-    # Unshare everything except network
-    --unshare-all --share-net
     --die-with-parent
   )
   case $SHELL in
@@ -126,18 +137,54 @@ EOF
       ;;
   esac
 
-  # Execute tmux
   @bubblewrap@/bin/bwrap ''${args[@]} @setup@
 }
 
 run_stage2() {
-  # Stage 2 switches to tmux to be able to spawn more shells.
+  # Stage 2 runs pasta.
+  log info "Prepare stage 2..."
 
-  exec env STAGE=3 tmux -L "$(uname -n)" new-session -s "$(uname -n)" -n main @setup@
+  log debug "Run pasta..."
+  mkdir -p $HOME/tmp
+  env STAGE=3 @passt@/bin/pasta \
+    -l /var/log/pasta.log \
+    -t none \
+    --hostname $(uname -n) \
+    --config-net \
+    @setup@
 }
 
 run_stage3() {
-  # Stage 3 configures tmux, spawn network namespace, configure pasta
+  # Stage 3 setup the other namespaces
+  log info "Prepare stage 3..."
+
+  declare -a args
+  args=(
+    # FS is already OK
+    --bind / /
+    --dev /dev
+    --chdir "/lab"
+    # Other namespaces
+    --unshare-ipc
+    --unshare-pid
+    --unshare-cgroup
+    # ...
+    --setenv STAGE 4
+    --die-with-parent
+  )
+  @bubblewrap@/bin/bwrap ''${args[@]} @setup@
+}
+
+run_stage4() {
+  # Stage 4 spawns tmux.
+  log info "Prepare stage 4..."
+
+  exec env STAGE=5 tmux -L "$(uname -n)" new-session -s "$(uname -n)" -n main @setup@
+}
+
+run_stage5() {
+  # Stage 5 configures tmux
+  log info "Prepare stage 4..."
 
   log debug "Configure tmux"
   tmux set-option prefix C-b
@@ -145,24 +192,11 @@ run_stage3() {
   tmux set-hook window-linked "set-option -w remain-on-exit on"
   tmux bind-key r respawn-window
 
-  log info "Prepare network namespace"
-  mkfifo /run/sync-netns
-  tmux split-window -v -l 1 -t '{top}' env STAGE=4 unshare --user --net @setup@
-  read < /run/sync-netns
-  rm /run/sync-netns
+  log debug "Add pane for logs"
+  tmux split-window -v -l 3 -t '{bottom}' tail -F /var/log/pasta.log \; select-pane -T 'pasta logs' \; last-pane
 
-  echo @passt@
-
-  $SHELL -i
-}
-
-run_stage4() {
-  # Stage 4 keeps the network namespace alive (we prefer to use a PID than a
-  # mountpoint to not leak namespaces)
-
-  echo $$ > /run/netns.pid
-  echo > /run/sync-netns
-  progress "Network namespace" sleep infinity
+  log debug "Spawn shell $SHELL..."
+  SHLVL=0 $SHELL -i
 }
 
 case $STAGE in
@@ -171,11 +205,10 @@ case $STAGE in
     # We have to explicitely exit as stage 1 is sourced from Nix shell hook.
     exit
     ;;
-  2) run_stage2 ;;
-  3) run_stage3 ;;
-  4) run_stage4 ;;
   *)
-    log error "Unknown stage" stage "$STAGE"
-    exit 1
+    run_stage$STAGE || {
+      log error "Failure of stage $STAGE. Spawning a shell..."
+      $SHELL -i
+    }
     ;;
 esac

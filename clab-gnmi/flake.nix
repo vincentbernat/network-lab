@@ -19,12 +19,17 @@
             getent
             gnugrep
             gnused
-            iproute2
             less
             locale
             nix
             procps
             util-linux
+            # network tools
+            curl
+            iproute2
+            iputils
+            mtr
+            openssh
             # tmux
             tmux
             # Shells
@@ -32,7 +37,6 @@
             zsh
             # containerlab
             containerlab
-            openssh
             podman
           ];
         };
@@ -40,7 +44,7 @@
           src = ./setup.sh;
           replacements = {
             inherit sandbox;
-            inherit (pkgs) ncurses bubblewrap gum passt;
+            inherit (pkgs) ncurses bubblewrap gum passt cacert;
             setup = placeholder "out";
           };
           isExecutable = true;
