@@ -219,7 +219,7 @@ run_stage5() {
   SHLVL=0 $SHELL -i
 }
 
-case $STAGE in
+case ${STAGE:-1} in
   1)
     run_stage1
     # We have to explicitely exit as stage 1 is sourced from Nix shell hook.

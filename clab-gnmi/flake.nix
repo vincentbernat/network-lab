@@ -49,14 +49,10 @@
           };
           isExecutable = true;
         };
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          name = "containerlab";
-          shellHook = ''
-            STAGE=1
-            source ${setup}
-          '';
+      in {
+        apps.default = {
+          type = "app";
+          program = "${setup}";
         };
       });
 }
