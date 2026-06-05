@@ -44,7 +44,7 @@
           src = ./setup.sh;
           replacements = {
             inherit sandbox;
-            inherit (pkgs) ncurses bubblewrap gum passt cacert;
+            inherit (pkgs) ncurses bubblewrap gum passt cacert fuse-overlayfs;
             setup = placeholder "out";
           };
           isExecutable = true;

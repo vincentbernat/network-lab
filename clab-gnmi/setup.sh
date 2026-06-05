@@ -5,8 +5,8 @@
 # several stages:
 #
 # - Stage 1. Setup the mount namespace to ensure we use Nix for all dependencies.
-# - Stage 2. Setup the network namespace with pasta (as well as user namespace).
-# - Stage 3. Setup the remaining namespaces (PID) to complete isolation.
+# - Stage 2. Setup the network namespace with pasta (as well as user, ipc, pid, uts).
+# - Stage 3. Setup the remaining namespaces (cgroup) to complete isolation.
 # - Stage 4. Run tmux.
 
 set -euo pipefail
@@ -72,6 +72,20 @@ EOF
 nameserver 8.8.8.8
 search clab
 EOF
+  cat > "$workspace/containers-storage.conf" <<EOF
+[storage]
+driver = "overlay"
+graphroot = "$HOME/.local/share/containers/storage"
+
+[storage.options]
+# additionalimagestores = ["$HOME/.local/share/containers/storage"]
+
+[storage.options.overlay]
+mount_program = "@fuse-overlayfs@/bin/fuse-overlayfs"
+mountopt = "uidmapping=0:$(id -u):1,gidmapping=0:$(id -g):1"
+skip_mount_home = "true"
+EOF
+
 
   # Create an SSH key
   install -m 0700 -d "$workspace/home/.ssh"
@@ -100,6 +114,7 @@ EOF
     --ro-bind "$workspace/hosts" /etc/hosts
     --ro-bind "$workspace/nsswitch.conf" /etc/nsswitch.conf
     --ro-bind "$workspace/resolv.conf" /etc/resolv.conf
+    --ro-bind "$workspace/containers-storage.conf" /etc/containers/storage.conf
     --tmpfs /etc/ssh/ssh_config.d
     # Environment
     --clearenv
@@ -112,9 +127,8 @@ EOF
     --setenv LANG "C.utf8"
     --setenv STAGE 2
     --chdir "/lab"
-    # Podman
-    --bind "$HOME/.local/share/containers/storage" /var/lib/containers/storage
-    --setenv CLAB_RUNTIME podman
+    # Podman: we need to bind at the same location
+    --bind "$HOME/.local/share/containers" "$HOME/.local/share/containers"
     --die-with-parent
   )
   case $SHELL in
@@ -160,13 +174,13 @@ run_stage3() {
 
   declare -a args
   args=(
-    # FS is already OK
+    # Filesystem
     --bind / /
+    --proc /proc
     --dev /dev
+    --dev-bind /dev/fuse /dev/fuse
     --chdir "/lab"
     # Other namespaces
-    --unshare-ipc
-    --unshare-pid
     --unshare-cgroup
     # ...
     --setenv STAGE 4
@@ -191,6 +205,12 @@ run_stage5() {
   tmux set-option -w remain-on-exit on
   tmux set-hook window-linked "set-option -w remain-on-exit on"
   tmux bind-key r respawn-window
+
+  log debug "Configure podman"
+  export CLAB_RUNTIME=podman
+  mkdir -p /sys/fs/cgroup
+  mount -t cgroup2 cgroup2 /sys/fs/cgroup
+  ln -s ../proc/self/mounts /etc/mtab
 
   log debug "Add pane for logs"
   tmux split-window -v -l 3 -t '{bottom}' tail -F /var/log/pasta.log \; select-pane -T 'pasta logs' \; last-pane
