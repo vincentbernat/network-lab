@@ -40,12 +40,12 @@
             podman
           ];
         };
+        python = pkgs.python3.withPackages (ps: with ps; [ rich ]);
         setup = pkgs.replaceVarsWith {
-          src = ./setup.sh;
+          src = ./setup.py;
           replacements = {
-            inherit sandbox;
-            inherit (pkgs) ncurses bubblewrap gum passt cacert fuse-overlayfs;
-            setup = placeholder "out";
+            inherit sandbox python;
+            inherit (pkgs) ncurses passt cacert;
           };
           isExecutable = true;
         };
