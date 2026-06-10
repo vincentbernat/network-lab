@@ -9,6 +9,19 @@
         pkgs = import inputs.nixpkgs {
           inherit system;
         };
+        containerlab = pkgs.containerlab.overrideAttrs (old: {
+          # Patch it for podman support.
+          tags = (old.tags or []) ++ [
+            "podman"
+            "exclude_graphdriver_btrfs"
+            "btrfs_noversion"
+            "exclude_graphdriver_devicemapper"
+            "exclude_graphdriver_overlay"
+            "containers_image_openpgp"
+          ];
+          doCheck = false;
+          doInstallCheck = false;
+        });
         sandbox = pkgs.buildEnv {
           name = "sandbox";
           paths = with pkgs; [
