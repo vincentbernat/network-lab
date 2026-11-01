@@ -25,6 +25,7 @@ import enum
 import os
 import platform
 import pwd
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -426,22 +427,20 @@ def enter_namespace(
     mount("tmpfs", str(new_root), "tmpfs")
 
     # System: Nix store (read-only), devices, kernel filesystems. /dev/shm gets
-    # a fresh tmpfs.
+    # a fresh tmpfs (the bound host one is owned by real root). The empty dirs
+    # below need no tmpfs of their own: the root is already one.
     bind(Path("/nix"), at("/nix"), ro=True)
     bind(Path("/dev"), at("/dev"))
     tmpfs("/dev/shm", mode="1777")
     proc = at("/proc")
     proc.mkdir()
     mount("proc", str(proc), "proc", MS.NOSUID | MS.NODEV | MS.NOEXEC)
-    tmpfs("/tmp")
-    tmpfs("/run")
-    tmpfs("/var/tmp")
-    tmpfs("/var/log")
-    cgroup = at("/sys/fs/cgroup")
-    cgroup.mkdir(parents=True)
-    mount("cgroup2", str(cgroup), "cgroup2")
+    for d in ("/tmp", "/run", "/var/tmp", "/var/log", "/etc/ssh/ssh_config.d"):
+        at(d).mkdir(parents=True, exist_ok=True)
+    bind(Path("/sys"), at("/sys"))
 
-    # /etc: our throwaway files (read-only), a fresh ssh drop-in dir, an mtab.
+    # /etc: our throwaway files (copied in, as the root is a separate tmpfs),
+    # plus an mtab.
     for name, target in (
         ("passwd", "/etc/passwd"),
         ("group", "/etc/group"),
@@ -453,8 +452,9 @@ def enter_namespace(
         ("storage.conf", "/etc/containers/storage.conf"),
         ("policy.json", "/etc/containers/policy.json"),
     ):
-        bind(ws / name, at(target), ro=True)
-    tmpfs("/etc/ssh/ssh_config.d")
+        dst = at(target)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(ws / name, dst)
     os.symlink("../proc/self/mounts", at("/etc/mtab"))
 
     # Home, lab project directory, and persistent podman storage (at its real
@@ -507,6 +507,7 @@ def enter_namespace(
         "SSL_CERT_FILE": f"{CACERT}/etc/ssl/certs/ca-bundle.crt",
         "LANG": "C.utf8",
         "CLAB_RUNTIME": "podman",
+        "CLAB_VERSION_CHECK": "disable",
     }
     if shell.endswith("zsh"):
         env["VBE_SHELL_ISOLATED"] = "true"
@@ -537,29 +538,38 @@ def enter_namespace(
 
 
 def tmux_init(shell: str, pasta_log: str) -> None:
-    """Configure the tmux session, add the pasta log pane, and spawn the shell."""
+    """Configure the tmux session, add the services window, and spawn the shell."""
     tmux = f"{SANDBOX}/bin/tmux"
 
     def run(*argv: str) -> None:
         subprocess.run([tmux, *argv], check=True)
 
-    run("set-option", "prefix", "C-b")
-    run("set-option", "-w", "remain-on-exit", "on")
-    run("set-hook", "window-linked", "set-option -w remain-on-exit on")
-    run("bind-key", "r", "respawn-window")
+    # podman
+    run(
+        "new-window",
+        "-n",
+        "services",
+        f"{SANDBOX}/bin/podman --log-level info system service --time=0",
+    )
+    run("select-pane", "-T", "podman")
+
+    # pasta logs
     run(
         "split-window",
         "-v",
-        "-l",
-        "3",
         "-t",
-        "{bottom}",
+        "services",
         f"{SANDBOX}/bin/tail -n+0 -F {pasta_log}",
     )
     run("select-pane", "-T", "pasta logs")
-    run("last-pane")
+
+    # label the panes, only on the services window
+    run("set-option", "-w", "-t", "services", "pane-border-status", "top")
+    run("set-option", "-w", "-t", "services", "pane-border-format", "#T")
 
     log("Spawning shell", shell=shell)
+    run("select-window", "-t", "main")
+    run("set-option", "prefix", "C-b")
     os.execve(shell, [Path(shell).name, "-i"], {**os.environ, "SHLVL": "0"})
 
 
