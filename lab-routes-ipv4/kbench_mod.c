@@ -21,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/version.h>
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/inet.h>
 #include <linux/sort.h>
 #include <linux/netdevice.h>
@@ -256,7 +257,11 @@ static int do_bench(char *buf, int verbose)
 	fl4.flowi4_oif = flow_oif;
 	fl4.flowi4_iif = flow_iif;
 	fl4.flowi4_mark = flow_mark;
+#ifdef flowi4_tos
 	fl4.flowi4_tos = flow_tos;
+#else
+	fl4.flowi4_dscp = inet_dsfield_to_dscp(flow_tos);
+#endif
 	fl4.daddr = flow_dst_ipaddr_s;
 	fl4.saddr = flow_src_ipaddr;
 #endif
@@ -675,7 +680,7 @@ static struct attribute_group bench_attr_group = {
 
 static struct kobject *bench_kobj;
 
-int init_module(void)
+static int __init kbench_init(void)
 {
 	int rc;
 	bench_kobj = kobject_create_and_add("kbench", kernel_kobj);
@@ -691,11 +696,13 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void __exit kbench_exit(void)
 {
 	sysfs_remove_group(bench_kobj, &bench_attr_group);
 	kobject_put(bench_kobj);
 }
 
+module_init(kbench_init);
+module_exit(kbench_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Micro-benchmark for fib_lookup()");
