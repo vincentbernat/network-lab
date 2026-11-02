@@ -20,6 +20,7 @@
 #include <linux/kernel.h>
 #include <linux/version.h>
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/inet.h>
 #include <linux/sort.h>
 #include <linux/netdevice.h>
@@ -128,11 +129,8 @@ static void collect_depth(struct fib6_node *root,
 	unsigned long totdepth, depth;
 	unsigned int count;
 	struct fib6_node *fn, *pn, *node;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0)
-	struct fib6_info *leaf;
-#else
-	struct rt6_info *leaf;
-#endif
+	/* rt6_info before 4.18, fib6_info after */
+	typeof(root->leaf) leaf;
 	enum fib6_walk_state state;
 	for (node = root, leaf = NULL,
 		     depth = 0, totdepth = 0, count = 0, *maxdepth = 0, *avgdepth = 0,
@@ -266,9 +264,12 @@ static int do_bench(char *buf, int verbose)
 	for (i = 0; i < warmup_count; i++) {
 		struct dst_entry *dst = ip6_route_output(&init_net, NULL, &fl6);
 		if (dst->error && dst->error != -ENETUNREACH) {
+			int err = dst->error;
 			dst_release(dst);
+			mutex_unlock(&kb_lock);
 			kfree(results);
 			return scnprintf(buf, PAGE_SIZE, "err=%d msg=\"lookup error\"\n", dst->error);
+			return scnprintf(buf, PAGE_SIZE, "err=%d msg=\"lookup error\"\n", err);
 		}
 		dst_release(dst);
 	}
@@ -362,17 +363,10 @@ static int do_bench(char *buf, int verbose)
 		do {
 			unsigned long avgdepth, maxdepth;
 			struct fib6_table *table = init_net.ipv6.fib6_main_tbl;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
-			spin_lock_bh(&table->tb6_lock);
-#else
-			read_lock_bh(&table->tb6_lock);
-#endif
+			/* No lock: the type of tb6_lock changes in the 4.15
+			 * merge window and routes are not changed during
+			 * the benchmark. */
 			collect_depth(&table->tb6_root, &avgdepth, &maxdepth);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,15,0)
-			spin_unlock_bh(&table->tb6_lock);
-#else
-			read_unlock_bh(&table->tb6_lock);
-#endif
 			scnprintf(buf + strnlen(buf, PAGE_SIZE), PAGE_SIZE - strnlen(buf, PAGE_SIZE),
 				  "table=%u avgdepth=%lu.%lu maxdepth=%lu\n",
 				  table->tb6_id, avgdepth/10, avgdepth%10, maxdepth);
@@ -750,7 +744,7 @@ static struct attribute_group bench_attr_group = {
 
 static struct kobject *bench_kobj;
 
-int init_module(void)
+static int __init kbench_init(void)
 {
 	int rc;
 	bench_kobj = kobject_create_and_add("kbench", kernel_kobj);
@@ -766,11 +760,13 @@ int init_module(void)
 	return 0;
 }
 
-void cleanup_module(void)
+static void __exit kbench_exit(void)
 {
 	sysfs_remove_group(bench_kobj, &bench_attr_group);
 	kobject_put(bench_kobj);
 }
 
+module_init(kbench_init);
+module_exit(kbench_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Micro-benchmark for fib_lookup()");
