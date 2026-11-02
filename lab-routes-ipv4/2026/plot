@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+
+"""Plot route lookup time for each kernel version.
+
+Usage: ./plot RESULTS OUTPUT.svg [STARRED]
+
+RESULTS is a directory with one subdirectory per kernel version, each
+containing one file per round, as produced by ./bench-all. Versions in
+STARRED, a directory with the same layout, replace the ones in RESULTS
+and get a star after their name.
+"""
+
+import os
+import sys
+import glob
+import collections
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import ticker
+
+FREQ = 2.396  # GHz, TSC frequency of the test host
+# Versions with a regression found by bisection
+HIGHLIGHT = ["5.11.22", "6.5.13"]
+SCENARIOS = {
+    "full-2026.batch": ("full view (1.17M routes, 2026)", "#1f5aa6"),
+    "bgp-500000": ("500k routes (2017)", "#6a9fd8"),
+    "32-500000": ("500k /32 routes", "#b4372b"),
+}
+
+
+def parse(path):
+    """Parse one result file. Return a dict scenario -> stats."""
+    results = {}
+    name = None
+    with open(path) as f:
+        for line in f:
+            if line.startswith("### "):
+                name = line[4:].strip().split("-", 1)[1]
+            elif line.startswith("min=") and name is not None:
+                results[name] = {k: int(v)
+                                 for k, v in (f.split("=", 1)
+                                              for f in line.split())}
+                name = None
+    return results
+
+
+def versionize(x):
+    return [int(y) for y in x.rstrip("*").split(".")]
+
+
+results = sys.argv[1]
+output = sys.argv[2]
+starred = sys.argv[3] if len(sys.argv) > 3 else None
+replaced = {os.path.basename(d)
+            for d in glob.glob(os.path.join(starred, "*"))} if starred else set()
+paths = [(os.path.basename(os.path.dirname(p)), p)
+         for p in glob.glob(os.path.join(results, "*", "*"))]
+paths = [(v, p) for v, p in paths if v not in replaced]
+if starred:
+    paths += [(os.path.basename(os.path.dirname(p)) + "*", p)
+              for p in glob.glob(os.path.join(starred, "*", "*"))]
+data = collections.defaultdict(lambda: collections.defaultdict(list))
+for version, path in paths:
+    for scenario, stats in parse(path).items():
+        data[scenario][version].append(stats)
+
+versions = sorted({v for s in data.values() for v in s}, key=versionize)
+
+with plt.style.context([
+        'fivethirtyeight', {'axes.labelsize': 'small',
+                            'axes.titleweight': 'medium',
+                            'axes.titlesize': 'large',
+                            'axes.facecolor': 'none',
+                            'figure.facecolor': 'none',
+                            'axes.linewidth': 0.0,
+                            'font.size': 10.0,
+                            'grid.linewidth': 0.75,
+                            'font.family': ['Roboto', 'sans-serif'],
+                            'font.weight': 'light'}]):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    for scenario, (label, color) in SCENARIOS.items():
+        x = [i for i, v in enumerate(versions) if v in data[scenario]]
+        # Median of the medians of each round. The shaded area is the
+        # median of the MAD of each round.
+        y = np.array([np.median([r["50th"] for r in data[scenario][versions[i]]])
+                      for i in x])/FREQ
+        err = np.array([np.median([r["mad"] for r in data[scenario][versions[i]]])
+                        for i in x])/FREQ/2
+        ax.plot(x, y, 'o-', lw=1, ms=4, label=label, color=color)
+        ax.fill_between(x, y-err, y+err,
+                        facecolor=color, alpha=0.2, lw=0)
+        for i, yy in zip(x, y):
+            print(f"{scenario:18} {versions[i]:10} {yy:6.1f} ns")
+    ax.set_title("route lookup time")
+    ax.set_xticks(range(len(versions)))
+    ax.set_xticklabels(versions, rotation=60, ha='right')
+    for v in HIGHLIGHT:
+        if v in versions:
+            idx = versions.index(v)
+            ax.get_xticklabels()[idx].set_weight('bold')
+            ax.get_xgridlines()[idx].set_color('black')
+    ax.get_yaxis().set_major_formatter(ticker.FormatStrFormatter("%d ns"))
+    ax.set_ylim(bottom=0)
+    ax.legend(loc='upper left', facecolor='white', framealpha=1)
+    fig.set_size_inches(max(8., len(versions)/4.), 5)
+    fig.savefig(output, dpi=96, bbox_inches='tight', transparent=True)
