@@ -1,0 +1,47 @@
+#!/bin/sh
+
+# Run the IPv6 benchmark for all built kernels, one VM at a time. Each
+# round runs all kernels in a random order. Results are in
+# $BENCH6/results/VERSION/ROUND. Kernels are shared with the IPv4
+# benchmark.
+#
+# Usage: ./bench-all ROUNDS [VERSION...]
+
+set -e
+
+BENCH=${BENCH:-/srv/bench}
+BENCH6=${BENCH6:-/srv/bench6}
+ROUNDS=${1:-3}
+shift
+cd "$BENCH6"
+[ $# -gt 0 ] || set -- $(cat versions)
+
+[ "$(cat /sys/devices/system/cpu/cpufreq/boost)" -eq 0 ] || {
+    >&2 echo "Disable boost: echo 0 > /sys/devices/system/cpu/cpufreq/boost"
+    exit 1
+}
+[ "$(cat /sys/devices/system/cpu/cpu${VMCPU:-4}/cpufreq/scaling_governor)" = performance ] || {
+    >&2 echo "Set governor: cpupower frequency-set -g performance"
+    exit 1
+}
+
+for round in $(seq 1 $ROUNDS); do
+    for v in $(printf "%s\n" "$@" | shuf); do
+        [ -f $BENCH/build/$v/kbench6_mod.ko ] || continue
+        [ ! -f results/$v/$round ] || continue
+        while pgrep -x make > /dev/null; do
+            >&2 echo "Waiting for builds to finish"
+            sleep 60
+        done
+        echo "round $round: $v"
+        case $v in
+            # Without CONFIG_PCI, ACPI fails to initialize from 5.0. On
+            # 5.7 to 5.9, the kernel crashes after that.
+            5.7.*|5.8.*|5.9.*) export KPARAMS="acpi=off" ;;
+            *) unset KPARAMS ;;
+        esac
+        scripts/run-kernel $v results/$v/$round \
+            mrt/bgp-40000 mrt/many-48-40000 mrt/many-128-40000 mrt/full-2026.batch \
+            || echo "round $round: $v failed"
+    done
+done
